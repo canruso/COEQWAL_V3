@@ -1443,13 +1443,14 @@ def get_scenario_styles_multi(
         scenario_labels: dict[int, str] | None = None,
         baseline_id: int | None = None,
         baseline_label_override: str | None = None,
-        label_style: str = "label_only"
+        label_style: str = "label_only",
+        scenario_color_map: dict[int, str] | None = None,
 ) -> dict[int, dict]:
     """
     Return a style mapping for an arbitrary list of scenarios.
 
     Baseline (if provided) -> black solid.
-    Others -> tab20 colors, solid lines. (You can refine styles later.)
+    Others -> use scenario_color_map if provided, else tab20 colors.
     """
     from matplotlib.cm import get_cmap
 
@@ -1471,8 +1472,9 @@ def get_scenario_styles_multi(
     # Baseline first (if provided)
     used_colors = 0
     if baseline_id is not None and baseline_id in scenarios:
+        baseline_color = scenario_color_map.get(baseline_id, "black") if scenario_color_map else "black"
         styles[baseline_id] = {
-            "color": "black",
+            "color": baseline_color,
             "linestyle": "-",
             "linewidth": 2.0,
             "label": make_label(baseline_id),
@@ -1482,13 +1484,16 @@ def get_scenario_styles_multi(
     for s in scenarios:
         if s == baseline_id:
             continue
+        color = scenario_color_map.get(s) if scenario_color_map else None
+        if color is None:
+            color = cmap(used_colors % 20)
+            used_colors += 1
         styles[s] = {
-            "color": cmap(used_colors % 20),
+            "color": color,
             "linestyle": "-",
             "linewidth": 1.8,
             "label": make_label(s),
         }
-        used_colors += 1
 
     return styles
 
@@ -1505,6 +1510,7 @@ def plot_ts_multi(
         baseline_id: int | None = None,
         baseline_label_override: str | None = None,
         label_style: str = "label_only",
+        scenario_color_map: dict[int, str] | None = None,
         months: list[int] | None = None,
         start_date: str | None = None,
         end_date: str | None = None,
@@ -1542,7 +1548,8 @@ def plot_ts_multi(
         scenario_labels=scenario_labels,
         baseline_id=baseline_id,
         baseline_label_override=baseline_label_override,
-        label_style=label_style
+        label_style=label_style,
+        scenario_color_map=scenario_color_map,
     )
 
     plt.figure(figsize=(14, 8))
@@ -1579,6 +1586,7 @@ def plot_exceedance_multi(
         baseline_id: int | None = None,
         baseline_label_override: str | None = None,
         label_style: str = "label_only",
+        scenario_color_map: dict[int, str] | None = None,
         use_tucp: bool = False,
         tucp_var_base: str = "TUCP_TRIGGER_DV",
         tucp_wy_month_count: int = 1,
@@ -1616,7 +1624,8 @@ def plot_exceedance_multi(
         scenario_labels=scenario_labels,
         baseline_id=baseline_id,
         baseline_label_override=baseline_label_override,
-        label_style=label_style
+        label_style=label_style,
+        scenario_color_map=scenario_color_map,
     )
 
     plt.figure(figsize=(14, 8))
@@ -1656,6 +1665,7 @@ def plot_moy_averages_multi(
         baseline_id: int | None = None,
         baseline_label_override: str | None = None,
         label_style: str = "label_only",
+        scenario_color_map: dict[int, str] | None = None,
         use_tucp: bool = False,
         tucp_var_base: str = "TUCP_TRIGGER_DV",
         tucp_wy_month_count: int = 1,
@@ -1692,7 +1702,8 @@ def plot_moy_averages_multi(
         scenario_labels=scenario_labels,
         baseline_id=baseline_id,
         baseline_label_override=baseline_label_override,
-        label_style=label_style
+        label_style=label_style,
+        scenario_color_map=scenario_color_map,
     )
 
     plt.figure(figsize=(14, 8))
@@ -1739,6 +1750,7 @@ def plot_annual_totals_ts_multi(
         baseline_id: int | None = None,
         baseline_label_override: str | None = None,
         label_style: str = "label_only",
+        scenario_color_map: dict[int, str] | None = None,
         months: list[int] | None = None,
         freq: str = "YS-OCT",
         pTitle: str = "Annual Totals",
@@ -1767,7 +1779,8 @@ def plot_annual_totals_ts_multi(
         scenario_labels=scenario_labels,
         baseline_id=baseline_id,
         baseline_label_override=baseline_label_override,
-        label_style=label_style
+        label_style=label_style,
+        scenario_color_map=scenario_color_map,
     )
 
     plt.figure(figsize=(14, 8))
@@ -1807,6 +1820,7 @@ def annualize_exceedance_multi(
         baseline_id: int | None = None,
         baseline_label_override: str | None = None,
         label_style: str = "label_only",
+        scenario_color_map: dict[int, str] | None = None,
         use_tucp: bool = False,
         tucp_var_base: str = "TUCP_TRIGGER_DV",
         tucp_wy_month_count: int = 1,
@@ -1846,7 +1860,8 @@ def annualize_exceedance_multi(
         scenario_labels=scenario_labels,
         baseline_id=baseline_id,
         baseline_label_override=baseline_label_override,
-        label_style=label_style
+        label_style=label_style,
+        scenario_color_map=scenario_color_map,
     )
 
     plt.figure(figsize=(14, 8))
