@@ -17,9 +17,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-
-"""READ FUNCTIONS"""
-
 def read_in_df(df_path, names_path):
     """returns a df, dss_names in correct format
         df_path = path to extracted and converted data csv (ex. '../output/convert/convert_EDA_data_10_01_24.csv')
@@ -29,14 +26,8 @@ def read_in_df(df_path, names_path):
     dss_names = pd.read_csv(names_path)["0"].tolist()
     return df, dss_names
 
-"""CONVERT UNITS"""
-
 def load_metadata_df(extract_path, all_data, metadata_file, nrows=200):
-    metadata_df = pd.read_excel(extract_path + metadata_file,
-                                engine='openpyxl',
-                                skiprows=7,
-                                usecols="B:K",
-                                nrows=nrows)
+    metadata_df = pd.read_excel(extract_path + metadata_file, engine='openpyxl', skiprows=7, usecols="B:K", nrows=nrows)
     metadata_df.columns=[
     'Pathnames',
     'Part A',
@@ -588,84 +579,6 @@ def annual_totals(df, var_name, units):
 
 
 """Calculate Frequency Hitting Floodzone/Deadpool Levels"""
-
-def frequency_hitting_level(df, dss_names, var_res, var_fldzn, units, vartitle, floodzone = True, months = None, threshold = None):
-    """
-    Calculate the frequency of hitting the floodzone or deadpool levels
-    Use floodzone = True to calculate probability hitting floodzone, and False to calculate hitting deadpool levels
-    """
-    subset_df_res = create_subset_unit(df, var_res, units)
-    subset_df_floodzone = create_subset_unit(df, var_fldzn, units)
-
-    if months is not None:
-        subset_df_res = subset_df_res[subset_df_res.index.month.isin(months)]
-        subset_df_floodzone = subset_df_floodzone[subset_df_floodzone.index.month.isin(months)]
-
-    multiindex_columns = subset_df_res.columns
-    subset_df_res_comp_values = subset_df_res.values - subset_df_floodzone.values
-    
-    if floodzone:
-        subset_df_res_comp_values += 0.000001
-
-    subset_df_res_comp = pd.DataFrame(subset_df_res_comp_values, index=subset_df_res.index, columns=multiindex_columns)
-
-    if threshold is not None:
-        days_within_threshold = (abs(subset_df_res_comp_values) <= threshold).sum().sum()
-
-    exceedance_days = count_exceedance_days(subset_df_res_comp, 0)
-    exceedance_days_fraction = exceedance_days / len(subset_df_res_comp)
-    
-    if not floodzone:
-        exceedance_days = 100 - exceedance_days
-
-    exceedance_days = exceedance_days.melt(value_name=vartitle).reset_index(drop=True)[[vartitle]]
-    exceedance_days = set_index(exceedance_days, dss_names)
-
-    exceedance_days_fraction = exceedance_days_fraction.melt(value_name=vartitle).reset_index(drop=True)[[vartitle]]
-    exceedance_days_fraction = set_index(exceedance_days_fraction, dss_names)
-
-    if threshold is not None:
-        return exceedance_days, exceedance_days_fraction, days_within_threshold
-    else:
-        return exceedance_days, exceedance_days_fraction
-
-def frequency_hitting_constantlevel(df, dss_names, var_res, const_fldzn, units, vartitle, floodzone = True, months = None, threshold = None):
-    """
-    Calculate the frequency of hitting the floodzone or deadpool levels
-    Use floodzone = True to calculate probability hitting floodzone, and False to calculate hitting deadpool levels
-    """
-    subset_df_res = create_subset_unit(df, var_res, units)
-
-    if months is not None:
-        subset_df_res = subset_df_res[subset_df_res.index.month.isin(months)]
-
-    multiindex_columns = subset_df_res.columns
-    subset_df_res_comp_values = subset_df_res.values - const_fldzn
-    
-    if floodzone:
-        subset_df_res_comp_values += 0.000001
-
-    subset_df_res_comp = pd.DataFrame(subset_df_res_comp_values, index=subset_df_res.index, columns=multiindex_columns)
-
-    if threshold is not None:
-        days_within_threshold = (abs(subset_df_res_comp_values) <= threshold).sum().sum()
-
-    exceedance_days = count_exceedance_days(subset_df_res_comp, 0)
-    exceedance_days_fraction = exceedance_days / len(subset_df_res_comp)
-    
-    if not floodzone:
-        exceedance_days = 100 - exceedance_days
-
-    exceedance_days = exceedance_days.melt(value_name=vartitle).reset_index(drop=True)[[vartitle]]
-    exceedance_days = set_index(exceedance_days, dss_names)
-
-    exceedance_days_fraction = exceedance_days_fraction.melt(value_name=vartitle).reset_index(drop=True)[[vartitle]]
-    exceedance_days_fraction = set_index(exceedance_days_fraction, dss_names)
-
-    if threshold is not None:
-        return exceedance_days, exceedance_days_fraction, days_within_threshold
-    else:
-        return exceedance_days, exceedance_days_fraction
 
 def frequency_hitting_var_const_level(df, dss_names, var_res, var_fldzn, units, vartitle, floodzone=True, months=None, threshold=None):
     """
