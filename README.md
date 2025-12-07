@@ -375,12 +375,12 @@ For questions, issues, or collaboration inquiries:
 
 <table>
   <tr>
-    <td align="center"><strong>Can</strong></td>
-    <td align="center"><strong>Dino</strong></td>
-    <td align="center"><strong>James</strong></td>
-    <td align="center"><strong>Rain</strong></td>
-    <td align="center"><strong>Isabelle G</strong></td>
-    <td align="center"><strong>Isabelle W</strong></td>
+    <td align="center"><strong>Sabi Can Ruso</strong></td>
+    <td align="center"><strong>Dino Bellugi</strong></td>
+    <td align="center"><strong>James Gilbert</strong></td>
+    <td align="center"><strong>Rain Zou</strong></td>
+    <td align="center"><strong>Isabelle Goebel</strong></td>
+    <td align="center"><strong>Isabelle Wang</strong></td>
   </tr>
 </table>
 
