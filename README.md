@@ -375,26 +375,11 @@ For questions, issues, or collaboration inquiries:
 
 <table>
   <tr>
-    <td align="center">
-      <strong>Can</strong><br>
-      <sub>Development Lead</sub>
-    </td>
-    <td align="center">
-      <strong>Dino</strong><br>
-      <sub>CalSim3 Integration</sub>
-    </td>
-    <td align="center">
-      <strong>James</strong><br>
-      <sub>Analysis</sub>
-    </td>
-    <td align="center">
-      <strong>Rain</strong><br>
-      <sub>Visualization</sub>
-    </td>
-    <td align="center">
-      <strong>Isabelle</strong><br>
-      <sub>Research</sub>
-    </td>
+    <td align="center"><strong>Can</strong></td>
+    <td align="center"><strong>Dino</strong></td>
+    <td align="center"><strong>James</strong></td>
+    <td align="center"><strong>Rain</strong></td>
+    <td align="center"><strong>Isabelle</strong></td>
   </tr>
 </table>
 
