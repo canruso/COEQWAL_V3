@@ -1211,3 +1211,46 @@ def calculate_scenario_statistics(dataframes: list, scenario_names: list, proces
         pd.DataFrame(percentiles_90),
         pd.DataFrame(percentiles_10)
     )
+
+
+def compute_cv_df(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute coefficient of variation (std/mean) for each WBA_s#### column.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with columns named like "WBA01_s0001", "WBA02_s0001", etc.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with scenarios as rows and WBA IDs as columns,
+        containing the CV values.
+    """
+    records = []
+
+    for col in df.columns:
+        if "_s" not in col:
+            continue
+        wba_id, scen_raw = col.split("_s", 1)
+        scenario = f"s{scen_raw}"
+
+        series = df[col].dropna()
+        if len(series) == 0:
+            continue
+
+        mean_val = series.mean()
+        std_val = series.std()
+        cv = std_val / mean_val if mean_val != 0 else np.nan
+
+        records.append({"scenario": scenario, "WBA": wba_id, "CV": cv})
+
+    cv_df = (
+        pd.DataFrame(records)
+        .pivot(index="scenario", columns="WBA", values="CV")
+        .sort_index(axis=1)
+        .sort_index(axis=0)
+    )
+
+    return cv_df
