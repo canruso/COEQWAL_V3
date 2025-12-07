@@ -241,7 +241,8 @@ def create_subset_unit(df, varname, units, water_year_type=None, month=None):
         combined_filter = (var_filter & unit_filter) | wyt_filter | wy_filter
         filtered_columns = df.loc[:, combined_filter]
         
-        df_wyt_filtered = filtered_columns.loc[:, filtered_columns.columns.get_level_values(1).str.contains('WYT_SAC_') | (filtered_columns.columns.get_level_values(0) == 'WaterYear')] 
+        df_wyt_filtered = filtered_columns.loc[:, filtered_columns.columns.get_level_values(1).str.contains('WYT_SAC_') | (filtered_columns.columns.get_level_values(0) == 'WaterYear')]
+        df_wyt_filtered = df_wyt_filtered.sort_index(axis=1)
 
         # Select the month you want the WYT to follow, it will replace the WYT columns in filtered_columns with the month value for each year
         month_values = df_wyt_filtered[df_wyt_filtered.index.month == month].groupby('WaterYear').first()  
