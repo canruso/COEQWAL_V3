@@ -17,60 +17,30 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+
 def read_in_df(df_path, names_path):
-    """returns a df, dss_names in correct format
-        df_path = path to extracted and converted data csv (ex. '../output/convert/convert_EDA_data_10_01_24.csv')
-        names_path = path to extracted dss names csv (ex. '../data/metrics/EDA_10_01_24_dss_names.csv') 
-    """
     df = pd.read_csv(df_path, header=[0, 1, 2, 3, 4, 5, 6], index_col=0, parse_dates=True)
     dss_names = pd.read_csv(names_path)["0"].tolist()
     return df, dss_names
 
+
 def load_metadata_df(extract_path, all_data, metadata_file, nrows=200):
     metadata_df = pd.read_excel(extract_path + metadata_file, engine='openpyxl', skiprows=7, usecols="B:K", nrows=nrows)
-    metadata_df.columns=[
-    'Pathnames',
-    'Part A',
-    'Part B',
-    'Part C',
-    'UNITS',
-    'Part F',
-    'Empty1',
-    'Col',
-    'Empty2',
-    'Description'
-    ]
+    metadata_df.columns = ['Pathnames', 'Part A', 'Part B', 'Part C', 'UNITS', 'Part F', 'Empty1', 'Col', 'Empty2',
+                           'Description']
 
     metadata_df.drop(['Empty1', 'Empty2'], axis=1, inplace=True)
     df = pd.read_csv(extract_path + all_data, header=[0, 1, 2, 3, 4, 5, 6], index_col=0, parse_dates=True)
     return metadata_df, df
 
+
 def convert_cfs_to_taf(df, metadata_df):
-    """
-    Convert columns from CFS to TAF based on either:
-      1) The metadata file's Part B => UNITS mapping, or
-      2) A fallback rule for 'CALCULATED' columns that contain 'DEL' in Part B,
-         or exactly match 'TOTAL_EXPORTS'.
-
-    Parameters:
-    - df (pd.DataFrame): The main data DataFrame with multi-level columns.
-    - metadata_df (pd.DataFrame): The metadata DataFrame containing 'Part B' and 'UNITS'.
-
-    Returns:
-    - pd.DataFrame: The DataFrame with converted units where applicable.
-    """
-    # 1) Build a dict from your metadata that maps Part B -> desired UNITS
-    units_mapping = (
-        metadata_df.set_index("Part B")["UNITS"]
-        .dropna()
-        .to_dict()
-    )
+    units_mapping = (metadata_df.set_index("Part B")["UNITS"].dropna().to_dict())
 
     print("\nUnits Mapping:")
     for key, value in list(units_mapping.items()):
         print(f"{key}: {value}")
 
-    # 2) Figure out days in each month (for the entire date range of df)
     date_column = df.index
     months = date_column.strftime('%m')
     years = date_column.strftime('%Y')
@@ -81,7 +51,6 @@ def convert_cfs_to_taf(df, metadata_df):
             days_in_month[i] = 31
         elif months[i] == "02":
             year = int(years[i])
-            # leap year check
             if (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)):
                 days_in_month[i] = 29
             else:
@@ -89,19 +58,16 @@ def convert_cfs_to_taf(df, metadata_df):
         elif months[i] in {"04", "06", "09", "11"}:
             days_in_month[i] = 30
 
-    # 3) Identify columns to convert
     columns_to_convert = []
     columns_to_skip = []
 
     for col in df.columns:
-        part_a     = col[0]  # e.g. "CALCULATED" or "CALSIM"
-        part_b     = col[1]  # e.g. "DEL_NOD_AG"
-        data_unit  = col[6]  # e.g. "CFS"
+        part_a = col[0]  # e.g. "CALCULATED" or "CALSIM"
+        part_b = col[1]  # e.g. "DEL_NOD_AG"
+        data_unit = col[6]  # e.g. "CFS"
 
-        # (A) Try metadata matching
         matched_part_b = None
         for meta_part_b in units_mapping.keys():
-            # Example logic: if meta_part_b is a substring of part_b
             if meta_part_b in part_b:
                 matched_part_b = meta_part_b
                 break
@@ -113,10 +79,8 @@ def convert_cfs_to_taf(df, metadata_df):
             else:
                 columns_to_skip.append(col)
 
-        # (B) If we did NOT match metadata, then check if it's a "CALCULATED" column
         if matched_part_b is None:
             if part_a == "CALCULATED" and data_unit == "CFS":
-                # Fallback rule: convert if part_b has "DEL" or == "TOTAL_EXPORTS"
                 if ("DEL" in part_b) or ("TOTAL_EXPORTS" in part_b):
                     columns_to_convert.append((col, "TAF"))
                 else:
@@ -124,29 +88,23 @@ def convert_cfs_to_taf(df, metadata_df):
             else:
                 columns_to_skip.append(col)
 
-    # 4) Print out columns that will / won't be converted
     print("\nColumns to Convert:")
     for col, desired_unit in columns_to_convert:
         print(f"{col}: Data Unit = {col[6]}, Desired Unit = {desired_unit}")
 
     print("\nColumns to Skip:")
     for col in columns_to_skip:
-        # Show what the metadata says if any
         print(f"{col}: Data Unit = {col[6]}, "
               f"Desired Unit = {units_mapping.get(col[1], 'No Unit Information')}")
 
-    # 5) Perform the actual conversion from CFS to TAF
     for col, desired_unit in columns_to_convert:
         if col[6] == 'CFS' and desired_unit == 'TAF':
             print(f"\nConverting column: {col} from CFS to TAF")
 
             new_values = df[col].values * 0.001984 * days_in_month
-
-            # Update the multi-index: only the last level (units) changes to TAF
             new_col = list(col)
             new_col[6] = 'TAF'
             new_col = tuple(new_col)
-
             df[new_col] = new_values
 
             print(f"Updated column units to 'TAF' for {new_col}")
@@ -155,8 +113,6 @@ def convert_cfs_to_taf(df, metadata_df):
 
     return df
 
-
-"""SUBSET AND TRANSFORMATION FUNCTIONS"""
 
 def add_water_year_column(df):
     out = df.copy()
@@ -172,146 +128,97 @@ def add_water_year_column(df):
 
     return out
 
+
 def create_subset_var(df, varname, water_year_type=None, month=None):
-    """ 
-    Filters df to return columns that contain the string varname; optionally filter by specified WYT
-    :param df: Dataframe to filter
-    :param varname: variable of interest, e.g. S_SHSTA
-    :param water_year_type: water year types of interest, e.g. [4,5]
-    :param month: month to create water_year_type with, e.g. 5
-    """
     filtered_columns = df.columns.get_level_values(1).str.contains(varname)
 
     if water_year_type is not None:
         if month is None:
             raise ValueError("If 'water_year_type' is provided, 'month' must also be provided.")
-        
+
         wyt_filter = df.columns.get_level_values(1).str.contains('WYT_SAC_')
         wy_filter = df.columns.get_level_values(0).str.contains("WaterYear")
-
-        # Combine filters to keep relevant columns
         combined_filter = filtered_columns | wyt_filter | wy_filter
         filtered_df = df.loc[:, combined_filter].copy()
-
-        # Get Water Year Type values for the specified month
-        df_wyt_filtered = df.loc[:, filtered_df.columns.get_level_values(1).str.contains('WYT_SAC_') | (filtered_df.columns.get_level_values(0) == 'WaterYear')] 
+        df_wyt_filtered = df.loc[:, filtered_df.columns.get_level_values(1).str.contains('WYT_SAC_') | (
+                filtered_df.columns.get_level_values(0) == 'WaterYear')]
         month_values = df_wyt_filtered[df_wyt_filtered.index.month == month].groupby('WaterYear').first()
-        df_wyt_filtered = df_wyt_filtered.merge(month_values, left_on='WaterYear', right_index=True, how='left', suffixes=('_df', ''))
-        
-        # Update filtered DataFrame with selected Water Year Type values
+        df_wyt_filtered = df_wyt_filtered.merge(month_values, left_on='WaterYear', right_index=True, how='left',
+                                                suffixes=('_df', ''))
         filtered_df.update(df_wyt_filtered)
-
-        # Apply Water Year Type filter
         df_wyt = filtered_df.loc[:, filtered_df.columns.get_level_values(1).str.contains('WYT_SAC_')]
         filtered_df.loc[:, df_wyt.columns] = df_wyt.map(lambda x: x if x in water_year_type else np.nan)
-
-        # Get final subset for variable names
         df_var = filtered_df.loc[:, filtered_df.columns.get_level_values(1).str.contains(varname)]
-        
-        # Apply NaN values to the selected variable columns
         df_copy = filtered_df.loc[:, filtered_df.columns.get_level_values(1).str.contains('WYT_SAC_')]
         for i in range(len(df_var.columns)):
             na = df_copy[df_copy.columns[i]].isna()
             df_var.loc[na, df_var.columns[i]] = np.nan
-        
         return df_var
-    
     return df.loc[:, filtered_columns]
 
-def create_subset_unit(df, varname, units, water_year_type=None, month=None): 
-    """ 
-    Filters df to return columns that contain the string varname and units, optionally filtered to only values of selected water year types
-    :param df: Dataframe to filter
-    :param varname: variable of interest, e.g. S_SHSTA
-    :param units: units of interest
-    param water_year_type: water year types of interest, e.g. [4,5]
-    param month: month to create water_year_type with, e.g. 5
-    """
+
+def create_subset_unit(df, varname, units, water_year_type=None, month=None):
     var_filter = df.columns.get_level_values(1).str.contains(varname)
     unit_filter = df.columns.get_level_values(6).str.contains(units)
     filtered_columns = var_filter & unit_filter
-    
+
     if water_year_type is not None:
         if month is None:
             raise ValueError("If 'water_year_type' is provided, 'month' must also be provided.")
-        
+
         wyt_filter = df.columns.get_level_values(1).str.contains('WYT_SAC_')
         wy_filter = df.columns.get_level_values(0).str.contains("WaterYear")
 
         combined_filter = (var_filter & unit_filter) | wyt_filter | wy_filter
         filtered_columns = df.loc[:, combined_filter]
-        
-        df_wyt_filtered = filtered_columns.loc[:, filtered_columns.columns.get_level_values(1).str.contains('WYT_SAC_') | (filtered_columns.columns.get_level_values(0) == 'WaterYear')]
+
+        df_wyt_filtered = filtered_columns.loc[:,
+                          filtered_columns.columns.get_level_values(1).str.contains('WYT_SAC_') | (
+                                  filtered_columns.columns.get_level_values(0) == 'WaterYear')]
         df_wyt_filtered = df_wyt_filtered.sort_index(axis=1)
-
-        # Select the month you want the WYT to follow, it will replace the WYT columns in filtered_columns with the month value for each year
-        month_values = df_wyt_filtered[df_wyt_filtered.index.month == month].groupby('WaterYear').first()  
-        df_wyt_filtered = df_wyt_filtered.merge(month_values, left_on='WaterYear', right_index=True, how='left', suffixes=('_df', ''))
-        filtered_columns.update(df_wyt_filtered) 
-
-        # Map NaN values to the WYTs not selected
+        month_values = df_wyt_filtered[df_wyt_filtered.index.month == month].groupby('WaterYear').first()
+        df_wyt_filtered = df_wyt_filtered.merge(month_values, left_on='WaterYear', right_index=True, how='left',
+                                                suffixes=('_df', ''))
+        filtered_columns.update(df_wyt_filtered)
         df_wyt = filtered_columns.loc[:, filtered_columns.columns.get_level_values(1).str.contains('WYT_SAC_')]
         filtered_columns.loc[:, df_wyt.columns] = df_wyt.map(lambda x: x if x in water_year_type else np.nan)
         df_var = filtered_columns.loc[:, filtered_columns.columns.get_level_values(1).str.contains(varname)]
-        filtered_columns = filtered_columns.loc[:, filtered_columns.columns.get_level_values(1).str.contains('WYT_SAC_')]
-
-        # Apply the NaN values (WYT not selected) to the variable columns
+        filtered_columns = filtered_columns.loc[:,
+                           filtered_columns.columns.get_level_values(1).str.contains('WYT_SAC_')]
         for i in range(len(df_var.columns)):
             df_nan = filtered_columns[filtered_columns.columns[i]].isna()
-            df_var.loc[df_nan, df_var.columns[i]] = np.nan 
-        
+            df_var.loc[df_nan, df_var.columns[i]] = np.nan
         return df_var
-
     return df.loc[:, filtered_columns]
 
-def create_subset_list(df, var_names, water_year_type=None, month=None):
-    """ 
-    Filters df to return columns that contain any of the strings in var_names; optionally filter by specified WYT
-    :param df: Dataframe to filter.
-    :param var_names: List of variables of interest, e.g. ['S_SHSTA', 'S_OROVL'].
-    param water_year_type: water year types of interest, e.g. [4,5]
-    param month: month to create water_year_type with, e.g. 5
-    """
-    filtered_columns = df.columns.get_level_values(1).str.contains('|'.join(var_names))
 
+def create_subset_list(df, var_names, water_year_type=None, month=None):
+    filtered_columns = df.columns.get_level_values(1).str.contains('|'.join(var_names))
     if water_year_type is not None:
         if month is None:
             raise ValueError("If 'water_year_type' is provided, 'month' must also be provided.")
-        
+
         wyt_filter = df.columns.get_level_values(1).str.contains('WYT_SAC_')
         wy_filter = df.columns.get_level_values(0).str.contains("WaterYear")
-        
-        # Combine filters to keep relevant columns
         combined_filter = filtered_columns | wyt_filter | wy_filter
         filtered_df = df.loc[:, combined_filter].copy()
-        
-        df_wyt_filtered = filtered_df.loc[:, filtered_df.columns.get_level_values(1).str.contains('WYT_SAC_') | (filtered_df.columns.get_level_values(0) == 'WaterYear')] 
-        
-        # Get Water Year Type values for the specified month
+        df_wyt_filtered = filtered_df.loc[:, filtered_df.columns.get_level_values(1).str.contains('WYT_SAC_') | (
+                filtered_df.columns.get_level_values(0) == 'WaterYear')]
         month_values = df_wyt_filtered[df_wyt_filtered.index.month == month].groupby('WaterYear').first()
-        df_wyt_filtered = df_wyt_filtered.merge(month_values, left_on='WaterYear', right_index=True, how='left', suffixes=('_df', ''))
-        
-        # Update filtered df with selected WYT values
+        df_wyt_filtered = df_wyt_filtered.merge(month_values, left_on='WaterYear', right_index=True, how='left',
+                                                suffixes=('_df', ''))
         filtered_df.update(df_wyt_filtered)
-        
-        # Apply WYT filter
         df_wyt = filtered_df.loc[:, filtered_df.columns.get_level_values(1).str.contains('WYT_SAC_')]
         filtered_df.loc[:, df_wyt.columns] = df_wyt.map(lambda x: x if x in water_year_type else np.nan)
-        
-        # Get final subset for variable names
         df_var = filtered_df.loc[:, filtered_df.columns.get_level_values(1).str.contains('|'.join(var_names))]
-        
-        # Apply NaN values to the selected variable columns (for WYT not selected)
         df_copy = filtered_df.loc[:, filtered_df.columns.get_level_values(1).str.contains('WYT_SAC_')]
         for i in range(len(df_var.columns)):
             na = df_copy[df_copy.columns[i]].isna()
             df_var.loc[na, df_var.columns[i]] = np.nan
-        
         return df_var
-
     return df.loc[:, filtered_columns]
 
-"""FORMATTING HELPER FUNCTIONS"""
+
 def set_index(df, dss_names):
     scenario_names = []
     for i in range(len(dss_names)):
@@ -321,17 +228,12 @@ def set_index(df, dss_names):
 
 
 def normalize_index(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Ensure DataFrame has a unique index suitable for concatenation.
-    If index has duplicates, deduplicate by keeping first occurrence.
-    """
     if df.index.duplicated().any():
         df = df[~df.index.duplicated(keep='first')]
     return df
 
-"""MEAN, SD, IQR, SUM FUNCTIONS"""
 
-def compute_annual_means(df, var, study_lst = None, units = "TAF", months = None):
+def compute_annual_means(df, var, study_lst=None, units="TAF", months=None):
     subset_df = create_subset_unit(df, var, units)
     if study_lst is not None:
         subset_df = subset_df.iloc[:, study_lst]
@@ -341,24 +243,26 @@ def compute_annual_means(df, var, study_lst = None, units = "TAF", months = None
     if months is not None:
         subset_df = subset_df[subset_df.index.month.isin(months)]
 
-    # Sort MultiIndex columns to avoid PerformanceWarning
     subset_df = _ensure_lexsorted_axes(subset_df)
     annual_mean = subset_df.groupby('WaterYear').mean()
     return annual_mean
 
-def compute_mean(df, variable_list, study_lst, units="TAF", months = None):
+
+def compute_mean(df, variable_list, study_lst, units="TAF", months=None):
     df = compute_annual_means(df, variable_list, study_lst, units, months)
     len_nonnull_yrs = df.dropna().shape[0]
     return (df.sum() / len_nonnull_yrs).iloc[-1]
 
-def compute_sd(df, variable_list, varname, months = None, units="TAF"):
+
+def compute_sd(df, variable_list, varname, months=None, units="TAF"):
     subset_df = create_subset_unit(df, variable_list, units)
     if months is not None:
         subset_df = subset_df[subset_df.index.month.isin(months)]
 
     standard_deviation = subset_df.std().to_frame(name=varname).reset_index(drop=True)
     return standard_deviation
-    
+
+
 def compute_cv(df, variable, varname, months=None, units="TAF"):
     subset_df = create_subset_unit(df, variable, units)
 
@@ -366,19 +270,19 @@ def compute_cv(df, variable, varname, months=None, units="TAF"):
         subset_df = subset_df[subset_df.index.month.isin(months)]
 
     cv = (subset_df.std(axis=0) / subset_df.mean(axis=0)).to_frame(name=varname)
-
     cv.index = [col[1][-5:] if isinstance(col, tuple) else col[:5] for col in cv.index]
 
     return cv
+
 
 def compute_iqr(df, variable, units, varname, upper_quantile=0.75, lower_quantile=0.25, months=None):
     subset_df = create_subset_unit(df, variable, units)
     if months is not None:
         subset_df = subset_df[subset_df.index.month.isin(months)]
     iqr_values = subset_df.apply(lambda x: x.quantile(upper_quantile) - x.quantile(lower_quantile), axis=0)
-    iqr_df = pd.DataFrame(iqr_values, columns=['IQR']).reset_index()[["IQR"]].rename(columns = {"IQR": varname})
-
+    iqr_df = pd.DataFrame(iqr_values, columns=['IQR']).reset_index()[["IQR"]].rename(columns={"IQR": varname})
     return iqr_df
+
 
 def compute_iqr_value(df, iqr_value, variable, units, varname, study_list, months=None, annual=True):
     if annual:
@@ -388,61 +292,54 @@ def compute_iqr_value(df, iqr_value, variable, units, varname, study_list, month
         if months is not None:
             subset_df = subset_df[subset_df.index.month.isin(months)]
     iqr_values = subset_df.apply(lambda x: x.quantile(iqr_value), axis=0)
-    iqr_df = pd.DataFrame(iqr_values, columns=['IQR']).reset_index()[["IQR"]].rename(columns = {"IQR": varname})
+    iqr_df = pd.DataFrame(iqr_values, columns=['IQR']).reset_index()[["IQR"]].rename(columns={"IQR": varname})
     return iqr_df
+
 
 def calculate_monthly_average(flow_data):
     flow_data = flow_data.reset_index()
     flow_data['Date'] = pd.to_datetime(flow_data.iloc[:, 0])
-
     flow_data.loc[:, 'Month'] = flow_data['Date'].dt.strftime('%m')
     flow_data.loc[:, 'Year'] = flow_data['Date'].dt.strftime('%Y')
-
     flow_values = flow_data.iloc[:, 1:]
     monthly_avg = flow_values.groupby(flow_data['Month']).mean().reset_index()
-
     monthly_avg.rename(columns={'Month': 'Month'}, inplace=True)
     return monthly_avg
 
-def compute_annual_sums(df, var, study_lst = None, units = "TAF", months = None):
+
+def compute_annual_sums(df, var, study_lst=None, units="TAF", months=None):
     subset_df = create_subset_unit(df, var, units).iloc[:, study_lst]
     subset_df = add_water_year_column(subset_df)
 
     if months is not None:
         subset_df = subset_df[subset_df.index.month.isin(months)]
 
-    # Sort MultiIndex columns to avoid PerformanceWarning
     subset_df = _ensure_lexsorted_axes(subset_df)
     annual_sum = subset_df.groupby('WaterYear').sum()
-
     return annual_sum
 
-def compute_sum(df, variable_list, study_lst, units, months = None):
+
+def compute_sum(df, variable_list, study_lst, units, months=None):
     df = compute_annual_sums(df, variable_list, study_lst, units, months)
     return (df.sum()).iloc[-1]
 
 
-"""EXCEEDANCE FUNCTIONS"""
-
 def count_exceedance_days(data, threshold):
-    """
-    Count the number of days in the data that exceed a given threshold
-    """
     exceedance_counts = pd.DataFrame(np.nan, index=[0], columns=data.columns)
 
     for col in data.columns:
         exceedance_counts.loc[0, col] = (data[col] > threshold).sum()
     return exceedance_counts
 
+
 def calculate_flow_sum_per_year(flow_data):
     """
-    Calculate the annual total of the given data per year
     :NOTE: This was translated from Abhinav's code and is only used in the exceedance_metric function
     """
     flow_data = add_water_year_column(flow_data)
     flow_sum_per_year = flow_data.groupby('WaterYear').sum(numeric_only=True).reset_index()
-
     return flow_sum_per_year
+
 
 def calculate_exceedance_probabilities(df):
     exceedance_df = pd.DataFrame(index=df.index)
@@ -452,58 +349,44 @@ def calculate_exceedance_probabilities(df):
         exceedance_df[column] = exceedance_probs.reindex(df.index)
 
     new_columns = pd.MultiIndex.from_tuples([
-        col if isinstance(col, tuple) else (col,) 
-        for col in exceedance_df.columns
-    ])
+        col if isinstance(col, tuple) else (col,)
+        for col in exceedance_df.columns])
     exceedance_df.columns = new_columns
     return exceedance_df
 
+
 def exceedance_probability(df, var, threshold, month, vartitle):
-    # Subset data for the specific variable
     var_df = create_subset_var(df, var)
-    # Filter by the specified month and drop NaNs --> only valid values are used in calculating the exceedance probability
     var_month_df = var_df[var_df.index.month.isin([month])].dropna()
-    # Count how often the values exceed the threshold and calculate the percentage
     result_df = count_exceedance_days(var_month_df, threshold) / len(var_month_df) * 100
-    # Reshape the result to match the expected output format
     reshaped_df = result_df.melt(value_name=vartitle).reset_index(drop=True)[[vartitle]]
     return reshaped_df
 
+
 def exceedance_metric(df, var, exceedance_percent, vartitle, unit):
-    # Extract data for a specific variable in the desired units
     var_df = create_subset_unit(df, var, unit)
-    # Drop NaNs and calculate annual flow sums
     annual_flows = calculate_flow_sum_per_year(var_df).iloc[:, 1:].dropna()
-    # Calculate exceedance probabilities for valid data only
     exceedance_probs = calculate_exceedance_probabilities(annual_flows)
-    # Sort annual flows and exceedance probabilities for thresholding
     annual_flows_sorted = annual_flows.apply(np.sort, axis=0)[::-1]
-    """exceedance_prob_baseline = exceedance_probs.apply(np.sort, axis=0).iloc[:, 0].to_frame()
-    exceedance_prob_baseline.columns = [“Exceedance Sorted”]"""
     exceedance_prob_baseline = exceedance_probs.apply(np.sort, axis=0)
     if not exceedance_prob_baseline.empty:
         exceedance_prob_baseline = exceedance_prob_baseline.iloc[:, 0].to_frame()
         exceedance_prob_baseline.columns = ["Exceedance Sorted"]
     else:
         raise ValueError("No data available for exceedance probability calculation")
-    # Find the index where exceedance probability meets or exceeds the given percentage
-    #exceeding_index = exceedance_prob_baseline[exceedance_prob_baseline[‘Exceedance Sorted’] >= exceedance_percent].index[0]
     if 'Exceedance Sorted' not in exceedance_prob_baseline.columns:
         raise KeyError("Column 'Exceedance Sorted' not found in DataFrame")
-    filtered_indices = exceedance_prob_baseline.loc[exceedance_prob_baseline['Exceedance Sorted'] >= exceedance_percent].index
+    filtered_indices = exceedance_prob_baseline.loc[
+        exceedance_prob_baseline['Exceedance Sorted'] >= exceedance_percent].index
     if len(filtered_indices) == 0:
         raise ValueError("No values found meeting the exceedance criteria")
     exceeding_index = filtered_indices[0]
     baseline_threshold = annual_flows_sorted.iloc[len(annual_flows_sorted) - exceeding_index - 1, 0]
-    # Count exceedance days, ignoring NaNs
     result_df = count_exceedance_days(annual_flows, baseline_threshold).dropna() / len(annual_flows) * 100
-    # Reshape the result for output format
     reshaped_df = result_df.melt(value_name=vartitle).reset_index(drop=True)[[vartitle]]
     return reshaped_df
 
-"""CUSTOM FUNCTIONS using dss_names"""
 
-# Annual Avg (using dss_names)
 def ann_avg(df, dss_names, var_name, units="TAF", months=None):
     metrics = []
     for study_index in np.arange(0, len(dss_names)):
@@ -514,7 +397,7 @@ def ann_avg(df, dss_names, var_name, units="TAF", months=None):
     ann_avg_delta_df = set_index(ann_avg_delta_df, dss_names)
     return ann_avg_delta_df
 
-# Annual X Percentile outflow of a Delta or X Percentile Resevoir Storage
+
 def ann_percentile(df, dss_names, pct, var_name, units="TAF"):
     study_list = np.arange(0, len(dss_names))
     df_title = 'Percentile_' + var_name + units
@@ -522,7 +405,7 @@ def ann_percentile(df, dss_names, pct, var_name, units="TAF"):
     iqr_df = set_index(iqr_df, dss_names)
     return iqr_df
 
-# 1 Month Avg using dss_names
+
 def mnth_avg(df, dss_names, var_name, mnth_num, units="TAF"):
     metrics = []
     for study_index in np.arange(0, len(dss_names)):
@@ -534,14 +417,10 @@ def mnth_avg(df, dss_names, var_name, mnth_num, units="TAF"):
     mnth_avg_df = set_index(mnth_avg_df, dss_names)
     return mnth_avg_df
 
-# All Months Avg Resevoir Storage or Avg Delta Outflow
+
 def moy_avgs(df, var_name, dss_names, units="TAF"):
-    """
-    The function assumes the DataFrame columns follow a specific naming
-    convention where the last part of the name indicates the study. 
-    """
     var_df = create_subset_var(df, varname=var_name)
-    
+
     all_months_avg = {}
     for mnth_num in range(1, 13):
         metrics = []
@@ -552,83 +431,64 @@ def moy_avgs(df, var_name, dss_names, units="TAF"):
 
         mnth_str = calendar.month_abbr[mnth_num]
         all_months_avg[mnth_str] = np.mean(metrics)
-    
+
     moy_df = pd.DataFrame(list(all_months_avg.items()), columns=['Month', f'moy_Avg_{var_name}_{units}'])
     return moy_df
 
-# Monthly X Percentile Resevoir Storage or X Percentile Delta Outflow
+
 def mnth_percentile(df, dss_names, pct, var_name, mnth_num, units="TAF"):
     study_list = np.arange(0, len(dss_names))
     mnth_str = calendar.month_abbr[mnth_num]
     df_title = mnth_str + '_Percentile_' + var_name + units
-    iqr_df = compute_iqr_value(df, pct, var_name, units, df_title, study_list, months = [mnth_num], annual = True)
+    iqr_df = compute_iqr_value(df, pct, var_name, units, df_title, study_list, months=[mnth_num], annual=True)
     iqr_df = set_index(iqr_df, dss_names)
     return iqr_df
 
+
 def annual_totals(df, var_name, units):
-    """
-    Plots a time-series graph of annual totals for a given MultiIndex Dataframe that 
-    follows calsim conventions
-    
-    The function assumes the DataFrame columns follow a specific naming
-    convention where the last part of the name indicates the study. 
-    """
     df = create_subset_unit(df, var_name, units)
-    
     annualized_df = pd.DataFrame()
     var = '_'.join(df.columns[0][1].split('_')[:-1])
     studies = [col[1].split('_')[-1] for col in df.columns]
-        
-    i=0
+
+    i = 0
     for study in studies:
         study_cols = [col for col in df.columns if col[1].endswith(study)]
         for col in study_cols:
             with redirect_stdout(open(os.devnull, 'w')):
-                temp_df = df.loc[:,[df.columns[i]]]
+                temp_df = df.loc[:, [df.columns[i]]]
                 temp_df["Year"] = df.index.year
                 df_ann = temp_df.groupby("Year").sum()
                 annualized_df = pd.concat([annualized_df, df_ann], axis=1)
-                i+=1
-                
-    return annualized_df 
+                i += 1
+
+    return annualized_df
 
 
-"""Calculate Frequency Hitting Floodzone/Deadpool Levels"""
+def frequency_hitting_var_const_level(df, dss_names, var_res, var_fldzn, units, vartitle, floodzone=True, months=None,
+                                      threshold=None):
 
-def frequency_hitting_var_const_level(df, dss_names, var_res, var_fldzn, units, vartitle, floodzone=True, months=None, threshold=None):
-    """
-    Calculate the frequency of hitting the floodzone or deadpool levels.
-    Either var_res or var_fldzn can be a constant (numeric).
-    If string-like, they are treated as DSS variable names and subset via create_subset_unit.
-    """
-    
-    # Helper: get subset or constant dataframe
     def _get_subset_or_constant(var, ref_df):
-        if isinstance(var, (int, float)):  # constant
+        if isinstance(var, (int, float)):
             return pd.DataFrame(var, index=ref_df.index, columns=ref_df.columns)
-        else:  # string variable name
+        else:
             return create_subset_unit(df, var, units)
 
-    # Always create subset for res (to establish shape)
     if isinstance(var_res, (int, float)):
-        # need a reference df to get index/columns
         ref_df = create_subset_unit(df, var_fldzn, units) if not isinstance(var_fldzn, (int, float)) else df
         subset_df_res = pd.DataFrame(var_res, index=ref_df.index, columns=ref_df.columns)
     else:
         subset_df_res = create_subset_unit(df, var_res, units)
 
-    # Floodzone/threshold reference
     if isinstance(var_fldzn, (int, float)):
         subset_df_floodzone = pd.DataFrame(var_fldzn, index=subset_df_res.index, columns=subset_df_res.columns)
     else:
         subset_df_floodzone = create_subset_unit(df, var_fldzn, units)
 
-    # Month filtering
     if months is not None:
         subset_df_res = subset_df_res[subset_df_res.index.month.isin(months)]
         subset_df_floodzone = subset_df_floodzone[subset_df_floodzone.index.month.isin(months)]
 
-    # Comparison
     multiindex_columns = subset_df_res.columns
     subset_df_res_comp_values = subset_df_res.values - subset_df_floodzone.values
 
@@ -658,29 +518,11 @@ def frequency_hitting_var_const_level(df, dss_names, var_res, var_fldzn, units, 
         return exceedance_days, exceedance_days_fraction
 
 
-def compute_storage_thresholds(
-        df: pd.DataFrame,
-        dss_names: Sequence[str],
-        variables_storage: Sequence[str],
-        variables_deadpool: Sequence[str],
-        variables_floodpool: Sequence[str],
-        *,
-        mlrtn_level5constant: float | None = None,
-        mlrtn_level1constant: float | None = None,
-        smelon_level1constant: float | None = None
-) -> Tuple[Dict[str, Tuple[pd.DataFrame, pd.DataFrame]], List[pd.DataFrame]]:
-    """
-    Compute flood/deadpool threshold metrics for the configured storage variables.
+def compute_storage_thresholds(df: pd.DataFrame, dss_names: Sequence[str], variables_storage: Sequence[str],
+                               variables_deadpool: Sequence[str], variables_floodpool: Sequence[str], *,
+                               mlrtn_level5constant: float | None = None, mlrtn_level1constant: float | None = None,
+                               smelon_level1constant: float | None = None) -> Tuple[Dict[str, Tuple[pd.DataFrame, pd.DataFrame]], List[pd.DataFrame]]:
 
-    Returns
-    -------
-    thresholds : dict
-        Mapping of threshold key -> (exceedance_days_df, exceedance_days_fraction_df)
-        identical to the structure produced previously in the notebook.
-    threshold_fractions : list[pd.DataFrame]
-        List of the fraction DataFrames in the same order they were appended to
-        write_out_dfs inside the notebook (for downstream concatenation).
-    """
     thresholds: Dict[str, Tuple[pd.DataFrame, pd.DataFrame]] = {}
     threshold_fractions: List[pd.DataFrame] = []
 
@@ -693,26 +535,22 @@ def compute_storage_thresholds(
             if mlrtn_level5constant is None or mlrtn_level1constant is None:
                 raise ValueError("MLRTN constants must be provided for S_MLRTN_.")
             exceedance_days, exceedance_days_fraction = frequency_hitting_var_const_level(
-                df, dss_names, var, mlrtn_level5constant, "TAF", f"All_Prob_{var}flood"
-            )
+                df, dss_names, var, mlrtn_level5constant, "TAF", f"All_Prob_{var}flood")
             thresholds[f"{var}frequency_hitting_level5"] = (exceedance_days, exceedance_days_fraction)
             threshold_fractions.append(exceedance_days_fraction)
 
             exceedance_days, exceedance_days_fraction = frequency_hitting_var_const_level(
-                df, dss_names, var, mlrtn_level5constant, "TAF", f"Sept_Prob_{var}flood", months=[9]
-            )
+                df, dss_names, var, mlrtn_level5constant, "TAF", f"Sept_Prob_{var}flood", months=[9])
             thresholds[f"Sept_{var}frequency_hitting_level5"] = (exceedance_days, exceedance_days_fraction)
             threshold_fractions.append(exceedance_days_fraction)
 
             exceedance_days, exceedance_days_fraction = frequency_hitting_var_const_level(
-                df, dss_names, mlrtn_level1constant, var, "TAF", f"All_Prob_{var}dead"
-            )
+                df, dss_names, mlrtn_level1constant, var, "TAF", f"All_Prob_{var}dead")
             thresholds[f"{var}frequency_hitting_level1"] = (exceedance_days, exceedance_days_fraction)
             threshold_fractions.append(exceedance_days_fraction)
 
             exceedance_days, exceedance_days_fraction = frequency_hitting_var_const_level(
-                df, dss_names, mlrtn_level1constant, var, "TAF", f"Sept_Prob_{var}dead", months=[9]
-            )
+                df, dss_names, mlrtn_level1constant, var, "TAF", f"Sept_Prob_{var}dead", months=[9])
             thresholds[f"Sept_{var}frequency_hitting_level1"] = (exceedance_days, exceedance_days_fraction)
             threshold_fractions.append(exceedance_days_fraction)
 
@@ -720,78 +558,58 @@ def compute_storage_thresholds(
             if smelon_level1constant is None:
                 raise ValueError("S_MELON_ level1 constant must be provided.")
             exceedance_days, exceedance_days_fraction = frequency_hitting_var_const_level(
-                df, dss_names, var, var_lvl5, "TAF", f"All_Prob_{var}flood"
-            )
+                df, dss_names, var, var_lvl5, "TAF", f"All_Prob_{var}flood")
             thresholds[f"{var}frequency_hitting_level5"] = (exceedance_days, exceedance_days_fraction)
             threshold_fractions.append(exceedance_days_fraction)
 
             exceedance_days, exceedance_days_fraction = frequency_hitting_var_const_level(
-                df, dss_names, var, var_lvl5, "TAF", f"Sept_Prob_{var}flood", months=[9]
-            )
+                df, dss_names, var, var_lvl5, "TAF", f"Sept_Prob_{var}flood", months=[9])
             thresholds[f"Sept_{var}frequency_hitting_level5"] = (exceedance_days, exceedance_days_fraction)
             threshold_fractions.append(exceedance_days_fraction)
 
             exceedance_days, exceedance_days_fraction = frequency_hitting_var_const_level(
-                df, dss_names, smelon_level1constant, var, "TAF", f"All_Prob_{var}dead"
-            )
+                df, dss_names, smelon_level1constant, var, "TAF", f"All_Prob_{var}dead")
             thresholds[f"{var}frequency_hitting_level1"] = (exceedance_days, exceedance_days_fraction)
             threshold_fractions.append(exceedance_days_fraction)
 
             exceedance_days, exceedance_days_fraction = frequency_hitting_var_const_level(
-                df, dss_names, smelon_level1constant, var, "TAF", f"Sept_Prob_{var}dead", months=[9]
-            )
+                df, dss_names, smelon_level1constant, var, "TAF", f"Sept_Prob_{var}dead", months=[9])
             thresholds[f"Sept_{var}frequency_hitting_level1"] = (exceedance_days, exceedance_days_fraction)
             threshold_fractions.append(exceedance_days_fraction)
 
         else:
             exceedance_days, exceedance_days_fraction = frequency_hitting_var_const_level(
-                df, dss_names, var, var_lvl5, "TAF", f"All_Prob_{var}flood"
-            )
+                df, dss_names, var, var_lvl5, "TAF", f"All_Prob_{var}flood")
             thresholds[f"{var}frequency_hitting_level5"] = (exceedance_days, exceedance_days_fraction)
             threshold_fractions.append(exceedance_days_fraction)
 
             exceedance_days, exceedance_days_fraction = frequency_hitting_var_const_level(
-                df, dss_names, var_lvl1, var, "TAF", f"All_Prob_{var}dead"
-            )
+                df, dss_names, var_lvl1, var, "TAF", f"All_Prob_{var}dead")
             thresholds[f"{var}frequency_hitting_level1"] = (exceedance_days, exceedance_days_fraction)
             threshold_fractions.append(exceedance_days_fraction)
 
             exceedance_days, exceedance_days_fraction = frequency_hitting_var_const_level(
-                df, dss_names, var, var_lvl5, "TAF", f"Sept_Prob_{var}flood", months=[9]
-            )
+                df, dss_names, var, var_lvl5, "TAF", f"Sept_Prob_{var}flood", months=[9])
             thresholds[f"Sept_{var}frequency_hitting_level5"] = (exceedance_days, exceedance_days_fraction)
             threshold_fractions.append(exceedance_days_fraction)
 
             exceedance_days, exceedance_days_fraction = frequency_hitting_var_const_level(
-                df, dss_names, var_lvl1, var, "TAF", f"Sept_Prob_{var}dead", months=[9]
-            )
+                df, dss_names, var_lvl1, var, "TAF", f"Sept_Prob_{var}dead", months=[9])
             thresholds[f"Sept_{var}frequency_hitting_level1"] = (exceedance_days, exceedance_days_fraction)
             threshold_fractions.append(exceedance_days_fraction)
 
     return thresholds, threshold_fractions
 
 
-def compute_metrics_suite(
-        df: pd.DataFrame,
-        dss_names: Sequence[str],
-        variables: Sequence[str]
-) -> Tuple[Dict[str, pd.DataFrame], List[pd.DataFrame]]:
-    """
-    Compute the metrics dictionary for the provided variable list.
+def compute_metrics_suite(df: pd.DataFrame, dss_names: Sequence[str],
+                          variables: Sequence[str]) -> Tuple[Dict[str, pd.DataFrame], List[pd.DataFrame]]:
 
-    Returns
-    -------
-    metrics : dict
-        Same structure as the legacy notebook's `metrics` dict.
-    metric_frames : list[pd.DataFrame]
-        Frames ready to append to `write_out_dfs` to preserve previous behavior.
-    """
     metrics: Dict[str, pd.DataFrame] = {}
-
     study_list = np.arange(0, len(dss_names))
 
     for var in variables:
-        if var in ["C_SAC041_", "C_SJR070_", "C_SAC000_", "C_SJR070_", "C_DMC000_TD_", "C_CAA003_TD_", "NDO_", "D_TOTAL_"]:
+        if var in ["C_SAC041_", "C_SJR070_", "C_SAC000_", "C_SJR070_", "C_DMC000_TD_", "C_CAA003_TD_", "NDO_",
+                   "D_TOTAL_"]:
             units = "CFS"
         elif var == "X2_PRV_KM_":
             units = "KM"
@@ -805,7 +623,8 @@ def compute_metrics_suite(
             metrics[f"Sept_{var}mnth_avg"] = mnth_avg(df, dss_names, var, 9, units)
             metrics[f"{var}ann_avg"] = ann_avg(df, dss_names, var, units)
 
-        if var in ["S_SHSTA_", "S_OROVL_", "S_TRNTY_", "S_FOLSM_", "S_MELON_", "S_MLRTN_", "S_SLUIS_SWP", "S_SLUIS_CVP"]:
+        if var in ["S_SHSTA_", "S_OROVL_", "S_TRNTY_", "S_FOLSM_", "S_MELON_", "S_MLRTN_", "S_SLUIS_SWP",
+                   "S_SLUIS_CVP"]:
             metrics[f"Apr_{var}_mnth_avg"] = mnth_avg(df, dss_names, var, 4, units)
             metrics[f"Sept_{var}_mnth_avg"] = mnth_avg(df, dss_names, var, 9, units)
             metrics[f"Apr{var}_CV"] = compute_cv(df, var, f"Apr{var}_CV", [4], units)
@@ -834,36 +653,15 @@ def compute_metrics_suite(
     metric_frames = list(metrics.values())
     return metrics, metric_frames
 
+
 def probability_var1_lt_var2_for_scenario(df, var1_name, var2_name, units="CFS", tolerance=1e-6):
-    """
-    Returns the probability that var1 < var2 for a single scenario, if both columns exist.
-    Otherwise returns NaN.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Main DataFrame (multi-index columns).
-    var1_name : str
-        The column name (Part B, or full name) for the 'actual' variable (e.g. 'C_AMR004_s0018').
-    var2_name : str
-        The column name for the 'comparison' variable (e.g. 'C_AMR004_MIF_s0018').
-    units : str, default 'CFS'
-        Expected units for both columns (so we subset the correct columns).
-    tolerance : float
-        Not really used here for < check, included for symmetry with eq function.
-
-    Returns
-    -------
-    float
-        Probability that var1 < var2 (0 to 1).
-    """
     df_var1 = create_subset_unit(df, var1_name, units)
     df_var2 = create_subset_unit(df, var2_name, units)
 
     if df_var1.empty or df_var2.empty:
-        return np.nan  # columns don't exist or no valid data
+        return np.nan
 
-    # Align on index
     series_var1 = df_var1.iloc[:, 0].reindex(df_var2.index).dropna()
     series_var2 = df_var2.iloc[:, 0].reindex(df_var1.index).dropna()
     common_idx = series_var1.index.intersection(series_var2.index)
@@ -879,35 +677,13 @@ def probability_var1_lt_var2_for_scenario(df, var1_name, var2_name, units="CFS",
 
 
 def probability_var1_eq_var2_for_scenario(df, var1_name, var2_name, units="CFS", tolerance=1e-6):
-    """
-    Returns the probability that var1 == var2 (within a specified tolerance),
-    for a single scenario. Otherwise NaN if columns are missing.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Main DataFrame (multi-index columns).
-    var1_name : str
-        The column name for the 'actual' variable.
-    var2_name : str
-        The column name for the 'comparison' variable.
-    units : str, default 'CFS'
-        Units for subset filtering.
-    tolerance : float
-        Absolute difference tolerance for "equal".
-
-    Returns
-    -------
-    float
-        Probability that |var1 - var2| < tolerance.
-    """
     df_var1 = create_subset_unit(df, var1_name, units)
     df_var2 = create_subset_unit(df, var2_name, units)
 
     if df_var1.empty or df_var2.empty:
         return np.nan
 
-    # Align on index
     series_var1 = df_var1.iloc[:, 0].reindex(df_var2.index).dropna()
     series_var2 = df_var2.iloc[:, 0].reindex(df_var1.index).dropna()
     common_idx = series_var1.index.intersection(series_var2.index)
@@ -921,36 +697,15 @@ def probability_var1_eq_var2_for_scenario(df, var1_name, var2_name, units="CFS",
     prob_equal = count_equal / len(series_var1)
     return prob_equal
 
+
 def probability_var1_gte_var2_for_scenario(df, var1_name, var2_name, units="CFS", tolerance=1e-6):
-    """
-    Returns the probability that var1 >= var2 for a single scenario, if both columns exist.
-    Otherwise returns NaN.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Main DataFrame (multi-index columns).
-    var1_name : str
-        The column name (Part B, or full name) for the 'actual' variable (e.g. 'C_AMR004_s0018').
-    var2_name : str
-        The column name for the 'comparison' variable (e.g. 'C_AMR004_MIF_s0018').
-    units : str, default 'CFS'
-        Expected units for both columns (so we subset the correct columns).
-    tolerance : float
-        Not really used here for >= check, included for symmetry with eq & lt function.
-
-    Returns
-    -------
-    float
-        Probability that var1 >= var2 (0 to 1).
-    """
     df_var1 = create_subset_unit(df, var1_name, units)
     df_var2 = create_subset_unit(df, var2_name, units)
 
     if df_var1.empty or df_var2.empty:
-        return np.nan  # columns don't exist or no valid data
+        return np.nan
 
-    # Align on index
     series_var1 = df_var1.iloc[:, 0].reindex(df_var2.index).dropna()
     series_var2 = df_var2.iloc[:, 0].reindex(df_var1.index).dropna()
     common_idx = series_var1.index.intersection(series_var2.index)
@@ -959,39 +714,17 @@ def probability_var1_gte_var2_for_scenario(df, var1_name, var2_name, units="CFS"
 
     series_var1 = series_var1.loc[common_idx]
     series_var2 = series_var2.loc[common_idx]
-
     count_gte = (series_var1 >= series_var2).sum()
     prob_less = count_gte / len(series_var1)
     return prob_less
 
+
 def probability_var1_gte_const_for_scenario(df, var1_name, const, units="CFS"):
-    """
-    Returns the probability that var1 >= constant value for a single scenario, if both columns exist.
-    Otherwise returns NaN.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Main DataFrame (multi-index columns).
-    var1_name : str
-        The column name (Part B, or full name) for the 'actual' variable (e.g. 'C_AMR004_s0018').
-    var2_name : int
-        The constant value for the variable.
-    units : str, default 'CFS'
-        Expected units for both columns (so we subset the correct columns).
-
-    Returns
-    -------
-    float
-        Probability that var1 >= const (0 to 1).
-    """
 
     df_var1 = create_subset_unit(df, var1_name, units)
-
     if df_var1.empty:
-        return np.nan  # columns don't exist or no valid data
+        return np.nan
 
-    # Align on index
     series_var1 = df_var1.iloc[:, 0].dropna()
 
     if len(series_var1) == 0:
@@ -1003,7 +736,6 @@ def probability_var1_gte_const_for_scenario(df, var1_name, const, units="CFS"):
 
 
 def create_subset_tucp(df: pd.DataFrame, scenario: int, tucp_var: str, tucp_wy_month_count: int = 1) -> pd.DataFrame:
-
     suffix = f"s{int(scenario):04d}"
     lvl1 = df.columns.get_level_values(1).astype(str)
 
@@ -1026,14 +758,11 @@ def create_subset_tucp(df: pd.DataFrame, scenario: int, tucp_var: str, tucp_wy_m
 
     all_wy = df.index.year + (df.index.month >= 10)
     row_mask = np.isin(all_wy, selected_wys)
-
     return df.loc[row_mask].copy()
 
+
 def _ensure_lexsorted_axes(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Return a view of df with MultiIndex index/columns sorted (lexsorted),
-    which avoids PerformanceWarnings in some pandas ops.
-    """
+
     if isinstance(df.index, pd.MultiIndex):
         df = df.sort_index()
     if isinstance(df.columns, pd.MultiIndex):
@@ -1042,24 +771,7 @@ def _ensure_lexsorted_axes(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def percent_change_from_baseline(df: pd.DataFrame, baseline_label: str) -> pd.DataFrame:
-    """
-    Compute percent change from a baseline row for all scenarios.
 
-    For probability columns (starting with 'All_Prob_' or 'Sept_Prob_'),
-    computes absolute difference. For other columns, computes percent change.
-
-    Parameters
-    ----------
-    df : pd.DataFrame
-        DataFrame with scenarios as rows and metrics as columns.
-    baseline_label : str
-        Index label of the baseline scenario row.
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame with same shape, containing differences/percent changes.
-    """
     base = df.loc[baseline_label]
 
     prob_cols = [c for c in df.columns if str(c).startswith(('All_Prob_', 'Sept_Prob_'))]
@@ -1072,54 +784,20 @@ def percent_change_from_baseline(df: pd.DataFrame, baseline_label: str) -> pd.Da
 
     if other_cols:
         denom = base[other_cols].replace(0, np.nan)
-        out[other_cols] = (
-            df[other_cols].sub(base[other_cols], axis=1)
-            .div(denom, axis=1) * 100.0
-        )
+        out[other_cols] = df[other_cols].sub(base[other_cols], axis=1).div(denom, axis=1) * 100.0
 
     return out.replace([np.inf, -np.inf], np.nan)
 
 
 def percent_change_from_baseline_by_index(df: pd.DataFrame, baseline_index: int = 0) -> pd.DataFrame:
-    """
-    Compute percent change from a baseline row using positional index.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        DataFrame with scenarios as rows and metrics as columns.
-    baseline_index : int
-        Positional index of the baseline row (default 0).
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame with percent changes from baseline.
-    """
     baseline = df.iloc[baseline_index]
     return ((df - baseline) / baseline.replace(0, np.nan)) * 100
 
 
-def process_scenario_dataframe(df: pd.DataFrame, column_mapping: dict = None, desired_order: list = None, final_names: list = None) -> pd.DataFrame:
-    """
-    Restructure a multi-index scenario dataframe by selecting and renaming columns.
+def process_scenario_dataframe(df: pd.DataFrame, column_mapping: dict = None, desired_order: list = None,
+                               final_names: list = None) -> pd.DataFrame:
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        DataFrame with MultiIndex columns where level 1 contains variable names.
-    column_mapping : dict, optional
-        Mapping of column names to select. If None, uses default CalSim3 mapping.
-    desired_order : list, optional
-        Order of columns in output. If None, uses default order.
-    final_names : list, optional
-        Human-readable names for columns. If None, uses default names.
-
-    Returns
-    -------
-    pd.DataFrame
-        Restructured DataFrame with renamed columns.
-    """
     if column_mapping is None:
         column_mapping = {
             'NDO': 'NDO', 'X2_APR': 'X2_APR', 'X2_OCT': 'X2_OCT',
@@ -1131,57 +809,30 @@ def process_scenario_dataframe(df: pd.DataFrame, column_mapping: dict = None, de
             'DEL_SJV_MI_TOTAL': 'DEL_SJV_MI_TOTAL', 'DEL_SJV_TOTAL': 'DEL_SJV_TOTAL',
             'DEL_SOCAL_MI_TOTAL': 'DEL_SOCAL_MI_TOTAL', 'DEL_CCOAST_MI_TOTAL': 'DEL_CCOAST_MI_TOTAL',
             'STO_NOD_TOTAL_APR': 'STO_NOD_TOTAL_APR', 'STO_NOD_TOTAL_OCT': 'STO_NOD_TOTAL_OCT',
-            'STO_SOD_TOTAL_APR': 'STO_SOD_TOTAL_APR', 'STO_SOD_TOTAL_OCT': 'STO_SOD_TOTAL_OCT'
-        }
+            'STO_SOD_TOTAL_APR': 'STO_SOD_TOTAL_APR', 'STO_SOD_TOTAL_OCT': 'STO_SOD_TOTAL_OCT'}
 
     if desired_order is None:
-        desired_order = [
-            'DEL_NOD_AG_TOTAL', 'DEL_SJV_AG_TOTAL', 'DEL_NOD_MI_TOTAL', 'DEL_SJV_MI_TOTAL',
+        desired_order = ['DEL_NOD_AG_TOTAL', 'DEL_SJV_AG_TOTAL', 'DEL_NOD_MI_TOTAL', 'DEL_SJV_MI_TOTAL',
             'DEL_SOCAL_MI_TOTAL', 'CVP_SWP_EXPORTS', 'NDO', 'SAC_IN', 'SJR_IN', 'X2_APR',
-            'X2_OCT', 'STO_NOD_TOTAL_OCT', 'STO_SOD_TOTAL_OCT'
-        ]
+            'X2_OCT', 'STO_NOD_TOTAL_OCT', 'STO_SOD_TOTAL_OCT']
 
     if final_names is None:
-        final_names = [
-            "Sac Valley AG Deliveries", "SJ Valley AG Deliveries", "Sac Valley Municipal Deliveries",
+        final_names = ["Sac Valley AG Deliveries", "SJ Valley AG Deliveries", "Sac Valley Municipal Deliveries",
             "SJ Valley Municipal Deliveries", "SoCal Municipal Deliveries", "Delta Exports",
             "Delta Outflows", "Sac River Inflows", "SJ River Inflows", "X2 Salinity (Apr)",
-            "X2 Salinity (Oct)", "North of Delta Storage (Sep)", "South of Delta Storage (Sep)"
-        ]
+            "X2 Salinity (Oct)", "North of Delta Storage (Sep)", "South of Delta Storage (Sep)"]
 
-    # Select relevant columns based on the second level of MultiIndex
     selected_columns = [col for col in df.columns if col[1] in column_mapping]
     selected_df = df[selected_columns]
-
-    # Rename columns according to the mapping
     new_columns = [column_mapping[col[1]] for col in selected_df.columns]
     selected_df.columns = new_columns
-
-    # Reorder and rename
     ordered_df = selected_df[desired_order]
     ordered_df.columns = final_names
-
     return ordered_df
 
 
 def calculate_scenario_statistics(dataframes: list, scenario_names: list, process_func=None) -> tuple:
-    """
-    Compute median, std, 90th and 10th percentiles across multiple scenario dataframes.
 
-    Parameters
-    ----------
-    dataframes : list[pd.DataFrame]
-        List of scenario DataFrames to analyze.
-    scenario_names : list[str]
-        Names for each scenario (used as index labels).
-    process_func : callable, optional
-        Function to preprocess each DataFrame. If None, uses process_scenario_dataframe.
-
-    Returns
-    -------
-    tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]
-        (median_df, std_df, percentile_90_df, percentile_10_df)
-    """
     if process_func is None:
         process_func = process_scenario_dataframe
 
@@ -1194,40 +845,19 @@ def calculate_scenario_statistics(dataframes: list, scenario_names: list, proces
         std_dev_values = processed_df.std()
         percentile_90_values = processed_df.quantile(0.90)
         percentile_10_values = processed_df.quantile(0.10)
-
         median_values.name = name
         std_dev_values.name = name
         percentile_90_values.name = name
         percentile_10_values.name = name
-
         medians.append(median_values)
         std_devs.append(std_dev_values)
         percentiles_90.append(percentile_90_values)
         percentiles_10.append(percentile_10_values)
 
-    return (
-        pd.DataFrame(medians),
-        pd.DataFrame(std_devs),
-        pd.DataFrame(percentiles_90),
-        pd.DataFrame(percentiles_10)
-    )
-
+    return pd.DataFrame(medians), pd.DataFrame(std_devs), pd.DataFrame(percentiles_90), pd.DataFrame(percentiles_10)
 
 def compute_cv_df(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Compute coefficient of variation (std/mean) for each WBA_s#### column.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        DataFrame with columns named like "WBA01_s0001", "WBA02_s0001", etc.
-
-    Returns
-    -------
-    pd.DataFrame
-        DataFrame with scenarios as rows and WBA IDs as columns,
-        containing the CV values.
-    """
     records = []
 
     for col in df.columns:
@@ -1246,11 +876,7 @@ def compute_cv_df(df: pd.DataFrame) -> pd.DataFrame:
 
         records.append({"scenario": scenario, "WBA": wba_id, "CV": cv})
 
-    cv_df = (
-        pd.DataFrame(records)
-        .pivot(index="scenario", columns="WBA", values="CV")
-        .sort_index(axis=1)
-        .sort_index(axis=0)
-    )
+    cv_df = (pd.DataFrame(records).pivot(index="scenario", columns="WBA", values="CV").sort_index(axis=1).
+             sort_index(axis = 0))
 
     return cv_df
