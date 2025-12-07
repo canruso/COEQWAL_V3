@@ -319,18 +319,30 @@ def set_index(df, dss_names):
     df.index = scenario_names
     return df
 
+
+def normalize_index(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Ensure DataFrame has a unique index suitable for concatenation.
+    If index has duplicates, deduplicate by keeping first occurrence.
+    """
+    if df.index.duplicated().any():
+        df = df[~df.index.duplicated(keep='first')]
+    return df
+
 """MEAN, SD, IQR, SUM FUNCTIONS"""
 
 def compute_annual_means(df, var, study_lst = None, units = "TAF", months = None):
     subset_df = create_subset_unit(df, var, units)
     if study_lst is not None:
         subset_df = subset_df.iloc[:, study_lst]
-    
+
     subset_df = add_water_year_column(subset_df)
-    
+
     if months is not None:
         subset_df = subset_df[subset_df.index.month.isin(months)]
-        
+
+    # Sort MultiIndex columns to avoid PerformanceWarning
+    subset_df = _ensure_lexsorted_axes(subset_df)
     annual_mean = subset_df.groupby('WaterYear').mean()
     return annual_mean
 
@@ -395,10 +407,12 @@ def calculate_monthly_average(flow_data):
 def compute_annual_sums(df, var, study_lst = None, units = "TAF", months = None):
     subset_df = create_subset_unit(df, var, units).iloc[:, study_lst]
     subset_df = add_water_year_column(subset_df)
-    
+
     if months is not None:
         subset_df = subset_df[subset_df.index.month.isin(months)]
-        
+
+    # Sort MultiIndex columns to avoid PerformanceWarning
+    subset_df = _ensure_lexsorted_axes(subset_df)
     annual_sum = subset_df.groupby('WaterYear').sum()
 
     return annual_sum
