@@ -301,8 +301,8 @@ DataFrames use a **7-level MultiIndex** for columns:
 
 ```bash
 # Clone the repository
-git clone https://github.com/coeqwal-berkeley/coeqwal.git
-cd coeqwal
+git clone https://github.com/canruso/COEQWAL_V3.git
+cd COEQWAL_V3/coeqwal
 
 # Install dependencies
 pip install pandas numpy matplotlib seaborn geopandas openpyxl scikit-learn
