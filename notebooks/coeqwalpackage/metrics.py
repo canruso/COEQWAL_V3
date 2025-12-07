@@ -1078,3 +1078,136 @@ def percent_change_from_baseline(df: pd.DataFrame, baseline_label: str) -> pd.Da
         )
 
     return out.replace([np.inf, -np.inf], np.nan)
+
+
+def percent_change_from_baseline_by_index(df: pd.DataFrame, baseline_index: int = 0) -> pd.DataFrame:
+    """
+    Compute percent change from a baseline row using positional index.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with scenarios as rows and metrics as columns.
+    baseline_index : int
+        Positional index of the baseline row (default 0).
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with percent changes from baseline.
+    """
+    baseline = df.iloc[baseline_index]
+    return ((df - baseline) / baseline.replace(0, np.nan)) * 100
+
+
+def process_scenario_dataframe(df: pd.DataFrame, column_mapping: dict = None, desired_order: list = None, final_names: list = None) -> pd.DataFrame:
+    """
+    Restructure a multi-index scenario dataframe by selecting and renaming columns.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with MultiIndex columns where level 1 contains variable names.
+    column_mapping : dict, optional
+        Mapping of column names to select. If None, uses default CalSim3 mapping.
+    desired_order : list, optional
+        Order of columns in output. If None, uses default order.
+    final_names : list, optional
+        Human-readable names for columns. If None, uses default names.
+
+    Returns
+    -------
+    pd.DataFrame
+        Restructured DataFrame with renamed columns.
+    """
+    if column_mapping is None:
+        column_mapping = {
+            'NDO': 'NDO', 'X2_APR': 'X2_APR', 'X2_OCT': 'X2_OCT',
+            'SAC_IN': 'SAC_IN', 'SJR_IN': 'SJR_IN', 'ES_YBP_IN': 'ES_YBP_IN',
+            'TOTAL_DELTA_IN': 'TOTAL_DELTA_IN', 'CVP_SWP_EXPORTS': 'CVP_SWP_EXPORTS',
+            'OTHER_EXPORTS': 'OTHER_EXPORTS', 'ADJ_CVP_SWP_EXPORTS': 'ADJ_CVP_SWP_EXPORTS',
+            'DEL_NOD_TOTAL': 'DEL_NOD_TOTAL', 'DEL_NOD_AG_TOTAL': 'DEL_NOD_AG_TOTAL',
+            'DEL_NOD_MI_TOTAL': 'DEL_NOD_MI_TOTAL', 'DEL_SJV_AG_TOTAL': 'DEL_SJV_AG_TOTAL',
+            'DEL_SJV_MI_TOTAL': 'DEL_SJV_MI_TOTAL', 'DEL_SJV_TOTAL': 'DEL_SJV_TOTAL',
+            'DEL_SOCAL_MI_TOTAL': 'DEL_SOCAL_MI_TOTAL', 'DEL_CCOAST_MI_TOTAL': 'DEL_CCOAST_MI_TOTAL',
+            'STO_NOD_TOTAL_APR': 'STO_NOD_TOTAL_APR', 'STO_NOD_TOTAL_OCT': 'STO_NOD_TOTAL_OCT',
+            'STO_SOD_TOTAL_APR': 'STO_SOD_TOTAL_APR', 'STO_SOD_TOTAL_OCT': 'STO_SOD_TOTAL_OCT'
+        }
+
+    if desired_order is None:
+        desired_order = [
+            'DEL_NOD_AG_TOTAL', 'DEL_SJV_AG_TOTAL', 'DEL_NOD_MI_TOTAL', 'DEL_SJV_MI_TOTAL',
+            'DEL_SOCAL_MI_TOTAL', 'CVP_SWP_EXPORTS', 'NDO', 'SAC_IN', 'SJR_IN', 'X2_APR',
+            'X2_OCT', 'STO_NOD_TOTAL_OCT', 'STO_SOD_TOTAL_OCT'
+        ]
+
+    if final_names is None:
+        final_names = [
+            "Sac Valley AG Deliveries", "SJ Valley AG Deliveries", "Sac Valley Municipal Deliveries",
+            "SJ Valley Municipal Deliveries", "SoCal Municipal Deliveries", "Delta Exports",
+            "Delta Outflows", "Sac River Inflows", "SJ River Inflows", "X2 Salinity (Apr)",
+            "X2 Salinity (Oct)", "North of Delta Storage (Sep)", "South of Delta Storage (Sep)"
+        ]
+
+    # Select relevant columns based on the second level of MultiIndex
+    selected_columns = [col for col in df.columns if col[1] in column_mapping]
+    selected_df = df[selected_columns]
+
+    # Rename columns according to the mapping
+    new_columns = [column_mapping[col[1]] for col in selected_df.columns]
+    selected_df.columns = new_columns
+
+    # Reorder and rename
+    ordered_df = selected_df[desired_order]
+    ordered_df.columns = final_names
+
+    return ordered_df
+
+
+def calculate_scenario_statistics(dataframes: list, scenario_names: list, process_func=None) -> tuple:
+    """
+    Compute median, std, 90th and 10th percentiles across multiple scenario dataframes.
+
+    Parameters
+    ----------
+    dataframes : list[pd.DataFrame]
+        List of scenario DataFrames to analyze.
+    scenario_names : list[str]
+        Names for each scenario (used as index labels).
+    process_func : callable, optional
+        Function to preprocess each DataFrame. If None, uses process_scenario_dataframe.
+
+    Returns
+    -------
+    tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]
+        (median_df, std_df, percentile_90_df, percentile_10_df)
+    """
+    if process_func is None:
+        process_func = process_scenario_dataframe
+
+    medians, std_devs, percentiles_90, percentiles_10 = [], [], [], []
+
+    for df, name in zip(dataframes, scenario_names):
+        processed_df = process_func(df)
+
+        median_values = processed_df.median()
+        std_dev_values = processed_df.std()
+        percentile_90_values = processed_df.quantile(0.90)
+        percentile_10_values = processed_df.quantile(0.10)
+
+        median_values.name = name
+        std_dev_values.name = name
+        percentile_90_values.name = name
+        percentile_10_values.name = name
+
+        medians.append(median_values)
+        std_devs.append(std_dev_values)
+        percentiles_90.append(percentile_90_values)
+        percentiles_10.append(percentile_10_values)
+
+    return (
+        pd.DataFrame(medians),
+        pd.DataFrame(std_devs),
+        pd.DataFrame(percentiles_90),
+        pd.DataFrame(percentiles_10)
+    )
