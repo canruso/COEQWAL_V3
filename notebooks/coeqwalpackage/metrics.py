@@ -1025,3 +1025,42 @@ def _ensure_lexsorted_axes(df: pd.DataFrame) -> pd.DataFrame:
     if isinstance(df.columns, pd.MultiIndex):
         df = df.sort_index(axis=1)
     return df
+
+
+def percent_change_from_baseline(df: pd.DataFrame, baseline_label: str) -> pd.DataFrame:
+    """
+    Compute percent change from a baseline row for all scenarios.
+
+    For probability columns (starting with 'All_Prob_' or 'Sept_Prob_'),
+    computes absolute difference. For other columns, computes percent change.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with scenarios as rows and metrics as columns.
+    baseline_label : str
+        Index label of the baseline scenario row.
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with same shape, containing differences/percent changes.
+    """
+    base = df.loc[baseline_label]
+
+    prob_cols = [c for c in df.columns if str(c).startswith(('All_Prob_', 'Sept_Prob_'))]
+    other_cols = [c for c in df.columns if c not in prob_cols]
+
+    out = pd.DataFrame(index=df.index, columns=df.columns, dtype=float)
+
+    if prob_cols:
+        out[prob_cols] = df[prob_cols].sub(base[prob_cols], axis=1)
+
+    if other_cols:
+        denom = base[other_cols].replace(0, np.nan)
+        out[other_cols] = (
+            df[other_cols].sub(base[other_cols], axis=1)
+            .div(denom, axis=1) * 100.0
+        )
+
+    return out.replace([np.inf, -np.inf], np.nan)
