@@ -9,6 +9,39 @@ import datetime as dt
 from coeqwalpackage.metrics import create_subset_unit
 
 
+def find_calsim_model_root(start_dir=None, folder_name="CalSim3_Model_Runs"):
+    """
+    Walk up the directory tree to find the CalSim3_Model_Runs folder.
+
+    Parameters
+    ----------
+    start_dir : str, optional
+        Starting directory for the search. Defaults to current working directory.
+    folder_name : str
+        Name of the folder to find (default: "CalSim3_Model_Runs").
+
+    Returns
+    -------
+    str
+        Full path to the CalSim3_Model_Runs folder.
+
+    Raises
+    ------
+    FileNotFoundError
+        If the folder is not found in any parent directory.
+    """
+    if start_dir is None:
+        start_dir = os.getcwd()
+    current = start_dir
+    while True:
+        if folder_name in os.listdir(current):
+            return os.path.join(current, folder_name)
+        parent = os.path.dirname(current)
+        if parent == current:
+            raise FileNotFoundError(f"Could not find {folder_name} in any parent directories.")
+        current = parent
+
+
 def get_xl_sheetnames(xlfn):
     wb = openpyxl.load_workbook(xlfn, data_only=True)
     # get the 'Inputs' tab

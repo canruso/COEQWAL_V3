@@ -832,3 +832,34 @@ def assign_tiers_from_trends(trend_matrix, baseline, output_dir, filename, sever
     print(tier_matrix.head())
 
     return tier_matrix
+
+
+""" FLOOD RISK TIER CLASSIFICATION """
+
+
+def classify_flood_tier(prob, thresh1=0.10, thresh2=0.40):
+    """
+    Classify flood risk probability into tiers.
+
+    Parameters
+    ----------
+    prob : float
+        Probability that storage >= flood pool level.
+    thresh1 : float
+        Threshold between Tier 1 and Tier 2 (default 0.10).
+    thresh2 : float
+        Threshold between Tier 2 and Tier 3 (default 0.40).
+
+    Returns
+    -------
+    str or np.nan
+        Tier classification: "1", "2", "3", or np.nan if input is NaN.
+    """
+    if np.isnan(prob):
+        return np.nan
+    elif prob < thresh1:
+        return "1"
+    elif prob < thresh2:
+        return "2"
+    else:
+        return "3"
