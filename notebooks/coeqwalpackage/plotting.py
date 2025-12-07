@@ -1914,3 +1914,306 @@ def _safe_set_ylim(ax, y_min, y_max, frac_margin=0.02, abs_margin=1.0):
         ax.set_ylim(y_min - pad, y_max + pad)
     else:
         ax.set_ylim(y_min, y_max)
+
+
+def custom_parallel_coordinates_highlight_cluster(objs, columns_axes=None, axis_labels=None, ideal_direction='top', minmaxs=None, color_by_continuous=None, color_palette_continuous=None, color_by_categorical=None, color_palette_categorical=None, colorbar_ticks_continuous=None, color_dict_categorical=None, zorder_by=None, zorder_num_classes=10, zorder_direction='ascending', alpha_base=0.8, brushing_dict=None, alpha_brush=0.05, lw_base=1.5, fontsize=14, figsize=(11,6), save_fig_filename=None, cluster_column_name='Cluster', title=None, highlight_indices=None, highlight_colors=None, dpi=600):
+    """
+    Parallel coordinates plot with cluster highlighting.
+
+    Highlights specific scenarios/indices with custom colors while showing
+    cluster membership through categorical coloring.
+    """
+    assert ideal_direction in ['top','bottom']
+    assert zorder_direction in ['ascending', 'descending']
+    if minmaxs is not None:
+        for minmax in minmaxs:
+            assert minmax in ['max','min']
+    assert color_by_continuous is None or color_by_categorical is None
+    if columns_axes is None:
+        columns_axes = objs.columns
+    if axis_labels is None:
+        axis_labels = columns_axes
+
+    fig, ax = plt.subplots(1, 1, figsize=figsize, gridspec_kw={'hspace': 0.1, 'wspace': 0.1})
+
+    objs_reorg, tops, bottoms = reorganize_objs(objs, columns_axes, ideal_direction, minmaxs)
+
+    if brushing_dict is not None:
+        satisfice = np.zeros(objs.shape[0]) == 0.
+        for col_idx, (threshold, operator) in brushing_dict.items():
+            if operator == '<':
+                satisfice = np.logical_and(satisfice, objs.iloc[:, col_idx] < threshold)
+            elif operator == '<=':
+                satisfice = np.logical_and(satisfice, objs.iloc[:, col_idx] <= threshold)
+            elif operator == '>':
+                satisfice = np.logical_and(satisfice, objs.iloc[:, col_idx] > threshold)
+            elif operator == '>=':
+                satisfice = np.logical_and(satisfice, objs.iloc[:, col_idx] >= threshold)
+
+            threshold_norm = (threshold - bottoms[col_idx]) / (tops[col_idx] - bottoms[col_idx])
+            rect = Rectangle([col_idx - 0.05, 0], 0.1, threshold_norm)
+            pc = PatchCollection([rect], facecolor='grey', alpha=0.5, zorder=3)
+            ax.add_collection(pc)
+
+    # Ensure baseline and highlight colors and labels
+    baseline_present = 0 in objs.index
+    highlight_labels = [f"median {i+1}" for i in range(len(highlight_indices))] if highlight_indices else []
+    highlight_colors = highlight_colors or []
+
+    if baseline_present and highlight_indices is not None:
+        highlight_indices = [0] + list(highlight_indices)
+        highlight_labels = ["baseline"] + highlight_labels
+        highlight_colors = ["black"] + list(highlight_colors)
+
+    for i in range(objs_reorg.shape[0]):
+        idx_value = objs.index[i]
+        if idx_value == 0 and baseline_present:
+            color = "black"
+            zorder = 20
+            lw = 4
+            label = "baseline"
+        elif highlight_indices and idx_value in highlight_indices:
+            color = highlight_colors[highlight_indices.index(idx_value)]
+            zorder = 15
+            lw = 4
+            label = highlight_labels[highlight_indices.index(idx_value)]
+        elif color_by_categorical is not None and cluster_column_name in objs.columns:
+            cluster_value = objs[cluster_column_name].iloc[i]
+            color = color_dict_categorical.get(cluster_value, 'grey')
+            zorder = 4
+            lw = lw_base
+            label = None
+        else:
+            color = color_dict_categorical[1] if color_dict_categorical else 'grey'
+            zorder = 4
+            lw = lw_base
+            label = None
+
+        alpha = alpha_base
+
+        for j in range(objs_reorg.shape[1] - 1):
+            y = [objs_reorg.iloc[i, j], objs_reorg.iloc[i, j + 1]]
+            x = [j, j + 1]
+            ax.plot(x, y, c=color, alpha=alpha, zorder=zorder, lw=lw)
+
+    for j in range(len(columns_axes)):
+        ax.annotate(str(round(tops[j])), [j, 1.02], ha='center', va='bottom', zorder=5, fontsize=fontsize)
+        ax.annotate(str(round(bottoms[j])), [j, -0.02], ha='center', va='top', zorder=5, fontsize=fontsize)
+        ax.plot([j, j], [0, 1], c='k', zorder=1)
+
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    for spine in ['top', 'bottom', 'left', 'right']:
+        ax.spines[spine].set_visible(False)
+
+    if ideal_direction == 'top':
+        ax.arrow(-0.15, 0.1, 0, 0.7, head_width=0.08, head_length=0.05, color='k', lw=1.5)
+    elif ideal_direction == 'bottom':
+        ax.arrow(-0.15, 0.9, 0, -0.7, head_width=0.08, head_length=0.05, color='k', lw=1.5)
+    ax.annotate('Direction of preference', xy=(-0.3, 0.5), ha='center', va='center', rotation=90, fontsize=fontsize)
+
+    ax.set_xlim(-0.4, len(columns_axes) - 0.6)
+    ax.set_ylim(-0.4, 1.1)
+
+    for i, l in enumerate(axis_labels):
+        ax.annotate(l, xy=(i, -0.12), ha='center', va='top', fontsize=fontsize)
+
+    if color_by_continuous is not None:
+        mappable = cm.ScalarMappable(cmap=color_palette_continuous)
+        mappable.set_clim(vmin=objs[columns_axes[color_by_continuous]].min(),
+                          vmax=objs[columns_axes[color_by_continuous]].max())
+        cb = plt.colorbar(mappable, ax=ax, orientation='horizontal', shrink=0.4,
+                          label=axis_labels[color_by_continuous], pad=0.03,
+                          alpha=alpha_base)
+        if colorbar_ticks_continuous is not None:
+            _ = cb.ax.set_xticks(colorbar_ticks_continuous, colorbar_ticks_continuous,
+                                 fontsize=fontsize)
+        _ = cb.ax.set_xlabel(cb.ax.get_xlabel(), fontsize=fontsize)
+    elif color_by_categorical is not None or highlight_indices is not None:
+        leg = []
+        if color_by_categorical is not None and color_dict_categorical:
+            for label, color in color_dict_categorical.items():
+                leg.append(Line2D([0], [0], color=color, lw=3, alpha=alpha_base, label=label))
+        if highlight_indices is not None:
+            for idx, color, label in zip(highlight_indices, highlight_colors, highlight_labels):
+                leg.append(Line2D([0], [0], color=color, lw=3, alpha=alpha_base, label=label))
+
+        if leg and color_dict_categorical:
+            _ = ax.legend(handles=leg, loc='lower center', ncol=max(3, len(color_dict_categorical)),
+                          bbox_to_anchor=[0.5, -0.07], frameon=False, fontsize=fontsize)
+
+    if title is not None:
+        ax.set_title(title, fontsize=fontsize)
+
+    if save_fig_filename is not None:
+        plt.savefig(save_fig_filename, bbox_inches='tight', transparent=True, dpi=dpi)
+
+    return fig, ax
+
+
+def custom_parallel_coordinates_highlight_iqr(objs, columns_axes=None, axis_labels=None, ideal_direction='top', minmaxs=None,
+                                              color_by_continuous=None, color_palette_continuous=None, color_by_categorical=None,
+                                              color_palette_categorical=None, colorbar_ticks_continuous=None,
+                                              color_dict_categorical=None, zorder_by=None, zorder_num_classes=10,
+                                              zorder_direction='ascending', alpha_base=0.8, brushing_dict=None,
+                                              alpha_brush=0.05, lw_base=1.5, fontsize=14, figsize=(11,6),
+                                              save_fig_filename=None, cluster_column_name='Cluster', title=None,
+                                              highlight_indices=None, highlight_colors=None,
+                                              filter_indices=None, iqr_data=None, dpi=600):
+    """
+    Parallel coordinates plot with IQR (interquartile range) shading.
+
+    Shows variability around each point using IQR bands, with cluster-based
+    coloring and optional highlighting of specific scenarios.
+    """
+    assert ideal_direction in ['top','bottom']
+    assert zorder_direction in ['ascending', 'descending']
+    if minmaxs is not None:
+        for minmax in minmaxs:
+            assert minmax in ['max','min']
+    assert color_by_continuous is None or color_by_categorical is None
+    if columns_axes is None:
+        columns_axes = objs.columns
+    if axis_labels is None:
+        axis_labels = columns_axes
+
+    # Filter the DataFrame by the provided indices
+    if filter_indices is not None:
+        objs = objs.loc[filter_indices]
+        if iqr_data is not None:
+            iqr_data = iqr_data.loc[filter_indices]
+
+    fig, ax = plt.subplots(1, 1, figsize=figsize, gridspec_kw={'hspace': 0.1, 'wspace': 0.1})
+
+    objs_reorg, tops, bottoms = reorganize_objs(objs, columns_axes, ideal_direction, minmaxs)
+
+    if brushing_dict is not None:
+        satisfice = np.zeros(objs.shape[0]) == 0.
+        for col_idx, (threshold, operator) in brushing_dict.items():
+            if operator == '<':
+                satisfice = np.logical_and(satisfice, objs.iloc[:, col_idx] < threshold)
+            elif operator == '<=':
+                satisfice = np.logical_and(satisfice, objs.iloc[:, col_idx] <= threshold)
+            elif operator == '>':
+                satisfice = np.logical_and(satisfice, objs.iloc[:, col_idx] > threshold)
+            elif operator == '>=':
+                satisfice = np.logical_and(satisfice, objs.iloc[:, col_idx] >= threshold)
+
+            threshold_norm = (threshold - bottoms[col_idx]) / (tops[col_idx] - bottoms[col_idx])
+            rect = Rectangle([col_idx - 0.05, 0], 0.1, threshold_norm)
+            pc = PatchCollection([rect], facecolor='grey', alpha=0.5, zorder=3)
+            ax.add_collection(pc)
+
+    # Highlight IQR shading with cluster colors, except for the last column
+    if iqr_data is not None and color_dict_categorical is not None:
+        for i, idx in enumerate(objs.index):
+            cluster_value = objs[cluster_column_name].loc[idx]
+            color = color_dict_categorical.get(cluster_value, 'lightgrey')
+
+            for j, col in enumerate(columns_axes[:-1]):
+                iqr_bottom = objs[col].iloc[i] - (iqr_data[col].iloc[i] / 2)
+                iqr_top = objs[col].iloc[i] + (iqr_data[col].iloc[i] / 2)
+
+                iqr_bottom_norm = (iqr_bottom - bottoms[j]) / (tops[j] - bottoms[j])
+                iqr_top_norm = (iqr_top - bottoms[j]) / (tops[j] - bottoms[j])
+
+                rect = Rectangle([j - 0.05, iqr_bottom_norm], 0.1, iqr_top_norm - iqr_bottom_norm)
+                pc = PatchCollection([rect], facecolor=color, alpha=0.3, zorder=2)
+                ax.add_collection(pc)
+
+    # Ensure baseline and highlight colors and labels
+    baseline_present = 0 in objs.index
+    highlight_labels = [f"median {i+1}" for i in range(len(highlight_indices))] if highlight_indices else []
+    highlight_colors = highlight_colors or []
+
+    if baseline_present and highlight_indices is not None:
+        highlight_indices = [0] + list(highlight_indices)
+        highlight_labels = ["baseline"] + highlight_labels
+        highlight_colors = ["black"] + list(highlight_colors)
+
+    for i in range(objs_reorg.shape[0]):
+        idx_value = objs.index[i]
+        if idx_value == 0 and baseline_present:
+            color = "black"
+            zorder = 20
+            lw = 4
+            label = "baseline"
+        elif highlight_indices and idx_value in highlight_indices:
+            color = highlight_colors[highlight_indices.index(idx_value)]
+            zorder = 15
+            lw = 4
+            label = highlight_labels[highlight_indices.index(idx_value)]
+        elif color_by_categorical is not None and cluster_column_name in objs.columns:
+            cluster_value = objs[cluster_column_name].iloc[i]
+            color = color_dict_categorical.get(cluster_value, 'grey')
+            zorder = 4
+            lw = lw_base
+            label = None
+        else:
+            color = color_dict_categorical[1] if color_dict_categorical else 'grey'
+            zorder = 4
+            lw = lw_base
+            label = None
+
+        alpha = alpha_base
+
+        for j in range(objs_reorg.shape[1] - 1):
+            y = [objs_reorg.iloc[i, j], objs_reorg.iloc[i, j + 1]]
+            x = [j, j + 1]
+            ax.plot(x, y, c=color, alpha=alpha, zorder=zorder, lw=lw)
+
+    for j in range(len(columns_axes)):
+        ax.annotate(str(round(tops[j])), [j, 1.02], ha='center', va='bottom', zorder=5, fontsize=fontsize)
+        ax.annotate(str(round(bottoms[j])), [j, -0.02], ha='center', va='top', zorder=5, fontsize=fontsize)
+        ax.plot([j, j], [0, 1], c='k', zorder=1)
+
+    ax.set_xticks([])
+    ax.set_yticks([])
+
+    for spine in ['top', 'bottom', 'left', 'right']:
+        ax.spines[spine].set_visible(False)
+
+    if ideal_direction == 'top':
+        ax.arrow(-0.15, 0.1, 0, 0.7, head_width=0.08, head_length=0.05, color='k', lw=1.5)
+    elif ideal_direction == 'bottom':
+        ax.arrow(-0.15, 0.9, 0, -0.7, head_width=0.08, head_length=0.05, color='k', lw=1.5)
+    ax.annotate('Direction of preference', xy=(-0.3, 0.5), ha='center', va='center', rotation=90, fontsize=fontsize)
+
+    ax.set_xlim(-0.4, len(columns_axes) - 0.6)
+    ax.set_ylim(-0.4, 1.1)
+
+    for i, l in enumerate(axis_labels):
+        ax.annotate(l, xy=(i, -0.12), ha='center', va='top', fontsize=fontsize)
+
+    if color_by_continuous is not None:
+        mappable = cm.ScalarMappable(cmap=color_palette_continuous)
+        mappable.set_clim(vmin=objs[columns_axes[color_by_continuous]].min(),
+                          vmax=objs[columns_axes[color_by_continuous]].max())
+        cb = plt.colorbar(mappable, ax=ax, orientation='horizontal', shrink=0.4,
+                          label=axis_labels[color_by_continuous], pad=0.03,
+                          alpha=alpha_base)
+        if colorbar_ticks_continuous is not None:
+            _ = cb.ax.set_xticks(colorbar_ticks_continuous, colorbar_ticks_continuous,
+                                 fontsize=fontsize)
+        _ = cb.ax.set_xlabel(cb.ax.get_xlabel(), fontsize=fontsize)
+    elif color_by_categorical is not None or highlight_indices is not None:
+        leg = []
+        if color_by_categorical is not None and color_dict_categorical:
+            for label, color in color_dict_categorical.items():
+                leg.append(Line2D([0], [0], color=color, lw=3, alpha=alpha_base, label=label))
+        if highlight_indices is not None:
+            for idx, color, label in zip(highlight_indices, highlight_colors, highlight_labels):
+                leg.append(Line2D([0], [0], color=color, lw=3, alpha=alpha_base, label=label))
+
+        if leg and color_dict_categorical:
+            _ = ax.legend(handles=leg, loc='lower center', ncol=max(3, len(color_dict_categorical)),
+                          bbox_to_anchor=[0.5, -0.07], frameon=False, fontsize=fontsize)
+
+    if title is not None:
+        ax.set_title(title, fontsize=fontsize)
+
+    if save_fig_filename is not None:
+        plt.savefig(save_fig_filename, bbox_inches='tight', transparent=True, dpi=dpi)
+
+    return fig, ax
