@@ -599,6 +599,33 @@ def plots_path_for_group(
     return out_dir
 
 
+def cols_present(df, wanted: list[str], warn: bool = True) -> list[str]:
+    """
+    Filter a list of wanted column names to only those present in df.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame to check columns against.
+    wanted : list[str]
+        List of desired column names.
+    warn : bool
+        If True, print a warning about missing columns.
+
+    Returns
+    -------
+    list[str]
+        Subset of wanted that exists in df.columns.
+    """
+    present = [c for c in wanted if c in df.columns]
+    missing = [c for c in wanted if c not in df.columns]
+    if missing and warn:
+        preview = missing[:5]
+        suffix = ' ...' if len(missing) > 5 else ''
+        print(f"[WARN] {len(missing)} missing columns: {preview}{suffix}")
+    return present
+
+
 
 
 
