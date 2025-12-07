@@ -379,7 +379,8 @@ For questions, issues, or collaboration inquiries:
     <td align="center"><strong>Dino</strong></td>
     <td align="center"><strong>James</strong></td>
     <td align="center"><strong>Rain</strong></td>
-    <td align="center"><strong>Isabelle</strong></td>
+    <td align="center"><strong>Isabelle G</strong></td>
+    <td align="center"><strong>Isabelle W</strong></td>
   </tr>
 </table>
 
