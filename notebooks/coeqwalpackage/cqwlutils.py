@@ -462,6 +462,15 @@ def create_subset_tucp(
     return df.loc[keep_mask].copy()
 
 
+def filter_by_water_years(df: pd.DataFrame, water_years: list[int]) -> pd.DataFrame:
+    """Filter DataFrame to include only rows within the specified water years."""
+    if not water_years:
+        return df.iloc[0:0].copy()
+    wy_index = df.index.year + (df.index.month >= 10)
+    keep_mask = pd.Series(wy_index).isin(water_years).to_numpy()
+    return df.loc[keep_mask].copy()
+
+
 def per_scenario_series(
         df: pd.DataFrame,
         *,
@@ -471,6 +480,7 @@ def per_scenario_series(
         use_tucp: bool = False,
         tucp_var_base: str = "TUCP_TRIGGER_DV",
         tucp_wy_month_count: int = 1,
+        tucp_years: dict[int, list[int]] | None = None,
         use_wyt: bool = False,
         wyt: list[int] | None = None,
         wyt_month: int | None = None,
@@ -480,9 +490,13 @@ def per_scenario_series(
     Return one aggregated Series per scenario (sum across matching subcomponents) after
     applying optional TUCP/WYT/month filters.
 
-    - TUCP filtering is *per scenario* (each scenario uses its own trigger var).
-    - WYT filtering uses your existing create_subset_unit(..., water_year_type=wyt, month=wyt_month).
-    - 'months' can further filter the final monthly series.
+    TUCP filtering behavior (only applies when use_tucp=True):
+    - use_tucp=False: No TUCP filtering (tucp_years ignored)
+    - use_tucp=True + tucp_years provided: Use explicit year list for each scenario
+    - use_tucp=True + tucp_years=None: Compute per-scenario TUCP years internally
+
+    WYT filtering uses create_subset_unit(..., water_year_type=wyt, month=wyt_month).
+    'months' can further filter the final monthly series.
 
     Returns: {scenario_id -> pd.Series}, aligned to whatever index survives the filters.
     """
@@ -490,13 +504,20 @@ def per_scenario_series(
 
     for sid in scenarios:
         work_df = df
+
+        # TUCP filtering: only applies when use_tucp=True
         if use_tucp:
-            work_df = create_subset_tucp(
-                df,
-                scenario=sid,
-                tucp_var_base=tucp_var_base,
-                tucp_wy_month_count=tucp_wy_month_count
-            )
+            if tucp_years is not None and sid in tucp_years:
+                # Use explicit years provided (respects TUCP_MODE)
+                work_df = filter_by_water_years(df, tucp_years[sid])
+            else:
+                # Compute TUCP years internally (fallback)
+                work_df = create_subset_tucp(
+                    df,
+                    scenario=sid,
+                    tucp_var_base=tucp_var_base,
+                    tucp_wy_month_count=tucp_wy_month_count
+                )
 
         # Apply variable/unit + (optional) WYT filter
         if use_wyt:

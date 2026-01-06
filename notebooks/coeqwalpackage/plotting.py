@@ -1084,14 +1084,16 @@ def plot_exceedance_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF",
                           scenario_labels: dict[int, str] | None = None, baseline_id: int | None = None,
                           baseline_label_override: str | None = None, label_style: str = "label_only",
                           scenario_color_map: dict[int, str] | None = None, use_tucp: bool = False,
-                          tucp_var_base: str = "TUCP_TRIGGER_DV", tucp_wy_month_count: int = 1, use_wyt: bool = False,
+                          tucp_var_base: str = "TUCP_TRIGGER_DV", tucp_wy_month_count: int = 1,
+                          tucp_years: dict[int, list[int]] | None = None, use_wyt: bool = False,
                           wyt: list[int] | None = None, wyt_month: int | None = None, months: list[int] | None = None,
                           pTitle: str = "Exceedance Probability", xLab: str = "Probability", lTitle: str = "Scenarios",
                           fTitle: str = "exceed_multi", fPath: str = "fPath", pSave: bool = True, dpi: int = 300):
 
     series_map = cu.per_scenario_series(df, varname=varname, units=units, scenarios=scenarios, use_tucp=use_tucp,
                                         tucp_var_base=tucp_var_base, tucp_wy_month_count=tucp_wy_month_count,
-                                        use_wyt=use_wyt, wyt=wyt, wyt_month=wyt_month, months=months)
+                                        tucp_years=tucp_years, use_wyt=use_wyt, wyt=wyt, wyt_month=wyt_month,
+                                        months=months)
 
     styles = get_scenario_styles_multi(scenarios, scenario_labels=scenario_labels, baseline_id=baseline_id,
                                        baseline_label_override=baseline_label_override, label_style=label_style,
@@ -1127,13 +1129,15 @@ def plot_moy_averages_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF
                             baseline_label_override: str | None = None, label_style: str = "label_only",
                             scenario_color_map: dict[int, str] | None = None, use_tucp: bool = False,
                             tucp_var_base: str = "TUCP_TRIGGER_DV", tucp_wy_month_count: int = 1,
-                            use_wyt: bool = False, wyt: list[int] | None = None, wyt_month: int | None = None,
+                            tucp_years: dict[int, list[int]] | None = None, use_wyt: bool = False,
+                            wyt: list[int] | None = None, wyt_month: int | None = None,
                             pTitle: str = "MOY Averages", xLab: str = "Month", lTitle: str = "Scenarios",
                             fTitle: str = "moy_multi", fPath: str = "fPath", pSave: bool = True, dpi: int = 300):
 
     series_map = cu.per_scenario_series(df, varname=varname, units=units, scenarios=scenarios, use_tucp=use_tucp,
                                         tucp_var_base=tucp_var_base, tucp_wy_month_count=tucp_wy_month_count,
-                                        use_wyt=use_wyt, wyt=wyt, wyt_month=wyt_month, months=None)
+                                        tucp_years=tucp_years, use_wyt=use_wyt, wyt=wyt, wyt_month=wyt_month,
+                                        months=None)
 
     styles = get_scenario_styles_multi(scenarios, scenario_labels=scenario_labels, baseline_id=baseline_id,
                                        baseline_label_override=baseline_label_override, label_style=label_style,
@@ -1211,7 +1215,8 @@ def annualize_exceedance_multi(df: pd.DataFrame, *, varname: str, units: str = "
                                baseline_label_override: str | None = None, label_style: str = "label_only",
                                scenario_color_map: dict[int, str] | None = None, use_tucp: bool = False,
                                tucp_var_base: str = "TUCP_TRIGGER_DV", tucp_wy_month_count: int = 1,
-                               use_wyt: bool = False, wyt: list[int] | None = None, wyt_month: int | None = None,
+                               tucp_years: dict[int, list[int]] | None = None, use_wyt: bool = False,
+                               wyt: list[int] | None = None, wyt_month: int | None = None,
                                months: list[int] | None = None, freq: str = "YS-OCT", pTitle: str = "Annual Exceedance",
                                xLab: str = "Exceedance Probability", lTitle: str = "Scenarios",
                                fTitle: str = "ann_exceed_multi", fPath: str = "fPath", pSave: bool = True,
@@ -1219,7 +1224,8 @@ def annualize_exceedance_multi(df: pd.DataFrame, *, varname: str, units: str = "
 
     series_map = cu.per_scenario_series(df, varname=varname, units=units, scenarios=scenarios, use_tucp=use_tucp,
                                         tucp_var_base=tucp_var_base, tucp_wy_month_count=tucp_wy_month_count,
-                                        use_wyt=use_wyt, wyt=wyt, wyt_month=wyt_month, months=months)
+                                        tucp_years=tucp_years, use_wyt=use_wyt, wyt=wyt, wyt_month=wyt_month,
+                                        months=months)
 
     styles = get_scenario_styles_multi(scenarios, scenario_labels=scenario_labels, baseline_id=baseline_id,
                                        baseline_label_override=baseline_label_override, label_style=label_style,
