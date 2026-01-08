@@ -18,6 +18,10 @@ import numpy as np
 import pandas as pd
 import cqwlutils as cu
 
+# Default scenario color palette: black (baseline), orange, red, then tab10 colors
+_tab10 = plt.cm.tab10.colors
+DEFAULT_SCENARIO_PALETTE = ["black", "orange", "red"] + [_tab10[i] for i in range(10)]
+
 
 def enable_headless_mode() -> None:
     try:
@@ -906,9 +910,10 @@ def custom_parallel_coordinates_relative_with_baseline_values(objs_rel, baseline
 
 def get_scenario_styles(studies: tuple[int, int] | list[int], scenario_labels: dict[int, str], baseline_id: int,
                         label_style: str = "label_only", baseline_label_override: str | None = None,
-                        colors: tuple[str, str] = ("black", "red"),
-                        linestyles: tuple[str, str] = ("-", "--"),) -> dict[int, dict]:
+                        compare_color_idx: int = 1,
+                        linestyles: tuple[str, str] = ("-", "--")) -> dict[int, dict]:
 
+    palette = DEFAULT_SCENARIO_PALETTE
     s1, s2 = (int(studies[0]), int(studies[1]))
     base = int(baseline_id) if int(baseline_id) in (s1, s2) else s1
     comp = s2 if s1 == base else s1
@@ -922,8 +927,8 @@ def get_scenario_styles(studies: tuple[int, int] | list[int], scenario_labels: d
         base_label = f"{base_label} ({code(base)})"
         comp_label = f"{comp_label} ({code(comp)})"
 
-    return {base: {"color": colors[0], "linestyle": linestyles[0], "label": base_label},
-            comp: {"color": colors[1], "linestyle": linestyles[1], "label": comp_label}}
+    return {base: {"color": palette[0], "linestyle": linestyles[0], "label": base_label},
+            comp: {"color": palette[compare_color_idx % len(palette)], "linestyle": linestyles[1], "label": comp_label}}
 
 
 def infer_units(varname: str, units_map: dict[str, str] | None = None, default: str = "TAF") -> str:
@@ -1003,11 +1008,10 @@ def build_parallel_df_relative(df: pd.DataFrame, axis_label_map: dict[str, dict]
 
 def get_scenario_styles_multi(scenarios: list[int], *, scenario_labels: dict[int, str] | None = None,
                               baseline_id: int | None = None, baseline_label_override: str | None = None,
-                              label_style: str = "label_only",
-                              scenario_color_map: dict[int, str] | None = None) -> dict[int, dict]:
+                              label_style: str = "label_only") -> dict[int, dict]:
 
     styles: dict[int, dict] = {}
-    cmap = get_cmap("tab20")
+    palette = DEFAULT_SCENARIO_PALETTE
 
     def code(s: int) -> str:
         return f"s{s:04d}"
@@ -1020,19 +1024,19 @@ def get_scenario_styles_multi(scenarios: list[int], *, scenario_labels: dict[int
             return f"{base_label} ({code(s)})"
         return base_label
 
-    used_colors = 0
+    color_idx = 1  # Start at 1 for compare scenarios (0 is reserved for baseline)
+
+    # Baseline gets color index 0 (black)
     if baseline_id is not None and baseline_id in scenarios:
-        baseline_color = scenario_color_map.get(baseline_id, "black") if scenario_color_map else "black"
-        styles[baseline_id] = {"color": baseline_color, "linestyle": "-", "linewidth": 2.0,
+        styles[baseline_id] = {"color": palette[0], "linestyle": "-", "linewidth": 2.0,
                                "label": make_label(baseline_id)}
 
+    # Compare scenarios get colors 1, 2, 3... in order
     for s in scenarios:
         if s == baseline_id:
             continue
-        color = scenario_color_map.get(s) if scenario_color_map else None
-        if color is None:
-            color = cmap(used_colors % 20)
-            used_colors += 1
+        color = palette[color_idx % len(palette)]
+        color_idx += 1
         styles[s] = {"color": color, "linestyle": "-", "linewidth": 1.8, "label": make_label(s)}
 
     return styles
@@ -1040,7 +1044,7 @@ def get_scenario_styles_multi(scenarios: list[int], *, scenario_labels: dict[int
 def plot_ts_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF", scenarios: list[int],
                   scenario_labels: dict[int, str] | None = None, baseline_id: int | None = None,
                   baseline_label_override: str | None = None, label_style: str = "label_only",
-                  scenario_color_map: dict[int, str] | None = None, months: list[int] | None = None,
+                  months: list[int] | None = None,
                   start_date: str | None = None, end_date: str | None = None, pTitle: str = "Monthly Time Series",
                   xLab: str = "Date", lTitle: str = "Scenarios", fTitle: str = "ts_multi", fPath: str = "fPath",
                   pSave: bool = True, dpi: int = 300):
@@ -1056,8 +1060,7 @@ def plot_ts_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF", scenari
         series_map[sid] = s
 
     styles = get_scenario_styles_multi(scenarios, scenario_labels=scenario_labels, baseline_id=baseline_id,
-                                       baseline_label_override=baseline_label_override, label_style=label_style,
-                                       scenario_color_map=scenario_color_map)
+                                       baseline_label_override=baseline_label_override, label_style=label_style)
 
     plt.figure(figsize=(14, 8))
     for sid in scenarios:
@@ -1083,7 +1086,7 @@ def plot_ts_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF", scenari
 def plot_exceedance_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF", scenarios: list[int],
                           scenario_labels: dict[int, str] | None = None, baseline_id: int | None = None,
                           baseline_label_override: str | None = None, label_style: str = "label_only",
-                          scenario_color_map: dict[int, str] | None = None, use_tucp: bool = False,
+                          use_tucp: bool = False,
                           tucp_var_base: str = "TUCP_TRIGGER_DV", tucp_wy_month_count: int = 1,
                           tucp_years: dict[int, list[int]] | None = None, use_wyt: bool = False,
                           wyt: list[int] | None = None, wyt_month: int | None = None, months: list[int] | None = None,
@@ -1096,8 +1099,7 @@ def plot_exceedance_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF",
                                         months=months)
 
     styles = get_scenario_styles_multi(scenarios, scenario_labels=scenario_labels, baseline_id=baseline_id,
-                                       baseline_label_override=baseline_label_override, label_style=label_style,
-                                       scenario_color_map=scenario_color_map)
+                                       baseline_label_override=baseline_label_override, label_style=label_style)
 
     plt.figure(figsize=(14, 8))
     for sid in scenarios:
@@ -1127,7 +1129,7 @@ def plot_exceedance_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF",
 def plot_moy_averages_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF", scenarios: list[int],
                             scenario_labels: dict[int, str] | None = None, baseline_id: int | None = None,
                             baseline_label_override: str | None = None, label_style: str = "label_only",
-                            scenario_color_map: dict[int, str] | None = None, use_tucp: bool = False,
+                            use_tucp: bool = False,
                             tucp_var_base: str = "TUCP_TRIGGER_DV", tucp_wy_month_count: int = 1,
                             tucp_years: dict[int, list[int]] | None = None, use_wyt: bool = False,
                             wyt: list[int] | None = None, wyt_month: int | None = None,
@@ -1140,8 +1142,7 @@ def plot_moy_averages_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF
                                         months=None)
 
     styles = get_scenario_styles_multi(scenarios, scenario_labels=scenario_labels, baseline_id=baseline_id,
-                                       baseline_label_override=baseline_label_override, label_style=label_style,
-                                       scenario_color_map=scenario_color_map)
+                                       baseline_label_override=baseline_label_override, label_style=label_style)
 
     plt.figure(figsize=(14, 8))
     month_numbers = np.arange(1, 13)
@@ -1173,7 +1174,7 @@ def plot_moy_averages_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF
 def plot_annual_totals_ts_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF", scenarios: list[int],
                                 scenario_labels: dict[int, str] | None = None, baseline_id: int | None = None,
                                 baseline_label_override: str | None = None, label_style: str = "label_only",
-                                scenario_color_map: dict[int, str] | None = None, months: list[int] | None = None,
+                                months: list[int] | None = None,
                                 freq: str = "YS-OCT", pTitle: str = "Annual Totals", xLab: str = "Water Year",
                                 lTitle: str = "Scenarios", fTitle: str = "ann_tot_ts_multi", fPath: str = "fPath",
                                 pSave: bool = True, dpi: int = 300):
@@ -1182,8 +1183,7 @@ def plot_annual_totals_ts_multi(df: pd.DataFrame, *, varname: str, units: str = 
                                         use_wyt=False, months=months)
 
     styles = get_scenario_styles_multi(scenarios, scenario_labels=scenario_labels, baseline_id=baseline_id,
-                                       baseline_label_override=baseline_label_override, label_style=label_style,
-                                       scenario_color_map=scenario_color_map)
+                                       baseline_label_override=baseline_label_override, label_style=label_style)
 
     plt.figure(figsize=(14, 8))
     for sid in scenarios:
@@ -1213,7 +1213,7 @@ def plot_annual_totals_ts_multi(df: pd.DataFrame, *, varname: str, units: str = 
 def annualize_exceedance_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF", scenarios: list[int],
                                scenario_labels: dict[int, str] | None = None, baseline_id: int | None = None,
                                baseline_label_override: str | None = None, label_style: str = "label_only",
-                               scenario_color_map: dict[int, str] | None = None, use_tucp: bool = False,
+                               use_tucp: bool = False,
                                tucp_var_base: str = "TUCP_TRIGGER_DV", tucp_wy_month_count: int = 1,
                                tucp_years: dict[int, list[int]] | None = None, use_wyt: bool = False,
                                wyt: list[int] | None = None, wyt_month: int | None = None,
@@ -1228,8 +1228,7 @@ def annualize_exceedance_multi(df: pd.DataFrame, *, varname: str, units: str = "
                                         months=months)
 
     styles = get_scenario_styles_multi(scenarios, scenario_labels=scenario_labels, baseline_id=baseline_id,
-                                       baseline_label_override=baseline_label_override, label_style=label_style,
-                                       scenario_color_map=scenario_color_map)
+                                       baseline_label_override=baseline_label_override, label_style=label_style)
 
     plt.figure(figsize=(14, 8))
     for sid in scenarios:
