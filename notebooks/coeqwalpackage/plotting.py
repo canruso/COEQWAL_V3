@@ -59,7 +59,7 @@ def plot_ts(df, varname, units='TAF', pTitle='Time Series', xLab='Date', lTitle=
         return
 
     var = '_'.join(df_plot.columns[0][1].split('_')[:-1])
-    colormap = plt.cm.tab20
+    colormap = plt.cm.tab10
     colors = [colormap(i) for i in range(df_plot.shape[1])]
     if len(colors) > 0:
         colors[-1] = (0, 0, 0, 1)
@@ -137,7 +137,7 @@ def plot_annual_totals(df, varname, units='TAF', xLab='Date', pTitle='Annual Tot
         return pd.DataFrame()
 
     var = '_'.join(df_plot.columns[0][1].split('_')[:-1])
-    colormap = plt.cm.tab20
+    colormap = plt.cm.tab10
     colors = [colormap(i) for i in range(df_plot.shape[1])]
     if len(colors) > 0:
         colors[-1] = (0, 0, 0, 1)
@@ -222,7 +222,7 @@ def plot_exceedance(df, varname, units='TAF', xLab='Probability', pTitle='Exceed
     var = '_'.join(df_plot.columns[0][1].split('_')[:-1])
     studies = [col[1].split('_')[-1] for col in df_plot.columns]
 
-    colormap = plt.cm.tab20
+    colormap = plt.cm.tab10
     colors = [colormap(i) for i in range(df_plot.shape[1])]
     if len(colors) > 0:
         colors[-1] = (0, 0, 0, 1)
