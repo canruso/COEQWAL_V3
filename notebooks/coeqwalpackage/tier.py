@@ -253,19 +253,38 @@ def generate_salinity_tier_assignment_matrix(df, station_list, thresholds, start
 
 # Builds a tier assignment matrix by comparing CalSim storage data against historical thresholds
 def generate_tier_assignment_matrix(
-        df,
-        cdec_df,
-        start_date="1921-10-01",
-        percentiles=[0.25, 0.5, 0.9],
-        tier_thresholds=(0.9, 0.5, 0.2),
-        month=5  # default is May
+    df, cdec_df, start_date="1921-10-01",
+    percentiles=[0.25, 0.5, 0.9], tier_thresholds=(0.9, 0.5, 0.2),
+    saveprobs=False, verbose=False
 ):
-    # Reads a historical reservoir storage CSV file, cleans it, and extracts the date & storage pairs.
+    """
+    Generate tier assignment matrix for reservoir storage.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        CalSim data with flattened column names.
+    cdec_df : pd.DataFrame
+        CDEC metadata with CalSim_Variable and filename columns.
+    start_date : str
+        Start date for index if not datetime.
+    percentiles : list
+        Percentiles for historical thresholds.
+    tier_thresholds : tuple
+        Thresholds for tier assignment (tt1, tt2, tt3).
+    saveprobs : bool
+        If True, save probability matrix to CSV.
+    verbose : bool
+        If True, print detailed processing info.
+
+    Returns
+    -------
+    tuple of pd.DataFrame
+        (tier_matrix, prob_matrix)
+    """
     def load_historical_storage_csv(filepath):
         df_raw = pd.read_csv(filepath, header=None)
-        start_row = df_raw[
-            df_raw.apply(lambda row: row.astype(str).str.contains("RESERVOIR STORAGE").any(), axis=1)
-        ].index[0]
+        start_row = df_raw[df_raw.apply(lambda row: row.astype(str).str.contains('RESERVOIR STORAGE').any(), axis=1)].index[0]
         df_data = pd.read_csv(filepath, skiprows=start_row)
         df_data.columns = df_data.columns.str.strip()
         df_data["DATE"] = pd.to_datetime(df_data.iloc[:, 0], format="%Y-%m-%d", errors="coerce")
@@ -275,24 +294,23 @@ def generate_tier_assignment_matrix(
         df_data = df_data.dropna(subset=["STORAGE"])
         return df_data[["DATE", "STORAGE"]]
 
-    # Calculates storage thresholds for a given month based on specified percentiles of historical data
-    def extract_historical_thresholds(df, percentiles, month):
-        target = df[df["DATE"].dt.month == month]
-        target_1 = target.groupby(target["DATE"].dt.year).first()
-        thresholds = target_1["STORAGE"].quantile(percentiles)
+    def extract_historical_thresholds(df, percentiles):
+        may = df[df["DATE"].dt.month == 5]
+        may_1 = may.groupby(may["DATE"].dt.year).first()
+        thresholds = may_1["STORAGE"].quantile(percentiles)
         return thresholds / 1000  # Convert AF to TAF
 
-    # Selects storage variables from the CalSim dataset
     def extract_variable_by_scenario(df, variable):
         return df[
-            [col for col in df.columns if variable in col and "_STORAGE_" in col and "LEVEL" not in col.upper()]
+            [col for col in df.columns
+             if variable in col and "_STORAGE_" in col and "LEVEL" not in col.upper()]
         ]
 
-    # Determines the probability distribution of storage values across percentiles for each scenario and assigns a tier classification
-    def assign_tiers_from_calsim(var_df, thresholds, date_series, var, tier_thresholds):
+    def assign_tiers_from_calsim(var_df, thresholds, date_series, var, tier_thresholds, saveprobs=saveprobs, verbose=verbose):
         tier_rows = []
+
         for col in var_df.columns:
-            match = re.search(r"s\d{4}", col)
+            match = re.search(r's\d{4}', col)
             if not match:
                 continue
             sid = match.group(0)
@@ -303,14 +321,16 @@ def generate_tier_assignment_matrix(
 
             april_series = series[series.index.month == 4]
             april_by_year = april_series.groupby(april_series.index.year).last()
-            print(f"\n Scenario {sid} ({var})")
-            print("  April-end values:")
-            print(april_by_year.head())
+
+            if verbose:
+                print(f"\n Scenario {sid} ({var})")
+                print("  April-end values:")
+                print(april_by_year.head())
 
             if april_by_year.empty:
                 print(f" No April data found for {var} in scenario {sid}")
                 continue
-            # Compute number of years falling into each percentile bin
+
             low_thresh = thresholds[percentiles[0]]
             mid_thresh = thresholds[percentiles[1]]
             high_thresh = thresholds[percentiles[2]]
@@ -321,11 +341,12 @@ def generate_tier_assignment_matrix(
             bot = (april_by_year < low_thresh).sum()
             total = len(april_by_year)
 
-            # Calculate probabilities for each percentile range
-            top_frac, mid_frac, low_frac, bot_frac = top / total, mid / total, low / total, bot / total
-            tt1, tt2, tt3 = tier_thresholds
+            top_frac = top / total
+            mid_frac = mid / total
+            low_frac = low / total
+            bot_frac = bot / total
 
-            # Assign tier based on fraction of years in upper percentile categories
+            tt1, tt2, tt3 = tier_thresholds
             if top_frac >= tt1:
                 tier = 1
             elif (top_frac + mid_frac) >= tt2:
@@ -335,17 +356,15 @@ def generate_tier_assignment_matrix(
             else:
                 tier = 4
 
-            tier_rows.append(
-                {
-                    "Scenario": sid,
-                    "Variable": var,
-                    "TopProb": round(top_frac, 3),
-                    "MidProb": round(mid_frac, 3),
-                    "LowProb": round(low_frac, 3),
-                    "BotProb": round(bot_frac, 3),
-                    "StorageTier": tier,
-                }
-            )
+            tier_rows.append({
+                "Scenario": sid,
+                "Variable": var,
+                "TopProb": round(top_frac, 3),
+                "MidProb": round(mid_frac, 3),
+                "LowProb": round(low_frac, 3),
+                "BotProb": round(bot_frac, 3),
+                "StorageTier": tier
+            })
 
         return pd.DataFrame(tier_rows).drop_duplicates(subset=["Scenario", "Variable"])
 
@@ -353,36 +372,43 @@ def generate_tier_assignment_matrix(
         base_model_dir = find_calsim_model_root()
     except FileNotFoundError as e:
         print(e)
-        return pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame()
 
     hist_data_dir = os.path.join(base_model_dir, "Scenarios", "CDEC_Historical_Monthly_Storage")
-    output_dir = os.path.join(
-        base_model_dir, "Scenarios", "Performance_Metrics", "Tiered_Outcome_Measures", "Reservoir_Storage"
+    tiers_output_dir = os.path.join(
+        base_model_dir, "Scenarios", "Performance_Metrics", "Tiered_Outcome_Measures", "Reservoir_Storage", "Tiers"
     )
-    os.makedirs(output_dir, exist_ok=True)
-
+    metrics_output_dir = os.path.join(
+        base_model_dir, "Scenarios", "Performance_Metrics", "Metrics", "Reservoir_Storage"
+    )
+    os.makedirs(tiers_output_dir, exist_ok=True)
     if not pd.api.types.is_datetime64_any_dtype(df.index):
         df.index = pd.date_range(start=start_date, periods=len(df), freq="MS")
     df["DATE"] = df.index
 
     tier_matrix = pd.DataFrame()
+    prob_matrix = pd.DataFrame()
 
     for _, row in cdec_df.iterrows():
-        var, file = row["CalSim_Variable"], row["filename"]
+        var = row["CalSim_Variable"]
+        file = row["filename"]
         label = f"{var}_Storage"
 
-        print(f"\n Processing reservoir: {row['ReservoirName']}")
-        print(f"  ↳ CalSim variable: {var}")
-        print(f"  ↳ Historical file: {file}")
+        if verbose:
+            print(f"\n Processing reservoir: {row['ReservoirName']}")
+            print(f"  ↳ CalSim variable: {var}")
+            print(f"  ↳ Historical file: {file}")
 
         try:
             hist_path = os.path.join(hist_data_dir, file)
             hist_df = load_historical_storage_csv(hist_path)
-            thresholds = extract_historical_thresholds(hist_df, percentiles, month)
-            print(f"  ↳ Historical thresholds: {thresholds.to_dict()}")
+            thresholds = extract_historical_thresholds(hist_df, percentiles)
+            if verbose:
+                print(f"  ↳ Historical thresholds: {thresholds.to_dict()}")
 
             var_df = extract_variable_by_scenario(df, var)
-            print(f"  ↳ Matched CalSim columns: {var_df.columns.tolist()}")
+            if verbose:
+                print(f"  ↳ Matched CalSim columns: {var_df.columns.tolist()}")
 
             if var_df.empty:
                 print(f" No CalSim data found for variable {var}")
@@ -392,10 +418,10 @@ def generate_tier_assignment_matrix(
 
             for _, r in tier_df.iterrows():
                 sid = r["Scenario"]
-                tier_matrix.loc[sid, f"{label}_TopProb"] = r["TopProb"]
-                tier_matrix.loc[sid, f"{label}_MidProb"] = r["MidProb"]
-                tier_matrix.loc[sid, f"{label}_LowProb"] = r["LowProb"]
-                tier_matrix.loc[sid, f"{label}_BotProb"] = r["BotProb"]
+                prob_matrix.loc[sid, f"{label}_TopProb"] = r["TopProb"]
+                prob_matrix.loc[sid, f"{label}_MidProb"] = r["MidProb"]
+                prob_matrix.loc[sid, f"{label}_LowProb"] = r["LowProb"]
+                prob_matrix.loc[sid, f"{label}_BotProb"] = r["BotProb"]
                 tier_matrix.loc[sid, f"{label}_Tier"] = r["StorageTier"]
 
         except Exception as e:
@@ -403,10 +429,32 @@ def generate_tier_assignment_matrix(
             continue
 
     tier_matrix.index.name = "Scenario"
-    output_path = os.path.join(output_dir, "tier_assignment_output.csv")
-    tier_matrix.to_csv(output_path)
-    print(f"\n Tier assignment CSV saved to:\n{output_path}")
-    return tier_matrix
+    prob_matrix.index.name = "Scenario"
+
+    if verbose:
+        print("tier_matrix:")
+        print(tier_matrix.head(2))
+        print("prob_matrix:")
+        print(prob_matrix.head(2))
+
+    # check if output directory exists
+    if not os.path.exists(tiers_output_dir):
+        print("Warning: directory " + tiers_output_dir + " does not exist and will be created")
+        os.makedirs(tiers_output_dir)
+
+    if not os.path.exists(metrics_output_dir):
+        print("Warning: directory " + metrics_output_dir + " does not exist and will be created")
+        os.makedirs(metrics_output_dir)
+
+    tiers_output_path = os.path.join(tiers_output_dir, "tier_assignment.csv")
+    metrics_output_path = os.path.join(metrics_output_dir, "level_probabilities.csv")
+    tier_matrix.to_csv(tiers_output_path)
+    print(f"\n Tier assignment CSV saved to:\n{tiers_output_path}")
+    if saveprobs:
+        prob_matrix.to_csv(metrics_output_path)
+        print(f"\n Level probabilities CSV saved to:\n{metrics_output_path}")
+
+    return tier_matrix, prob_matrix
 
 
 """ Groundwater """

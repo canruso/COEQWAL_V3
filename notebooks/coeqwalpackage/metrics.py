@@ -880,3 +880,277 @@ def compute_cv_df(df: pd.DataFrame) -> pd.DataFrame:
              sort_index(axis = 0))
 
     return cv_df
+
+
+""" STORAGE METRICS FUNCTIONS """
+
+
+def compute_percent_of_capacity(
+    storage_df,
+    capacity_df,
+    var_level=1,
+    type_level=5
+):
+    """
+    Compute storage as percent of capacity by matching (base variable, scenario) pairs.
+
+    Parameters
+    ----------
+    storage_df : pd.DataFrame
+        DataFrame with MultiIndex columns containing storage values.
+    capacity_df : pd.DataFrame
+        DataFrame with MultiIndex columns containing capacity values.
+    var_level : int, default 1
+        Column level containing variable+scenario name (e.g., S_FOLSM_s0001).
+    type_level : int, default 5
+        Column level to set to 'PERCENT'.
+
+    Returns
+    -------
+    pd.DataFrame
+        Storage as percentage of capacity.
+    """
+    import re
+
+    if not isinstance(storage_df.columns, pd.MultiIndex):
+        raise TypeError("storage_df must have MultiIndex columns")
+    if not isinstance(capacity_df.columns, pd.MultiIndex):
+        raise TypeError("capacity_df must have MultiIndex columns")
+
+    lvl = storage_df.columns._get_level_number(var_level)
+
+    def split_var_and_scen(s):
+        s = str(s)
+        base, scen = s.rsplit("_s", 1)
+        return base, f"s{scen}"
+
+    def build_lookup(df):
+        lookup = {}
+        for col in df.columns:
+            base, scen = split_var_and_scen(col[lvl])
+            lookup[(base, scen)] = col
+        return lookup
+
+    sto_lookup = build_lookup(storage_df)
+    cap_lookup = build_lookup(capacity_df)
+
+    common_keys = sto_lookup.keys() & cap_lookup.keys()
+    if not common_keys:
+        raise ValueError("No matching (variable, scenario) pairs found.")
+
+    sto_cols = []
+    cap_cols = []
+
+    for key in sorted(common_keys):
+        sto_cols.append(sto_lookup[key])
+        cap_cols.append(cap_lookup[key])
+
+    sto = storage_df.loc[:, sto_cols]
+    cap = capacity_df.loc[:, cap_cols]
+
+    # Force identical column labels for arithmetic
+    cap.columns = sto.columns
+
+    pct_df = sto.divide(cap).multiply(100)
+
+    # Set type level to PERCENT
+    def set_column_level_to_value(df, level, value):
+        df = df.copy()
+        lvl_num = df.columns._get_level_number(level)
+        new_tuples = [
+            tuple(value if i == lvl_num else v for i, v in enumerate(col))
+            for col in df.columns
+        ]
+        df.columns = pd.MultiIndex.from_tuples(new_tuples, names=df.columns.names)
+        return df
+
+    pct_df = set_column_level_to_value(pct_df, level=type_level, value="PERCENT")
+
+    return pct_df
+
+
+def compute_annual_means_list(
+    df,
+    vars,
+    units="TAF",
+    months=None,
+):
+    """
+    Compute annual means for a list of variables.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with MultiIndex columns.
+    vars : list of str
+        Variable name prefixes to compute means for.
+    units : str, default "TAF"
+        Unit filter for variables.
+    months : list of int, optional
+        Months to include (1-12). If None, all months.
+
+    Returns
+    -------
+    pd.DataFrame
+        Annual means with WaterYear as index.
+    """
+    annual_means = []
+
+    for var in vars:
+        subset_df = create_subset_unit(df, var, units)
+        subset_df = add_water_year_column(subset_df)
+
+        if months is not None:
+            subset_df = subset_df[subset_df.index.month.isin(months)]
+
+        ann_mean = subset_df.groupby("WaterYear").mean()
+        annual_means.append(ann_mean)
+
+    result = pd.concat(annual_means, axis=1)
+    return result
+
+
+def compute_cv_scenario_variable(df, var_level="B"):
+    """
+    Compute coefficient of variation for each scenario-variable pair.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with MultiIndex columns.
+    var_level : str, default "B"
+        Column level name containing variable names.
+
+    Returns
+    -------
+    pd.DataFrame
+        CV values with scenarios as rows and variables as columns.
+    """
+    import re
+
+    def split_var_scenario(col_name):
+        m = re.match(r"(.*)_s(\d+)$", col_name)
+        if not m:
+            return col_name, None
+        return m.group(1), f"s{m.group(2)}"
+
+    records = []
+
+    for col in df.columns:
+        var_scen_name = col[df.columns.names.index(var_level)]
+        base_var, scenario = split_var_scenario(var_scen_name)
+
+        if scenario is None:
+            continue
+
+        series = df[col].dropna()
+        mean = series.mean()
+        std = series.std()
+
+        if mean == 0 or series.empty:
+            cv = float("nan")
+        else:
+            cv = std / mean
+
+        records.append({
+            "Scenario": scenario,
+            "Variable": base_var,
+            "CV": cv
+        })
+
+    cv_df = (
+        pd.DataFrame(records)
+        .pivot(index="Scenario", columns="Variable", values="CV")
+        .sort_index()
+    )
+
+    return cv_df
+
+
+def freq_and_prob_storage_ge_flood(
+    storage_df: pd.DataFrame,
+    flood_df: pd.DataFrame,
+    var_level="B",
+):
+    """
+    Compute frequency and probability that storage >= flood pool level.
+
+    Parameters
+    ----------
+    storage_df : pd.DataFrame
+        DataFrame with MultiIndex columns containing storage values.
+    flood_df : pd.DataFrame
+        DataFrame with MultiIndex columns containing flood pool levels.
+    var_level : str, default "B"
+        Column level containing variable names.
+
+    Returns
+    -------
+    tuple of pd.DataFrame
+        (frequency_df, probability_df) with scenarios as rows and variables as columns.
+    """
+    import re
+
+    if not isinstance(storage_df.columns, pd.MultiIndex):
+        raise TypeError("storage_df must have MultiIndex columns")
+    if not isinstance(flood_df.columns, pd.MultiIndex):
+        raise TypeError("flood_df must have MultiIndex columns")
+
+    lvl = storage_df.columns._get_level_number(var_level)
+    n_records = storage_df.shape[0]
+
+    def split_base_and_scen(s):
+        m = re.match(r"(.*)_s(\d+)$", str(s))
+        if m is None:
+            return None, None
+        return m.group(1), f"s{m.group(2)}"
+
+    def build_lookup(df):
+        lookup = {}
+        for col in df.columns:
+            base, scen = split_base_and_scen(col[lvl])
+            if base is not None:
+                lookup[(base, scen)] = col
+        return lookup
+
+    sto_lookup = build_lookup(storage_df)
+    flo_lookup = build_lookup(flood_df)
+
+    common_keys = sto_lookup.keys() & flo_lookup.keys()
+    if not common_keys:
+        raise ValueError("No matching (variable, scenario) pairs found.")
+
+    records = []
+
+    for base, scen in sorted(common_keys):
+        sto_col = sto_lookup[(base, scen)]
+        flo_col = flo_lookup[(base, scen)]
+
+        mask = storage_df[sto_col] >= flood_df[flo_col]
+
+        freq = int(mask.sum())
+        prob = freq / n_records
+        records.append({
+            "scenario": scen,
+            "variable": base,
+            "frequency": freq,
+            "probability": prob,
+        })
+
+    freq_df = (
+        pd.DataFrame(records)
+        .pivot(index="scenario", columns="variable", values="frequency")
+        .sort_index()
+        .sort_index(axis=1)
+    )
+
+    prob_df = (
+        pd.DataFrame(records)
+        .pivot(index="scenario", columns="variable", values="probability")
+        .sort_index()
+        .sort_index(axis=1)
+    )
+
+    freq_df = freq_df.astype("Int64")
+
+    return freq_df, prob_df

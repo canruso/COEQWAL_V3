@@ -680,6 +680,249 @@ def cols_present(df, wanted: list[str], warn: bool = True) -> list[str]:
     return present
 
 
+def find_repo_root(marker_dirs=("CalSim3_Model_Runs", "coeqwal")) -> Path:
+    """
+    Walk upward from the script (or notebook CWD) until we find a directory
+    that contains the expected project folders (e.g., 'CalSim3_Model_Runs' and 'coeqwal').
+
+    Parameters
+    ----------
+    marker_dirs : tuple of str
+        Directory names that must exist in the repo root.
+
+    Returns
+    -------
+    Path
+        Path to the repository root.
+
+    Raises
+    ------
+    FileNotFoundError
+        If repo root cannot be located.
+    """
+    # 1) Optional env override
+    env_root = os.environ.get("DSP_REPO_ROOT")
+    if env_root:
+        root = Path(env_root).expanduser().resolve()
+        if all((root / m).exists() for m in marker_dirs):
+            return root
+
+    # 2) Start from script dir if available; else notebook working dir
+    try:
+        start = Path(__file__).resolve().parent
+    except NameError:
+        start = Path.cwd().resolve()
+
+    # 3) Walk up until markers are found
+    for parent in [start] + list(start.parents):
+        if all((parent / m).exists() for m in marker_dirs):
+            return parent
+
+    raise FileNotFoundError(
+        "Could not locate repo root containing: "
+        + ", ".join(marker_dirs)
+        + ". Set DSP_REPO_ROOT env var or run from inside the repo."
+    )
+
+
+def get_relative_folder(full_folder_path, known_tail):
+    """
+    Convert absolute path to relative path based on known tail.
+
+    Parameters
+    ----------
+    full_folder_path : str
+        Full absolute path.
+    known_tail : str
+        Known suffix of the path structure.
+
+    Returns
+    -------
+    str
+        Relative path starting with '../..'.
+    """
+    full_folder_path = os.path.normpath(full_folder_path)
+    known_tail = os.path.normpath(known_tail)
+
+    # Find where the known folder structure starts
+    idx = full_folder_path.lower().find(known_tail.lower())
+
+    if idx == -1:
+        raise ValueError("Known tail not found in full path.")
+
+    relative_suffix = full_folder_path[idx:]
+
+    return os.path.join("..", "..", relative_suffix)
+
+
+def set_column_level_to_value(df, level, value):
+    """
+    Set all entries in a specified MultiIndex column level to a constant value.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with MultiIndex columns
+    level : int or str
+        Column level index (e.g., 5) or level name
+    value : str
+        Value to assign to the entire level
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of df with updated column level
+    """
+    df = df.copy()
+
+    if not isinstance(df.columns, pd.MultiIndex):
+        raise TypeError("DataFrame columns must be a MultiIndex")
+
+    lvl = df.columns._get_level_number(level)
+
+    # Replace values at the selected level
+    new_tuples = [
+        tuple(value if i == lvl else v for i, v in enumerate(col))
+        for col in df.columns
+    ]
+
+    df.columns = pd.MultiIndex.from_tuples(
+        new_tuples, names=df.columns.names
+    )
+
+    return df
+
+
+def strip_leveldv_from_columns(df, level_name="B"):
+    """
+    Remove 'LEVEL<digits>DV' from a specified MultiIndex column level.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with MultiIndex columns
+    level_name : str or int, default "B"
+        Column level name or index containing variable names
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with cleaned column names
+    """
+    if not isinstance(df.columns, pd.MultiIndex):
+        raise ValueError("DataFrame columns must be a MultiIndex")
+
+    # Resolve level index
+    if isinstance(level_name, str):
+        if level_name not in df.columns.names:
+            raise ValueError(f"Level '{level_name}' not found in columns")
+        lvl = df.columns.names.index(level_name)
+    else:
+        lvl = level_name
+
+    # Rebuild columns safely
+    new_cols = []
+    for col in df.columns:
+        col = list(col)
+        col[lvl] = re.sub(r"\s*LEVEL\d+DV", "", col[lvl])
+        col[lvl] = re.sub(r"\s+", "", col[lvl])
+        new_cols.append(tuple(col))
+
+    df = df.copy()
+    df.columns = pd.MultiIndex.from_tuples(
+        new_cols, names=df.columns.names
+    )
+
+    return df
+
+
+def strip_level_from_columns(df, level_name="B"):
+    """
+    Remove 'LEVEL<digits>' from a specified MultiIndex column level.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with MultiIndex columns
+    level_name : str or int, default "B"
+        Column level name or index containing variable names
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with cleaned column names
+    """
+    if not isinstance(df.columns, pd.MultiIndex):
+        raise ValueError("DataFrame columns must be a MultiIndex")
+
+    # Resolve level index
+    if isinstance(level_name, str):
+        if level_name not in df.columns.names:
+            raise ValueError(f"Level '{level_name}' not found in columns")
+        lvl = df.columns.names.index(level_name)
+    else:
+        lvl = level_name
+
+    # Rebuild columns safely
+    new_cols = []
+    for col in df.columns:
+        col = list(col)
+        col[lvl] = re.sub(r"\s*LEVEL\d", "", col[lvl])
+        col[lvl] = re.sub(r"\s+", "", col[lvl])
+        new_cols.append(tuple(col))
+
+    df = df.copy()
+    df.columns = pd.MultiIndex.from_tuples(
+        new_cols, names=df.columns.names
+    )
+
+    return df
+
+
+def split_var_scenario(col_name):
+    """
+    Split a column name into variable and scenario parts.
+
+    Parameters
+    ----------
+    col_name : str
+        Column name like 'S_FOLSM_s0001'
+
+    Returns
+    -------
+    tuple
+        (base_var, scenario) e.g. ('S_FOLSM', 's0001')
+        Returns (col_name, None) if pattern not found.
+    """
+    m = re.match(r"(.*)_s(\d+)$", col_name)
+    if not m:
+        return col_name, None
+    return m.group(1), f"s{m.group(2)}"
+
+
+def pad_index(idx):
+    """
+    Pad a numeric index with leading zeros for consistent sorting.
+
+    Parameters
+    ----------
+    idx : str or any
+        Index value, expected format like '1A', '2', '10B'
+
+    Returns
+    -------
+    str or original type
+        Padded index like '01A', '02', '10B', or original if not matching pattern.
+    """
+    if isinstance(idx, str):
+        m = re.match(r'^(\d{1,2})([A-Z]*)$', idx)
+        if m:
+            num = int(m.group(1))
+            suffix = m.group(2)
+            return f"{num:02d}{suffix}"
+    return idx
+
+
 
 
 

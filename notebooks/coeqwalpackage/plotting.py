@@ -1570,3 +1570,96 @@ def custom_parallel_coordinates_highlight_iqr(objs, columns_axes=None, axis_labe
         plt.savefig(save_fig_filename, bbox_inches='tight', transparent=True, dpi=dpi)
 
     return fig, ax
+
+
+def plot_trendline_comparison_from_matrix(
+    trend_matrix,
+    scenario_code,
+    baseline_code,
+    time_index,
+    t_months,
+    save_dir=None
+):
+    """
+    Plot trendline comparison between a scenario and baseline.
+
+    Parameters
+    ----------
+    trend_matrix : pd.DataFrame
+        DataFrame with scenarios as index, WBAs as columns, slopes as values.
+    scenario_code : str
+        Scenario code to compare (e.g., 's0001').
+    baseline_code : str
+        Baseline scenario code (e.g., 's0002').
+    time_index : pd.DatetimeIndex
+        Time index for x-axis.
+    t_months : np.ndarray
+        Array of month indices (0, 1, 2, ...).
+    save_dir : str, optional
+        Directory to save the plot. If None, just displays.
+
+    Returns
+    -------
+    None
+    """
+    import math
+    import os
+
+    if scenario_code not in trend_matrix.index or baseline_code not in trend_matrix.index:
+        print(f"Scenario {scenario_code} or baseline {baseline_code} not in trend_matrix")
+        return
+
+    scenario_slopes = trend_matrix.loc[scenario_code]
+    baseline_slopes = trend_matrix.loc[baseline_code]
+
+    shared_wbas = sorted(set(scenario_slopes.dropna().index) & set(baseline_slopes.dropna().index))
+    if not shared_wbas:
+        print(f"No shared WBAs for {scenario_code} and {baseline_code}")
+        return
+
+    ncols = 3
+    nrows = math.ceil(len(shared_wbas) / ncols)
+    fig, axes = plt.subplots(nrows=nrows, ncols=ncols, figsize=(5 * ncols, 3 * nrows))
+    axes = axes.flatten()
+
+    for i, wba in enumerate(shared_wbas):
+        slope = scenario_slopes[wba]
+        slope_base = baseline_slopes[wba]
+
+        # Build linear trends: start at 0, slope in ft/month
+        trend = slope * t_months
+        trend_base = slope_base * t_months
+
+        ax = axes[i]
+        ax.plot(time_index, trend, color="red", linestyle="--", label=f"{scenario_code} trend")
+        ax.plot(time_index, trend_base, color="black", linestyle="--", label=f"{baseline_code} trend")
+
+        ax.set_title(wba)
+        ax.set_xlim(time_index[0], time_index[-1])
+        ax.set_ylabel("FT (relative)")
+        ax.grid(True)
+
+        # Annotate slope values
+        ax.text(0.01, 0.95, f"{scenario_code} slope: {slope:.6f}", transform=ax.transAxes,
+                fontsize=8, color="red", verticalalignment='top')
+        ax.text(0.01, 0.85, f"{baseline_code} slope: {slope_base:.6f}", transform=ax.transAxes,
+                fontsize=8, color="black", verticalalignment='top')
+
+        ax.legend(loc="lower right", fontsize=7, frameon=True)
+
+    # Hide unused subplots
+    for j in range(i + 1, len(axes)):
+        axes[j].axis("off")
+
+    fig.suptitle(f"Trendline Comparison (ft/month): {scenario_code} vs {baseline_code}", fontsize=15)
+    fig.tight_layout(rect=[0, 0.04, 1, 0.96])
+
+    if save_dir:
+        os.makedirs(save_dir, exist_ok=True)
+        save_path = os.path.join(save_dir, f"{scenario_code}_vs_{baseline_code}_trendlines.png")
+        plt.savefig(save_path, dpi=300)
+        print(f"✓ Saved: {save_path}")
+        plt.show()
+        plt.close()
+    else:
+        plt.show()
