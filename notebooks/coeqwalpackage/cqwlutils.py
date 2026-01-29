@@ -275,7 +275,8 @@ def read_init_file(CtrlFile, CtrlTab):
     DataOutPath = os.path.join(GroupDataDirPath, DataOut)  # file name for multi-study output CSV path
     ConvertDataOut = 'ConvertDataFrom_' + VarListFileCsv  # file name for multi-study output CSV
     ConvertDataOutPath = os.path.join(GroupDataDirPath, ConvertDataOut)  # file name for multi-study output CSV path
-    ExtractionSubDir = 'Variables_From_' + VarListName + '_' + VarListTab
+    # ExtractionSubDir = 'Variables_From_' + VarListName + '_' + VarListTab
+    ExtractionSubDir = 'Variables_From_' + VarListName
     ExtractionSubPath = os.path.join(ExtractionDir, ExtractionSubDir)
     DemandDeliverySubPath = os.path.join(ExtractionDir, DemandDeliveryDir)
     ModelSubPath = os.path.join('Model_Files', 'DSS', 'output')
@@ -922,6 +923,51 @@ def pad_index(idx):
             return f"{num:02d}{suffix}"
     return idx
 
+def convert_all_cfs_to_taf(df):
+    """
+    Convert all columns with units 'CFS' to 'TAF'
+    Conversion: 1 CFS-month = 0.001984 * (days_in_month) TAF
+
+    Parameters:
+        df (pd.DataFrame): Main data DataFrame with MultiIndex columns.
+
+    Returns:
+        pd.DataFrame: DataFrame with converted columns (new columns labeled as 'TAF').
+    """
+
+    # drop duplicate columns
+    df = df.loc[:, ~df.columns.duplicated()]
+    
+    # Precompute days in each month
+    days_in_month = df.index.days_in_month.to_numpy()
+
+    columns_to_convert = []
+
+    for col in df.columns:
+        part_a, part_b, *_, data_unit = col
+
+        if data_unit != "CFS":
+            continue
+
+        columns_to_convert.append(col)
+
+    #print(f"\nConverting {len(columns_to_convert)} columns from CFS to TAF...")
+
+    # Perform conversion
+    for col in columns_to_convert:
+        new_col = list(col)
+        new_col[-1] = "TAF"
+        new_col = tuple(new_col)
+        # Force both to be 1D column vectors of equal length
+        values = df[col].to_numpy().reshape(-1)
+        if values.shape[0] != len(days_in_month):
+            raise ValueError(f"Length mismatch: {values.shape[0]} vs {len(days_in_month)} for column {col}")
+        
+        converted = values * 0.001984 * days_in_month
+        df[new_col] = converted        
+        print(f"  ✓ {col} → {new_col}")
+
+    return df
 
 
 
