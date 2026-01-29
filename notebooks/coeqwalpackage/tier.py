@@ -736,6 +736,176 @@ def build_combined_storage_timeseries(
     return combined_monthly, combined_annual
 
 
+def build_gw_timeseries(
+    gw_csv_path: Path,
+    wba_csv_path: Path,
+    wba_storage_csv_path: Path,
+    mapping_df: pd.DataFrame,
+    window_start: str,
+    window_end: str,
+    start_year: int,
+    detaw_area_acres: Optional[float] = None,
+    use_total_wba_acres_for_detaw: bool = True,
+) -> tuple:
+    """
+    Build FT and AF timeseries from GW data.
+
+    Returns
+    -------
+    tuple of (ft_monthly, ft_annual, af_monthly, af_annual)
+    """
+    gw1_df = load_gw1_df(gw_csv_path)
+    wba_df = pd.read_csv(wba_csv_path)
+
+    required_cols = {"fid", "GIS_Acres", "WBA_ID"}
+    missing = required_cols - set(wba_df.columns)
+    if missing:
+        raise ValueError(f"WBA CSV missing columns: {missing}")
+
+    # Handle mapping_df column names
+    if {"SR_number", "WBA_name"}.issubset(mapping_df.columns):
+        mapping_df = mapping_df.rename(columns={"SR_number": "Subregion_ID", "WBA_name": "WBA_ID"})
+
+    # Build lookup dictionaries
+    sr_to_fid = {f"SR{int(fid):02d}": fid for fid in wba_df["fid"]}
+    fid_to_acres = dict(zip(wba_df["fid"], wba_df["GIS_Acres"]))
+    sr_to_wba = dict(zip(mapping_df["Subregion_ID"], mapping_df["WBA_ID"]))
+
+    # Compute DETAW area
+    if detaw_area_acres is not None:
+        detaw_area = float(detaw_area_acres)
+    elif use_total_wba_acres_for_detaw:
+        detaw_area = float(pd.to_numeric(wba_df["GIS_Acres"], errors="coerce").sum())
+    else:
+        raise ValueError("DETAW area unknown")
+
+    ft_map = {}
+    af_map = {}
+
+    # Process scenario data from gw1_df
+    for col in gw1_df.columns:
+        if not isinstance(col, tuple) or len(col) < 5:
+            continue
+        model, var_tag, var_type, timestep, unit = col[:5]
+
+        # WBA series (TAF -> FT and AF)
+        if isinstance(var_tag, str) and re.match(r"^SR\d+:TOT_s\d{4}$", var_tag):
+            sr, rest = var_tag.split(":")
+            scen_raw = rest.split("_s")[-1]
+            scenario = f"s{int(scen_raw):04d}"
+
+            if sr not in sr_to_wba:
+                continue
+            wba_name = sr_to_wba[sr]
+            fid = sr_to_fid.get(sr)
+            area_acres = fid_to_acres.get(fid)
+            if area_acres is None or float(area_acres) == 0.0:
+                continue
+
+            series = pd.to_numeric(gw1_df[col], errors="coerce")
+            series = series[series.index >= pd.Timestamp(f"{start_year}-01-01")]
+
+            # Truncate at first negative value
+            neg_idx = np.where(series < 0)[0]
+            if len(neg_idx) > 0:
+                series = series.iloc[:neg_idx[0]]
+
+            col_name = f"{wba_name}_{scenario}"
+            af_map[col_name] = series * 1000.0  # TAF -> AF
+            ft_map[col_name] = (series / float(area_acres)) * 1000.0  # TAF -> FT
+
+        # DETAW series
+        elif isinstance(var_tag, str) and re.match(r"^DETAW:TOT_s\d{4}$", var_tag):
+            scen_raw = var_tag.split("_s")[-1]
+            scenario = f"s{int(scen_raw):04d}"
+
+            series_af = pd.to_numeric(gw1_df[col], errors="coerce")
+            series_af = series_af[series_af.index >= pd.Timestamp(f"{start_year}-01-01")]
+
+            col_name = f"DETAW_{scenario}"
+            af_map[col_name] = series_af
+            ft_map[col_name] = series_af / detaw_area
+
+    # Add s0000 baseline from storage file
+    storage_df = pd.read_csv(wba_storage_csv_path, index_col=0, parse_dates=True)
+    wba_df["WBA_ID_norm"] = wba_df["WBA_ID"].apply(normalize_id)
+    acres_map = (
+        wba_df[["WBA_ID_norm", "GIS_Acres"]]
+        .dropna()
+        .drop_duplicates(subset=["WBA_ID_norm"])
+        .set_index("WBA_ID_norm")["GIS_Acres"]
+        .astype("float64")
+        .to_dict()
+    )
+
+    for raw_col in storage_df.columns:
+        norm = normalize_storage_col(raw_col)
+        if norm is None:
+            continue
+
+        af_series = pd.to_numeric(storage_df[raw_col], errors="coerce")
+
+        if norm == "DETAW":
+            ft_map["DETAW_s0000"] = af_series / detaw_area
+            af_map["DETAW_s0000"] = af_series
+        else:
+            if norm not in acres_map:
+                continue
+            acres = float(acres_map[norm])
+            if acres <= 0.0:
+                continue
+            ft_map[f"WBA{norm}_s0000"] = af_series / acres
+            af_map[f"WBA{norm}_s0000"] = af_series
+
+    # Combine into DataFrames
+    ft_monthly = pd.concat(ft_map, axis=1).loc[window_start:window_end].sort_index(axis=1)
+    af_monthly = pd.concat(af_map, axis=1).loc[window_start:window_end].sort_index(axis=1)
+
+    ft_annual = ft_monthly.resample("YE").mean()
+    ft_annual.index = ft_annual.index.year
+    af_annual = af_monthly.resample("YE").mean()
+    af_annual.index = af_annual.index.year
+
+    return ft_monthly, ft_annual, af_monthly, af_annual
+
+
+def compute_baseline_percent(df: pd.DataFrame, baseline_scenario: str = "s0000") -> pd.DataFrame:
+    """
+    Compute values as percentage of baseline scenario.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame with columns like WBA2_s0001, WBA2_s0002, etc.
+    baseline_scenario : str
+        Scenario ID to use as baseline (default "s0000").
+
+    Returns
+    -------
+    pd.DataFrame
+        Percentage values (value / baseline * 100).
+    """
+    pct_map = {}
+
+    for col in df.columns:
+        if "_s" not in col:
+            continue
+        wba_part = col.rsplit("_s", 1)[0]
+        baseline_col = f"{wba_part}_{baseline_scenario}"
+
+        if baseline_col not in df.columns:
+            continue
+
+        baseline_series = df[baseline_col]
+        pct_series = (df[col] / baseline_series) * 100
+        pct_map[col] = pct_series
+
+    if not pct_map:
+        return pd.DataFrame()
+
+    return pd.concat(pct_map, axis=1)
+
+
 # Normalize WBA names for labeling consistency
 def normalize_wba_name(wba: str) -> str:
     """
@@ -775,49 +945,93 @@ def normalize_wba_name(wba: str) -> str:
 def compute_wba_trends(
         combined_monthly: pd.DataFrame,
         trends_output_dir: str,
-        trend_filename: str = "wba_trends.csv"
-) -> pd.DataFrame:
+        trend_filename: str = "GroundWater_Trends_ft_per_month.csv",
+        diff_filename: str = "GroundWater_AvgEndStartDiff_ft.csv",
+        years_to_average: int = 10
+) -> tuple:
     """
-    Compute linear trends (ft/month) for each WBA_s#### timeseries in combined_monthly.
-    Saves and returns a pivoted trend matrix (scenarios × WBAs).
+    Compute linear trends (ft/month) and end-start diffs for each WBA_s#### timeseries.
+    Saves and returns pivoted matrices (scenarios × WBAs) for both trends and diffs.
+
+    Parameters
+    ----------
+    combined_monthly : pd.DataFrame
+        Monthly FT timeseries with columns like WBA2_s0001, DETAW_s0002, etc.
+    trends_output_dir : str
+        Directory to save output CSVs.
+    trend_filename : str
+        Filename for trend matrix CSV.
+    diff_filename : str
+        Filename for diff matrix CSV.
+    years_to_average : int
+        Number of years to average at start and end for diff calculation.
+
+    Returns
+    -------
+    tuple of (trend_matrix, diff_matrix)
     """
     time_numeric = np.arange(len(combined_monthly)).reshape(-1, 1)
 
     records = []
-    # Iterate through all columns and fit linear trend per scenario–WBA pair
     for col in combined_monthly.columns:
         if "_s" not in col:
             continue
         wba_raw, scen_raw = col.split("_s", 1)
         scenario = f"s{scen_raw}"
+        wba_norm = normalize_wba_name(wba_raw)
 
+        ts = combined_monthly[col].dropna()
         y = combined_monthly[col].to_numpy(dtype=float)
         mask = ~np.isnan(y)
 
-        if mask.sum() > 1:  # Require at least two valid data points for regression
-            model = LinearRegression().fit(time_numeric[mask], y[mask])
-            slope = model.coef_[0]  # ft per month
-            wba_norm = normalize_wba_name(wba_raw)
-            records.append({
-                "scenario": scenario,
-                "WBA": wba_norm,
-                "slope_ft_per_month": slope
-            })
+        slope = np.nan
+        diff_ft = np.nan
 
-    trends_df = pd.DataFrame.from_records(records)
-    if trends_df.empty:
+        if mask.sum() > 1:
+            # Compute trend (slope)
+            model = LinearRegression().fit(time_numeric[mask], y[mask])
+            slope = model.coef_[0]
+
+            # Compute end-start diff
+            ts = ts.sort_index()
+            years = ts.index.year
+            first_years = ts[years <= years.min() + years_to_average - 1]
+            last_years = ts[years >= years.max() - years_to_average + 1]
+
+            if len(first_years) > 0 and len(last_years) > 0:
+                mean_start = first_years.mean()
+                mean_end = last_years.mean()
+                diff_ft = mean_end - mean_start
+
+        records.append({
+            "scenario": scenario,
+            "WBA": wba_norm,
+            "slope_ft_per_month": slope,
+            "diff_last_vs_first_ft": diff_ft
+        })
+
+    records_df = pd.DataFrame.from_records(records)
+    if records_df.empty:
         print(" No valid trend data found.")
-        return pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame()
+
+    # Aggregate duplicates
     trends_df = (
-        trends_df
+        records_df
         .groupby(["scenario", "WBA"], as_index=False)["slope_ft_per_month"]
         .mean()
     )
-
-    trend_matrix = trends_df.pivot(
-        index="scenario", columns="WBA", values="slope_ft_per_month"
+    diff_df = (
+        records_df
+        .groupby(["scenario", "WBA"], as_index=False)["diff_last_vs_first_ft"]
+        .mean()
     )
 
+    # Pivot to matrix form
+    trend_matrix = trends_df.pivot(index="scenario", columns="WBA", values="slope_ft_per_month")
+    diff_matrix = diff_df.pivot(index="scenario", columns="WBA", values="diff_last_vs_first_ft")
+
+    # Sort helper functions
     def scen_key(s):
         try:
             return int(str(s).lstrip("sS"))
@@ -833,18 +1047,23 @@ def compute_wba_trends(
                 return (int(m.group(1)), m.group(2) or "")
         return (10 ** 9, w)
 
+    # Sort matrices
     trend_matrix = trend_matrix.reindex(sorted(trend_matrix.index, key=scen_key))
     trend_matrix = trend_matrix.reindex(sorted(trend_matrix.columns, key=wba_key), axis=1)
+    diff_matrix = diff_matrix.reindex(sorted(diff_matrix.index, key=scen_key))
+    diff_matrix = diff_matrix.reindex(sorted(diff_matrix.columns, key=wba_key), axis=1)
 
+    # Save
     os.makedirs(trends_output_dir, exist_ok=True)
     trends_out_path = os.path.join(trends_output_dir, trend_filename)
+    diff_out_path = os.path.join(trends_output_dir, diff_filename)
     trend_matrix.to_csv(trends_out_path)
+    diff_matrix.to_csv(diff_out_path)
 
-    print(" Trends file written:", trends_out_path)
-    print("Shape:", trend_matrix.shape)
-    print(trend_matrix.head())
+    print(f"Trends saved: {trends_out_path}")
+    print(f"Diffs saved: {diff_out_path}")
 
-    return trend_matrix
+    return trend_matrix, diff_matrix
 
 
 # Assign groundwater storage tiers based on trends
