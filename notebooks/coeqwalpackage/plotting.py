@@ -38,7 +38,8 @@ def enable_headless_mode() -> None:
 
 
 def plot_ts(df, varname, units='TAF', pTitle='Time Series', xLab='Date', lTitle='Studies', fTitle='mon_tot', pSave=True,
-            fPath='fPath', study_list=None, start_date=None, end_date=None, scenario_styles=None, dpi=300):
+            fPath='fPath', study_list=None, start_date=None, end_date=None, scenario_styles=None, dpi=300,
+            legend_position='bottom'):
     df_plot = create_subset_unit(df, varname, units)
 
     if start_date is not None:
@@ -99,8 +100,12 @@ def plot_ts(df, varname, units='TAF', pTitle='Time Series', xLab='Date', lTitle=
     first_col_units = df_plot.columns[0][6]
     plt.ylabel(var + "\nUnits: " + str(first_col_units), fontsize=scaled_font_size * 1.5)
 
-    plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5, fontsize=scaled_font_size * 1.25,
-               bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0)
+    if legend_position == 'bottom':
+        plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5, fontsize=scaled_font_size * 1.25,
+                   loc='upper center', bbox_to_anchor=(0.5, -0.15), borderaxespad=0, ncol=3)
+    else:  # 'right' (default)
+        plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5, fontsize=scaled_font_size * 1.25,
+                   bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0)
     plt.xticks(rotation=45, fontsize=scaled_font_size)
     plt.yticks(fontsize=scaled_font_size)
     plt.tight_layout()
@@ -113,7 +118,7 @@ def plot_ts(df, varname, units='TAF', pTitle='Time Series', xLab='Date', lTitle=
 
 def plot_annual_totals(df, varname, units='TAF', xLab='Date', pTitle='Annual Totals', lTitle='Studies',
                        fTitle='ann_tot', pSave=True, fPath='fPath', study_list=None, start_date=None, end_date=None,
-                       scenario_styles=None, months=None, dpi=300):
+                       scenario_styles=None, months=None, dpi=300, legend_position='bottom'):
     df_plot = create_subset_unit(df, varname, units)
 
     if start_date is not None:
@@ -186,8 +191,12 @@ def plot_annual_totals(df, varname, units='TAF', xLab='Date', pTitle='Annual Tot
     first_col_units = df_plot.columns[0][6]
     plt.ylabel(var + "\nUnits: " + str(first_col_units), fontsize=scaled_font_size * 1.5)
 
-    plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5, fontsize=scaled_font_size * 1.25,
-               bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0)
+    if legend_position == 'bottom':
+        plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5, fontsize=scaled_font_size * 1.25,
+                   loc='upper center', bbox_to_anchor=(0.5, -0.15), borderaxespad=0, ncol=3)
+    else:  # 'right' (default)
+        plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5, fontsize=scaled_font_size * 1.25,
+                   bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0)
     plt.xticks(rotation=45, fontsize=scaled_font_size)
     plt.yticks(fontsize=scaled_font_size)
     plt.tight_layout()
@@ -201,7 +210,7 @@ def plot_annual_totals(df, varname, units='TAF', xLab='Date', pTitle='Annual Tot
 
 def plot_exceedance(df, varname, units='TAF', xLab='Probability', pTitle='Exceedance Probability', lTitle='Studies',
                     fTitle='exceed', pSave=True, fPath='fPath', study_list=None, scenario_styles=None, months=None,
-                    dpi=300):
+                    dpi=300, legend_position='bottom'):
     df_plot = create_subset_unit(df, varname, units)
 
     if months is not None:
@@ -262,8 +271,12 @@ def plot_exceedance(df, varname, units='TAF', xLab='Probability', pTitle='Exceed
     first_col_units = df_plot.columns[0][6]
     plt.ylabel(f"{var}\nUnits: {first_col_units}", fontsize=scaled_font_size * 1.5)
 
-    plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5, fontsize=scaled_font_size * 1.25,
-               bbox_to_anchor=(1.02, 1), loc='upper left')
+    if legend_position == 'bottom':
+        plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5, fontsize=scaled_font_size * 1.25,
+                   loc='upper center', bbox_to_anchor=(0.5, -0.15), borderaxespad=0, ncol=3)
+    else:  # 'right' (default)
+        plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5, fontsize=scaled_font_size * 1.25,
+                   bbox_to_anchor=(1.02, 1), loc='upper left')
     plt.xticks(rotation=45, fontsize=scaled_font_size)
     plt.yticks(fontsize=scaled_font_size)
     plt.tight_layout()
@@ -1047,7 +1060,7 @@ def plot_ts_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF", scenari
                   months: list[int] | None = None,
                   start_date: str | None = None, end_date: str | None = None, pTitle: str = "Monthly Time Series",
                   xLab: str = "Date", lTitle: str = "Scenarios", fTitle: str = "ts_multi", fPath: str = "fPath",
-                  pSave: bool = True, dpi: int = 300):
+                  pSave: bool = True, dpi: int = 300, legend_position: str = "bottom"):
 
     series_map = cu.per_scenario_series(df, varname=varname, units=units, scenarios=scenarios, use_tucp=False,
                                         use_wyt=False, months=months)
@@ -1072,7 +1085,10 @@ def plot_ts_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF", scenari
     plt.title(f"{varname} {pTitle}", fontsize=18)
     plt.xlabel(xLab, fontsize=14)
     plt.ylabel(f"{varname}\nUnits: {units}", fontsize=14)
-    plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper left", bbox_to_anchor=(1.02, 1))
+    if legend_position == "bottom":
+        plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=3)
+    else:  # 'right' (default)
+        plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper left", bbox_to_anchor=(1.02, 1))
     plt.xticks(rotation=45)
     plt.tight_layout()
 
@@ -1091,7 +1107,8 @@ def plot_exceedance_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF",
                           tucp_years: dict[int, list[int]] | None = None, use_wyt: bool = False,
                           wyt: list[int] | None = None, wyt_month: int | None = None, months: list[int] | None = None,
                           pTitle: str = "Exceedance Probability", xLab: str = "Probability", lTitle: str = "Scenarios",
-                          fTitle: str = "exceed_multi", fPath: str = "fPath", pSave: bool = True, dpi: int = 300):
+                          fTitle: str = "exceed_multi", fPath: str = "fPath", pSave: bool = True, dpi: int = 300,
+                          legend_position: str = "bottom"):
 
     series_map = cu.per_scenario_series(df, varname=varname, units=units, scenarios=scenarios, use_tucp=use_tucp,
                                         tucp_var_base=tucp_var_base, tucp_wy_month_count=tucp_wy_month_count,
@@ -1115,7 +1132,10 @@ def plot_exceedance_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF",
     plt.title(f"{varname} {pTitle}", fontsize=18)
     plt.xlabel(xLab, fontsize=14)
     plt.ylabel(f"{varname}\nUnits: {units}", fontsize=14)
-    plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper left", bbox_to_anchor=(1.02, 1))
+    if legend_position == "bottom":
+        plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=3)
+    else:  # 'right' (default)
+        plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper left", bbox_to_anchor=(1.02, 1))
     plt.xticks(rotation=45)
     plt.tight_layout()
 
@@ -1134,7 +1154,8 @@ def plot_moy_averages_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF
                             tucp_years: dict[int, list[int]] | None = None, use_wyt: bool = False,
                             wyt: list[int] | None = None, wyt_month: int | None = None,
                             pTitle: str = "MOY Averages", xLab: str = "Month", lTitle: str = "Scenarios",
-                            fTitle: str = "moy_multi", fPath: str = "fPath", pSave: bool = True, dpi: int = 300):
+                            fTitle: str = "moy_multi", fPath: str = "fPath", pSave: bool = True, dpi: int = 300,
+                            legend_position: str = "bottom"):
 
     series_map = cu.per_scenario_series(df, varname=varname, units=units, scenarios=scenarios, use_tucp=use_tucp,
                                         tucp_var_base=tucp_var_base, tucp_wy_month_count=tucp_wy_month_count,
@@ -1162,7 +1183,10 @@ def plot_moy_averages_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF
     plt.xlabel(xLab, fontsize=14)
     plt.xticks(month_numbers, [str(m) for m in month_numbers])
     plt.ylabel(f"{varname}\nUnits: {units}", fontsize=14)
-    plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper left", bbox_to_anchor=(1.02, 1))
+    if legend_position == "bottom":
+        plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=3)
+    else:  # 'right' (default)
+        plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper left", bbox_to_anchor=(1.02, 1))
     plt.tight_layout()
 
     if pSave:
@@ -1177,7 +1201,7 @@ def plot_annual_totals_ts_multi(df: pd.DataFrame, *, varname: str, units: str = 
                                 months: list[int] | None = None,
                                 freq: str = "YS-OCT", pTitle: str = "Annual Totals", xLab: str = "Water Year",
                                 lTitle: str = "Scenarios", fTitle: str = "ann_tot_ts_multi", fPath: str = "fPath",
-                                pSave: bool = True, dpi: int = 300):
+                                pSave: bool = True, dpi: int = 300, legend_position: str = "bottom"):
 
     series_map = cu.per_scenario_series(df, varname=varname, units=units, scenarios=scenarios, use_tucp=False,
                                         use_wyt=False, months=months)
@@ -1199,7 +1223,10 @@ def plot_annual_totals_ts_multi(df: pd.DataFrame, *, varname: str, units: str = 
     plt.title(f"{varname} {pTitle}", fontsize=18)
     plt.xlabel(xLab, fontsize=14)
     plt.ylabel(f"{varname}\nUnits: {units}", fontsize=14)
-    plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper left", bbox_to_anchor=(1.02, 1))
+    if legend_position == "bottom":
+        plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=3)
+    else:  # 'right' (default)
+        plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper left", bbox_to_anchor=(1.02, 1))
     plt.xticks(rotation=45)
     plt.tight_layout()
 
@@ -1220,7 +1247,7 @@ def annualize_exceedance_multi(df: pd.DataFrame, *, varname: str, units: str = "
                                months: list[int] | None = None, freq: str = "YS-OCT", pTitle: str = "Annual Exceedance",
                                xLab: str = "Exceedance Probability", lTitle: str = "Scenarios",
                                fTitle: str = "ann_exceed_multi", fPath: str = "fPath", pSave: bool = True,
-                               dpi: int = 300):
+                               dpi: int = 300, legend_position: str = "bottom"):
 
     series_map = cu.per_scenario_series(df, varname=varname, units=units, scenarios=scenarios, use_tucp=use_tucp,
                                         tucp_var_base=tucp_var_base, tucp_wy_month_count=tucp_wy_month_count,
@@ -1247,7 +1274,10 @@ def annualize_exceedance_multi(df: pd.DataFrame, *, varname: str, units: str = "
     plt.title(f"{varname} {pTitle}", fontsize=18)
     plt.xlabel(xLab, fontsize=14)
     plt.ylabel(f"{varname}\nUnits: {units}", fontsize=14)
-    plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper left", bbox_to_anchor=(1.02, 1))
+    if legend_position == "bottom":
+        plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=3)
+    else:  # 'right' (default)
+        plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper left", bbox_to_anchor=(1.02, 1))
     plt.xticks(rotation=45)
     plt.tight_layout()
 
