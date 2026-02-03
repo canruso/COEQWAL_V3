@@ -252,10 +252,12 @@ def generate_salinity_tier_assignment_matrix(df, station_list, thresholds, start
 
 
 # Builds a tier assignment matrix by comparing CalSim storage data against historical thresholds
-def generate_tier_assignment_matrix(
-    df, cdec_df, start_date="1921-10-01",
+def generate_storage_tier_assignment_matrix(
+    df, cdec_df, 
+    tiers_output_dir, metrics_output_dir, tiers_output_filename, probabilities_output_filename,
+    start_date="1921-10-01",
     percentiles=[0.25, 0.5, 0.9], tier_thresholds=(0.9, 0.5, 0.2),
-    saveprobs=False, verbose=False
+    saveprobs=False, verbose=False,
 ):
     """
     Generate tier assignment matrix for reservoir storage.
@@ -446,8 +448,8 @@ def generate_tier_assignment_matrix(
         print("Warning: directory " + metrics_output_dir + " does not exist and will be created")
         os.makedirs(metrics_output_dir)
 
-    tiers_output_path = os.path.join(tiers_output_dir, "tier_assignment.csv")
-    metrics_output_path = os.path.join(metrics_output_dir, "level_probabilities.csv")
+    tiers_output_path = os.path.join(tiers_output_dir, tiers_output_filename)
+    metrics_output_path = os.path.join(metrics_output_dir, probabilities_output_filename)
     tier_matrix.to_csv(tiers_output_path)
     print(f"\n Tier assignment CSV saved to:\n{tiers_output_path}")
     if saveprobs:
