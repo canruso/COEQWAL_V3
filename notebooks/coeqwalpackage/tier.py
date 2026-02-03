@@ -377,13 +377,6 @@ def generate_storage_tier_assignment_matrix(
         return pd.DataFrame(), pd.DataFrame()
 
     hist_data_dir = os.path.join(base_model_dir, "Scenarios", "CDEC_Historical_Monthly_Storage")
-    tiers_output_dir = os.path.join(
-        base_model_dir, "Scenarios", "Performance_Metrics", "Tiered_Outcome_Measures", "Reservoir_Storage", "Tiers"
-    )
-    metrics_output_dir = os.path.join(
-        base_model_dir, "Scenarios", "Performance_Metrics", "Metrics", "Reservoir_Storage"
-    )
-    os.makedirs(tiers_output_dir, exist_ok=True)
     if not pd.api.types.is_datetime64_any_dtype(df.index):
         df.index = pd.date_range(start=start_date, periods=len(df), freq="MS")
     df["DATE"] = df.index
