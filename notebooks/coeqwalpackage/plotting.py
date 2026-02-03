@@ -12,6 +12,7 @@ from matplotlib.patches import Rectangle
 from matplotlib.lines import Line2D
 from matplotlib.ticker import PercentFormatter
 import seaborn as sns
+from scipy import stats
 
 import os
 import numpy as np
@@ -1693,3 +1694,161 @@ def plot_trendline_comparison_from_matrix(
         plt.close()
     else:
         plt.show()
+
+
+def _draw_histogram_bars(ax, angle, inv_values, violin_width, bin_width, max_tier=4, alpha=0.3, color='gray', edgecolor='darkgray'):
+    """Draw histogram bars with proper binning for continuous data."""
+    bin_edges = np.arange(0.5, max_tier + 0.5 + bin_width, bin_width)
+    counts, edges = np.histogram(inv_values, bins=bin_edges)
+
+    if counts.sum() == 0:
+        return
+
+    max_count = counts.max()
+    max_width = violin_width
+
+    for i, count in enumerate(counts):
+        if count > 0:
+            bin_center = (edges[i] + edges[i+1]) / 2
+            bar_width = (count / max_count) * max_width
+            bar_height = bin_width * 0.9
+
+            ax.fill(
+                [angle - bar_width, angle + bar_width, angle + bar_width, angle - bar_width],
+                [bin_center - bar_height/2, bin_center - bar_height/2, bin_center + bar_height/2, bin_center + bar_height/2],
+                alpha=alpha, color=color, edgecolor=edgecolor, linewidth=0.5)
+
+
+def _draw_kde_violin(ax, angle, inv_values, violin_width, kde_bw, max_tier=4, alpha=0.3, color='gray', edgecolor='darkgray'):
+    """Draw unbounded KDE violin [0.5, max_tier+0.5]."""
+    try:
+        kde = stats.gaussian_kde(inv_values, bw_method=kde_bw)
+        y_range = np.linspace(0.5, max_tier + 0.5, 50)
+        density = kde(y_range)
+        density = density / density.max() * violin_width
+
+        left_angles = angle - density
+        right_angles = angle + density
+        verts_theta = np.concatenate([left_angles, right_angles[::-1]])
+        verts_r = np.concatenate([y_range, y_range[::-1]])
+
+        ax.fill(verts_theta, verts_r, alpha=alpha, color=color, edgecolor=edgecolor, linewidth=0.5)
+        return True
+    except:
+        return False
+
+
+def plot_tier_radar(df, cols, scenario_col, highlight_scenarios, highlight_colors, highlight_labels,
+                    title, std_df=None, max_tier=4, save_path=None, figsize=(12, 10),
+                    mode='kde', kde_bw=0.25, bin_width=0.1):
+    """
+    mode options:
+        - 'kde': KDE violin for all metrics (unbounded)
+        - 'histogram': Histogram bars for all metrics
+        - 'overlay': Both KDE and histogram overlaid
+    kde_bw: Bandwidth for KDE (default 0.25). Lower = tighter fit.
+    bin_width: Width of histogram bins (default 0.1). Smaller = finer resolution.
+    """
+    valid_scenarios = [s for s in highlight_scenarios if s in df[scenario_col].values]
+    if len(valid_scenarios) < 1 or len(cols) < 3:
+        print(f"Skip {title}: insufficient data")
+        return None, None
+
+    highlight_mask = df[scenario_col].isin(valid_scenarios)
+    highlight_data = df.loc[highlight_mask, cols]
+    highlight_ids = df.loc[highlight_mask, scenario_col].values
+
+    invert = lambda x: (max_tier + 1) - x
+    angles = np.linspace(0, 2*np.pi, len(cols), endpoint=False).tolist()
+    fig, ax = plt.subplots(figsize=figsize, subplot_kw=dict(polar=True))
+    violin_width = 0.20
+
+    for i, (col, angle) in enumerate(zip(cols, angles)):
+        all_values = df[col].dropna().values.astype(float)
+
+        if len(all_values) < 3:
+            continue
+
+        inv_values = invert(all_values)
+
+        if mode == 'histogram':
+            _draw_histogram_bars(ax, angle, inv_values, violin_width, bin_width, max_tier)
+
+        elif mode == 'overlay':
+            _draw_kde_violin(ax, angle, inv_values, violin_width, kde_bw, max_tier,
+                            alpha=0.2, color='steelblue', edgecolor='steelblue')
+            _draw_histogram_bars(ax, angle, inv_values, violin_width, bin_width, max_tier,
+                                alpha=0.4, color='gray', edgecolor='darkgray')
+
+        else:
+            if not _draw_kde_violin(ax, angle, inv_values, violin_width, kde_bw, max_tier):
+                _draw_histogram_bars(ax, angle, inv_values, violin_width, bin_width, max_tier)
+
+    use_std = std_df is not None
+    dot_size_map = {}
+
+    if use_std:
+        for col in cols:
+            std_col = col.replace('_Mean', '_Std')
+            if std_col not in std_df.columns:
+                continue
+            std_vals = std_df[std_col].dropna().values.astype(float)
+            if len(std_vals) < 3:
+                continue
+            max_val = (4 - 1) / 2
+            dot_size_map[col] = {
+                "low": max_val / 3,
+                "mid": 2 * max_val / 3}
+
+    for idx, sc_id in zip(highlight_data.index, highlight_ids):
+        if sc_id not in valid_scenarios:
+            continue
+        sc_idx = valid_scenarios.index(sc_id)
+        inv_vals = invert(highlight_data.loc[idx]).values.tolist()
+        angles_closed = angles + [angles[0]]
+        inv_vals_closed = inv_vals + [inv_vals[0]]
+
+        ax.plot(angles_closed, inv_vals_closed, '-', lw=2.5,
+                color=highlight_colors[sc_idx], label=highlight_labels[sc_idx], zorder=10)
+
+        for col, angle, r in zip(cols, angles, inv_vals):
+            std_col = col.replace('_Mean', '_Std')
+            std_val = std_df.loc[idx, std_col] if (use_std and std_col in std_df.columns) else None
+            thresholds = dot_size_map.get(col)
+            if not use_std or thresholds is None or pd.isna(std_val):
+                ms = 7
+            elif std_val <= thresholds["low"]:
+                ms = 5
+            elif std_val <= thresholds["mid"]:
+                ms = 10
+            else:
+                ms = 15
+            ax.plot(angle, r, marker='o', color=highlight_colors[sc_idx],
+                    markersize=ms, markeredgecolor='black', markeredgewidth=0.8, alpha=0.4, zorder=11)
+
+    # Configure axes
+    ax.set_xticks(angles)
+    axis_labels = [c.replace('_Mean', '').replace('_', ' ') for c in cols]
+    ax.set_xticklabels(axis_labels, fontsize=10)
+    ax.set_ylim(0, max_tier + 0.5)
+    ax.set_yticks([1, 2, 3, 4])
+    ax.set_yticklabels(['Tier 4', 'Tier 3', 'Tier 2', 'Tier 1'], fontsize=9)
+
+    scenario_legend = ax.legend(loc='upper right', bbox_to_anchor=(1.05, 1.05), fontsize=10)
+    ax.set_title(title, fontsize=14, pad=20, fontweight='bold')
+
+    size_legend_elements = [
+        Line2D([0], [0], marker='o', color='gray', label='Low variability', markersize=5, alpha=0.1, linestyle='None'),
+        Line2D([0], [0], marker='o', color='gray', label='Medium variability', markersize=10, alpha=0.1, linestyle='None'),
+        Line2D([0], [0], marker='o', color='gray', label='High variability', markersize=15, alpha=0.1, linestyle='None')]
+    size_legend = ax.legend(handles=size_legend_elements, title='Dot size (Std Dev)',
+                            loc='lower right', bbox_to_anchor=(1.05, 0.0), fontsize=9, title_fontsize=10)
+    ax.add_artist(size_legend)
+    ax.add_artist(scenario_legend)
+
+    if save_path:
+        fig.savefig(save_path, dpi=150, bbox_inches='tight')
+        print(f"Saved: {save_path}")
+
+    plt.show()
+    return fig, ax
