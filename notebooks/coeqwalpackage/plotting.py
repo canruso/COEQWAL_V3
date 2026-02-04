@@ -466,7 +466,7 @@ def custom_parallel_coordinates_highlight_scenarios(objs, columns_axes=None, axi
                                                     alpha_brush=0.05, lw_base=1.5, fontsize=14, figsize=(22, 10),
                                                     save_fig_filename=None, cluster_column_name='Cluster', title=None,
                                                     highlight_indices=None, highlight_colors=None,
-                                                    highlight_descriptions=None, dpi=300):
+                                                    highlight_descriptions=None, dpi=300, show_units=False):
 
     assert ideal_direction in ['top', 'bottom']
     assert zorder_direction in ['ascending', 'descending']
@@ -545,6 +545,27 @@ def custom_parallel_coordinates_highlight_scenarios(objs, columns_axes=None, axi
         ax.plot([j, j], [0, 1], c='black', alpha=0.3, zorder=1)
 
     ax.set_xticks(range(len(columns_axes)))
+
+    # Append units to labels if requested
+    if show_units:
+        unit_patterns = [('_TAF', 'TAF'), ('_CFS', 'CFS'), ('_KM', 'KM'), ('_UMHOS/CM', 'μS/cm')]
+        labels_with_units = []
+        for lbl, col in zip(axis_labels, columns_axes):
+            # Check for CV columns first (endswith to avoid matching _CVP, _KM_CV, etc.)
+            if col.endswith('CV'):
+                unit = 'unitless'
+            else:
+                unit = None
+                for pattern, unit_str in unit_patterns:
+                    if pattern in col:
+                        unit = unit_str
+                        break
+            if unit:
+                labels_with_units.append(f"{lbl}\n({unit})")
+            else:
+                labels_with_units.append(lbl)
+        axis_labels = labels_with_units
+
     ax.set_xticklabels(axis_labels, rotation=45, ha='center', va='top', fontsize=fontsize)
     ax.tick_params(axis='x', colors='black', pad=10)
     ax.set_yticks([])
