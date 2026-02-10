@@ -9,7 +9,7 @@ from collections import OrderedDict as Odict
 import cs3
 import AuxFunctions as af
 import os, sys
-import datetime as dt
+import datetime as dthow
 import numpy as np
 
 import pandas as pnd
@@ -1389,9 +1389,9 @@ def annualize(df, on='A-Sep', how='auto-sum', **kwargs):
             howdict[cols[0]] = 'sum'
     
     tmpdict = {}
-    print(f'\nthis is the howdict: {howdict}\n')
+    # print(f'\nthis is the howdict: {howdict}\n')
     for c in cols:       
-        print(f'Column: {c}')
+        # print(f'Column: {c}')
         tmpdict[c] = df.loc[:,c].resample(on).apply(howdict) #[c] #[c] #[c for c in cols]
     
     df_ann = pnd.concat(tmpdict, axis=1, names=('A','B','C','E','F', 'Type','Units')) #, names=[k for k in tmpdict.keys()])
