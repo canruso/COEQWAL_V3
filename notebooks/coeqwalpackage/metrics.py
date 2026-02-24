@@ -24,6 +24,12 @@ def read_in_df(df_path, names_path):
     return df, dss_names
 
 
+def read_in_parquet_df(df_path, names_path):
+    # df = pd.read_csv(df_path, header=[0, 1, 2, 3, 4, 5, 6], index_col=0, parse_dates=True)
+    df = pd.read_parquet(df_path.replace(".csv", ".parquet"))
+    dss_names = pd.read_csv(names_path)["0"].tolist()
+    return df, dss_names
+
 def load_metadata_df(extract_path, all_data, metadata_file, nrows=200):
     metadata_df = pd.read_excel(extract_path + metadata_file, engine='openpyxl', skiprows=7, usecols="B:K", nrows=nrows)
     metadata_df.columns = ['Pathnames', 'Part A', 'Part B', 'Part C', 'UNITS', 'Part F', 'Empty1', 'Col', 'Empty2',
@@ -31,6 +37,16 @@ def load_metadata_df(extract_path, all_data, metadata_file, nrows=200):
 
     metadata_df.drop(['Empty1', 'Empty2'], axis=1, inplace=True)
     df = pd.read_csv(extract_path + all_data, header=[0, 1, 2, 3, 4, 5, 6], index_col=0, parse_dates=True)
+    return metadata_df, df
+
+def load_metadata_parquet_df(extract_path, all_data, metadata_file, nrows=200):
+    metadata_df = pd.read_excel(extract_path + metadata_file, engine='openpyxl', skiprows=7, usecols="B:K", nrows=nrows)
+    metadata_df.columns = ['Pathnames', 'Part A', 'Part B', 'Part C', 'UNITS', 'Part F', 'Empty1', 'Col', 'Empty2',
+                           'Description']
+
+    metadata_df.drop(['Empty1', 'Empty2'], axis=1, inplace=True)
+    data_path = extract_path + all_data
+    df = pd.read_csv(data_path.replace(".csv", ".parquet"), header=[0, 1, 2, 3, 4, 5, 6], index_col=0, parse_dates=True)
     return metadata_df, df
 
 
