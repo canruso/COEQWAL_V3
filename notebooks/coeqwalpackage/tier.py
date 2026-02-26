@@ -6,7 +6,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Optional
-import math
 from contextlib import redirect_stdout
 import sys
 
@@ -246,6 +245,160 @@ def generate_salinity_tier_assignment_matrix(df, station_list, thresholds, start
 
     # return data frame with tier assignments, set scenario as index
     return tier_df.set_index("Scenario")
+
+
+def compute_export_quality_volume(salinity_df, volume_df, salinity_var, volume_var,
+                                  thresholds, scenario_ids):
+    """Compute annual water-year sums of quality-adjusted export volume per scenario."""
+    ht, lt = thresholds["Top"], thresholds["Low"]
+    annual_qv = {}
+
+    for sid in scenario_ids:
+        sal_cols = [c for c in salinity_df.columns if salinity_var in c[1] and sid in c[1]]
+        vol_cols = [c for c in volume_df.columns if volume_var in c[1] and sid in c[1]]
+        if not sal_cols or not vol_cols:
+            continue
+
+        salinity = salinity_df[sal_cols[0]]
+        volume = volume_df[vol_cols[0]]
+        weight = ((ht - salinity) / (ht - lt)).clip(0, 1)
+        quality_volume = volume * weight
+        annual_qv[sid] = quality_volume.resample("YS-OCT").sum()
+
+    return pd.DataFrame(annual_qv) if annual_qv else pd.DataFrame()
+
+
+def build_export_quality_detail(salinity_df, volume_df, thresholds, scenario_ids,
+                                stations):
+    """
+    Build per-scenario DataFrames with salinity, volume, weight, and adjusted volume.
+
+    Parameters
+    ----------
+    salinity_df : pd.DataFrame
+        DataFrame with salinity columns (multi-index).
+    volume_df : pd.DataFrame
+        DataFrame with volume columns (multi-index).
+    thresholds : dict
+        {"Top": ..., "Low": ...} salinity thresholds for weight calculation.
+    scenario_ids : list of str
+        Scenario identifiers (e.g. ["s0001", "s0020"]).
+    stations : list of dict
+        Each dict has keys: "salinity_var", "volume_var", "label".
+        Example: [
+            {"salinity_var": "BANKSEC", "volume_var": "C_CAA003", "label": "Banks"},
+            {"salinity_var": "TRACYEC", "volume_var": "C_DMC000", "label": "Tracy"},
+        ]
+
+    Returns
+    -------
+    detail_dict : dict[str, pd.DataFrame]
+        Per-scenario DataFrames indexed by time. Columns per station:
+        Salinity_{label}, Volume_{label}, Weight_{label}, AdjVolume_{label}.
+    detail_wide : pd.DataFrame
+        Combined wide DataFrame with multi-level columns (scenario, variable).
+    """
+    ht, lt = thresholds["Top"], thresholds["Low"]
+    detail_dict = {}
+
+    for sid in scenario_ids:
+        parts = {}
+        for st in stations:
+            sal_var, vol_var, label = st["salinity_var"], st["volume_var"], st["label"]
+            sal_cols = [c for c in salinity_df.columns if sal_var in c[1] and sid in c[1]]
+            vol_cols = [c for c in volume_df.columns if vol_var in c[1] and sid in c[1]]
+            if not sal_cols or not vol_cols:
+                continue
+            salinity = salinity_df[sal_cols[0]]
+            volume = volume_df[vol_cols[0]]
+            weight = ((ht - salinity) / (ht - lt)).clip(0, 1)
+            adj_volume = volume * weight
+
+            parts[f"Salinity_{label}"] = salinity
+            parts[f"Volume_{label}"] = volume
+            parts[f"Weight_{label}"] = weight
+            parts[f"AdjVolume_{label}"] = adj_volume
+
+        if parts:
+            detail_dict[sid] = pd.DataFrame(parts)
+
+    # build wide DataFrame with multi-level columns (scenario, variable)
+    wide_parts = {}
+    for sid, df_detail in detail_dict.items():
+        for col in df_detail.columns:
+            wide_parts[(sid, col)] = df_detail[col]
+    detail_wide = pd.DataFrame(wide_parts)
+    if not detail_wide.empty:
+        detail_wide.columns = pd.MultiIndex.from_tuples(
+            detail_wide.columns, names=["Scenario", "Variable"])
+
+    return detail_dict, detail_wide
+
+
+def build_export_quality_summary(detail_dict):
+    """
+    Build summary DataFrame with total volumes per scenario (one row per scenario).
+
+    Parameters
+    ----------
+    detail_dict : dict[str, pd.DataFrame]
+        Output from build_export_quality_detail().
+
+    Returns
+    -------
+    pd.DataFrame
+        Index: Scenario. Columns: Total_Volume_{label}, Total_AdjVolume_{label}
+        for each station found in the detail DataFrames.
+    """
+    rows = []
+    for sid, df_detail in detail_dict.items():
+        row = {"Scenario": sid}
+        # find all labels from column names (pattern: Volume_{label}, AdjVolume_{label})
+        labels = set()
+        for col in df_detail.columns:
+            if col.startswith("Volume_"):
+                labels.add(col.replace("Volume_", ""))
+        for label in sorted(labels):
+            row[f"Total_Volume_{label}"] = df_detail[f"Volume_{label}"].sum()
+            row[f"Total_AdjVolume_{label}"] = df_detail[f"AdjVolume_{label}"].sum()
+        rows.append(row)
+
+    summary = pd.DataFrame(rows)
+    if not summary.empty:
+        summary = summary.set_index("Scenario")
+    return summary
+
+
+def assign_export_tiers(summary_df, bounds_config):
+    """
+    Assign export tiers to each scenario based on total adjusted volume.
+
+    Parameters
+    ----------
+    summary_df : pd.DataFrame
+        Output from build_export_quality_summary(). Must have columns
+        Total_AdjVolume_{label} for each station.
+    bounds_config : dict[str, list[float]]
+        Tier bounds per station label, descending. Example:
+        {"Banks": [30000, 20000, 10000], "Tracy": [20000, 15000, 10000]}
+        T1 if >= bounds[0], T2 if >= bounds[1], T3 if >= bounds[2], T4 otherwise.
+
+    Returns
+    -------
+    pd.DataFrame
+        Copy of summary_df with added Export_Tier_{label} columns.
+    """
+    result = summary_df.copy()
+    for label, bounds in bounds_config.items():
+        col = f"Total_AdjVolume_{label}"
+        tier_col = f"Export_Tier_{label}"
+        result[tier_col] = result[col].apply(
+            lambda v: next(
+                (t for t, b in enumerate(bounds, 1) if v >= b),
+                len(bounds) + 1
+            )
+        )
+    return result
 
 
 """ Storage """
