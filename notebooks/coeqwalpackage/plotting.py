@@ -1873,3 +1873,87 @@ def plot_tier_radar(df, cols, scenario_col, highlight_scenarios, highlight_color
 
     plt.show()
     return fig, ax
+
+
+def plot_tier_radar_interactive(df, cols, scenario_col, highlight_scenarios,
+                                highlight_colors, highlight_labels, title,
+                                max_tier=4, save_path=None):
+    import plotly.graph_objects as go
+
+    valid_scenarios = [s for s in highlight_scenarios if s in df[scenario_col].values]
+    if len(valid_scenarios) < 1 or len(cols) < 3:
+        print(f"Skip {title}: insufficient data")
+        return None
+
+    invert = lambda x: (max_tier + 1) - x
+    axis_labels = [c.replace('_Mean', '').replace('_', ' ') for c in cols]
+    # Close the polygon by repeating first label
+    axis_labels_closed = axis_labels + [axis_labels[0]]
+
+    fig = go.Figure()
+
+    # Step 1: Background traces (all non-highlighted scenarios)
+    all_scenarios = df[scenario_col].unique()
+    bg_scenarios = [s for s in all_scenarios if s not in valid_scenarios]
+    for i, sc in enumerate(bg_scenarios):
+        row = df[df[scenario_col] == sc]
+        if row.empty or row[cols].isna().any(axis=1).iloc[0]:
+            continue
+        vals = invert(row[cols].values.flatten()).tolist()
+        vals_closed = vals + [vals[0]]
+        fig.add_trace(go.Scatterpolar(
+            r=vals_closed, theta=axis_labels_closed,
+            mode='lines', line=dict(color='grey', width=0.8),
+            opacity=0.15, name='Other scenarios',
+            legendgroup='other', showlegend=(i == 0),
+            hoverinfo='skip'))
+
+    # Step 2: Highlighted scenario traces
+    for sc_id in valid_scenarios:
+        sc_idx = valid_scenarios.index(sc_id)
+        row = df[df[scenario_col] == sc_id]
+        if row.empty:
+            continue
+        raw_vals = row[cols].values.flatten().tolist()
+        inv_vals = invert(row[cols].values.flatten()).tolist()
+        inv_vals_closed = inv_vals + [inv_vals[0]]
+        raw_vals_closed = raw_vals + [raw_vals[0]]
+
+        # Step 3: Hover text
+        hover_texts = [f"{highlight_labels[sc_idx]}<br>{lbl}: Tier {int(rv)}" if pd.notna(rv)
+                       else f"{highlight_labels[sc_idx]}<br>{lbl}: N/A"
+                       for lbl, rv in zip(axis_labels, raw_vals)]
+        hover_texts.append(hover_texts[0])  # close polygon
+
+        fig.add_trace(go.Scatterpolar(
+            r=inv_vals_closed, theta=axis_labels_closed,
+            mode='lines+markers',
+            line=dict(color=highlight_colors[sc_idx], width=2.5),
+            marker=dict(size=8, color=highlight_colors[sc_idx],
+                        line=dict(color='black', width=0.8)),
+            name=highlight_labels[sc_idx],
+            text=hover_texts, hoverinfo='text'))
+
+    # Step 4: Axis configuration
+    fig.update_layout(
+        title=dict(text=title, font=dict(size=16, weight='bold')),
+        polar=dict(
+            radialaxis=dict(
+                range=[0, max_tier + 0.5],
+                tickvals=[1, 2, 3, 4],
+                ticktext=['Tier 4', 'Tier 3', 'Tier 2', 'Tier 1'],
+                showline=False, gridcolor='lightgrey'),
+            angularaxis=dict(
+                direction='clockwise',
+                gridcolor='lightgrey')),
+        showlegend=True,
+        legend=dict(font=dict(size=11)),
+        width=700, height=650)
+
+    # Step 6: Save as HTML
+    if save_path:
+        fig.write_html(save_path)
+        print(f"Saved: {save_path}")
+
+    fig.show()
+    return fig
