@@ -1,8 +1,6 @@
 Grouping,Description,Scenarios
-Current Operations,Representing current operations for California water  - all the “baseline” or reference scenarios together; showing the variability in representation of our recent reality,"11, 20, 21, 23, 24"
-Managing Groundwater,Managing groundwater in a changing agricultural landscape  - actions to improve regional declining groundwater conditions,"20, 25, 26, 27, 28"
-Enhancing river flows,Enhancing river flows for the environment  - modifying flow requirements on Bay-Delta tributaries for ecological and environmental purposes and exploring system sensitivities,"20, 46, 30, 31, 32, 33"
-Prioritizing community water systems,Prioritizing community water systems,"20, 35, 36, 37"
-Improving Bay-Delta ecosystem health,Improving flows for the health of the Bay Delta ecosystem,"20, 40, 41, 42, 39"
-Sustaining In-Delta uses,Sustaining uses in the Delta for communities and farms,"20, 44, 41, 42, 39"
-Improving Delta export reliability ,Improving reliability of Delta exports for farms and cities,"20, 40, 30, 28, 65"
+Drinking water,"Whether people and communities can reliably access safe drinking water for daily life, health, and essential services","20, 35, 36, 37"
+Groundwater,"Whether agricultural water deliveries can sustain food protection, while preventing over-draft of groundwater basins","20, 25, 26, 27, 28, 32, 33"
+Environment,"Whether rivers, salmon, and the Delta estuary receive the flows they need to remain functional and resilient","20, 30, 46, 32, 31, 33, 42"
+Delta,"Whether the Delta is a place where communities, farms, and ecosystems coexist and thrive.","20, 40, 41, 42, 39, 44, 45, 46, 65"
+Operations and impacts,"How water management decisions affect trade-offs, equity and resilience","20, 21, 24, 23"
