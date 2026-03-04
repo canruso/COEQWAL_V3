@@ -970,6 +970,16 @@ def convert_all_cfs_to_taf(df):
     return df
 
 
-
-
+def nod_sod_from_mapping(tiers_df, mapping_df, id_col=None, region_col='Region'):
+    """Average tier columns by NOD/SOD region using a mapping CSV."""
+    if id_col is None:
+        id_col = mapping_df.columns[0]
+    mapping = mapping_df.set_index(id_col)[region_col].str.strip().str.upper()
+    nod_ids = mapping[mapping == 'NOD'].index
+    sod_ids = mapping[mapping == 'SOD'].index
+    nod_cols = [c for c in tiers_df.columns if c in nod_ids]
+    sod_cols = [c for c in tiers_df.columns if c in sod_ids]
+    nod_mean = tiers_df[nod_cols].mean(axis=1) if nod_cols else pd.Series(dtype=float, index=tiers_df.index)
+    sod_mean = tiers_df[sod_cols].mean(axis=1) if sod_cols else pd.Series(dtype=float, index=tiers_df.index)
+    return nod_mean, sod_mean
 
