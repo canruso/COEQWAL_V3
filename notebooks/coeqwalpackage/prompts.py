@@ -6,15 +6,19 @@ Three layers combined at runtime:
 3. SCENARIO_CONTEXT: optional user-provided descriptions of what each scenario represents
 """
 
-MAIN_RULES = ("Respond in around 2-4 concise, gramatically accurate sentences - no run on sentences! "
-              "State only empirical, observable findings — no speculation or interpretation. "
-              "If scenarios are visually indistinguishable or largely overlap, say so explicitly.")
+MAIN_RULES = ("Respond in 2-3 concise, grammatically accurate sentences. No run-on sentences. "
+              "First describe what is visible in the plot. Then reference the provided data to quantify differences. "
+              "Where visual patterns and data agree, highlight the shared finding. "
+              "Where they diverge (e.g., plot looks overlapping but data shows differences), note both. "
+              "Note any ordering or ranking among non-baseline scenarios. "
+              "If scenarios are visually indistinguishable, say so and let the data speak.")
 
 PLOT_CONTEXT = {
     "mon_ts": (
         "This is a monthly time series of {var_label}. "
-        "Focus on periods where scenarios clearly diverge and any "
-        "notable drought or peak events."),
+        "Structure your response as:\n"
+        "VISUAL: One sentence describing what you see in the plot (separation, overlap, range, patterns).\n"
+        "DATA: One to two sentences summarizing differences using the provided statistics."),
 
     "exceed_all": (
         "This is an exceedance probability plot of {var_label} (all years). "
@@ -114,8 +118,8 @@ def extract_plot_type(filename):
     return stem
 
 
-def build_prompt(plot_type, var_label, scenario_names, baseline, scenario_context=None):
-    """Build a full prompt by combining all three layers. Complete prompt: plot context + scenario context + main
+def build_prompt(plot_type, var_label, scenario_names, baseline, scenario_context=None, stats_text=None):
+    """Build a full prompt by combining all three layers. Complete prompt: plot context + scenario context + stats + main
     rules."""
 
     template = None
@@ -137,6 +141,8 @@ def build_prompt(plot_type, var_label, scenario_names, baseline, scenario_contex
 
     if ctx_lines:
         parts.append(ctx_lines)
+    if stats_text:
+        parts.append(stats_text)
     parts.append(MAIN_RULES)
 
     return "\n\n".join(parts)
