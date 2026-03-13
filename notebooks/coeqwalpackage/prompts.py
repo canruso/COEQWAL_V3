@@ -6,44 +6,47 @@ Three layers combined at runtime:
 3. SCENARIO_CONTEXT: optional user-provided descriptions of what each scenario represents
 """
 
-MAIN_RULES = ("Respond in 2-3 concise, grammatically accurate sentences. No run-on sentences. "
-              "First describe what is visible in the plot. Then reference the provided data to quantify differences. "
-              "Where visual patterns and data agree, highlight the shared finding. "
-              "Where they diverge (e.g., plot looks overlapping but data shows differences), note both. "
-              "Note any ordering or ranking among non-baseline scenarios. "
-              "If scenarios are visually indistinguishable, say so and let the data speak.")
+MAIN_RULES = ("Write 2-3 concise sentences integrating what you see in the plot with the provided data. "
+              "Lead with the most important finding. Only cite numbers from the provided statistics - "
+              "do not estimate or read values from the plot image. "
+              "If the plot looks indistinguishable but data shows differences, say so directly. "
+              "Rank non-baseline scenarios where meaningful. No headers, labels, or bullet points. "
+              "Reference scenarios only by their ID (e.g., s0028). Do not mention line colors.")
 
 PLOT_CONTEXT = {
     "mon_ts": (
         "This is a monthly time series of {var_label}. "
-        "Structure your response as:\n"
-        "VISUAL: One sentence describing what you see in the plot (separation, overlap, range, patterns).\n"
-        "DATA: One to two sentences summarizing differences using the provided statistics."),
+        "Focus on whether scenarios visually separate or overlap, and use the data to quantify the differences."),
 
     "exceed_all": (
         "This is an exceedance probability plot of {var_label} (all years). "
-        "Compare curve shapes — note where scenarios cross each other "
-        "and how tails (extremes) differ."),
+        "Exceedance curves smooth out monthly noise, so even small visible gaps between curves "
+        "represent persistent probabilistic differences. Note where curves separate and by how much, "
+        "where they cross, and how tails (extremes) differ."),
 
     "exceed_tucp": (
         "This is an exceedance probability plot of {var_label} filtered to TUCP years. "
+        "Exceedance curves smooth out noise - visible gaps are meaningful. "
         "Compare scenario performance during these drought emergency periods."),
 
     "exceed_wet": (
         "This is an exceedance probability plot of {var_label} for wet water years. "
+        "Exceedance curves smooth out noise - visible gaps are meaningful. "
         "Compare scenario behavior in wet conditions."),
 
     "exceed_dry": (
         "This is an exceedance probability plot of {var_label} for dry water years. "
-        "Compare scenario behavior in dry conditions — critical for reliability."),
+        "Exceedance curves smooth out noise - visible gaps are meaningful. "
+        "Compare scenario behavior in dry conditions - critical for reliability."),
 
     "exceed_oct": (
         "This is an exceedance probability plot of {var_label} for October only. "
+        "Exceedance curves smooth out noise - visible gaps are meaningful. "
         "October marks the start of the water year."),
 
     "moy_all": (
         "This is a month-of-year average plot of {var_label} (all years). "
-        "Compare seasonal patterns — which months show the largest differences?"),
+        "Compare seasonal patterns -which months show the largest differences?"),
 
     "moy_tucp": (
         "This is a month-of-year average plot of {var_label} for TUCP years. "
@@ -59,42 +62,51 @@ PLOT_CONTEXT = {
 
     "ann_exceed_all": (
         "This is an annual exceedance probability plot of {var_label}. "
-        "Compare annual distributions — focus on the dry-year tail (right side)."),
+        "Exceedance curves smooth out noise - visible gaps are meaningful. "
+        "Compare annual distributions - focus on the dry-year tail (right side)."),
 
     "ann_exceed_tucp": (
         "This is an annual exceedance plot of {var_label} for TUCP years. "
+        "Exceedance curves smooth out noise - visible gaps are meaningful. "
         "Compare annual performance during drought emergencies."),
 
     "ann_exceed_apr": (
         "This is an April annual exceedance plot of {var_label} (storage). "
+        "Exceedance curves smooth out noise - visible gaps are meaningful. "
         "April storage reflects water supply after snowmelt. Compare distributions."),
 
     "ann_exceed_sept": (
         "This is a September annual exceedance plot of {var_label} (storage). "
+        "Exceedance curves smooth out noise - visible gaps are meaningful. "
         "September storage is critical for carry-over into next water year."),
 
     "ann_exceed_apr_tucp": (
         "This is an April annual exceedance plot of {var_label} for TUCP years. "
+        "Exceedance curves smooth out noise - visible gaps are meaningful. "
         "Compare April storage during drought emergencies."),
 
     "ann_exceed_sept_tucp": (
         "This is a September annual exceedance plot of {var_label} for TUCP years. "
+        "Exceedance curves smooth out noise - visible gaps are meaningful. "
         "Compare September carry-over storage during drought emergencies."),
 
     "ann_tot": (
         "This is an annual totals time series of {var_label}. "
-        "Compare annual volumes — note years with large divergences."),
+        "Compare annual volumes -note years with large divergences."),
 
     "ann_exceed_mar": (
         "This is a March annual exceedance plot of {var_label} (applied water). "
+        "Exceedance curves smooth out noise - visible gaps are meaningful. "
         "Compare March distributions across scenarios."),
 
     "ann_exceed_mar_dry": (
         "This is a March annual exceedance plot of {var_label} for dry water years. "
+        "Exceedance curves smooth out noise - visible gaps are meaningful. "
         "Compare applied water in dry conditions."),
 
     "ann_exceed_mar_wet": (
         "This is a March annual exceedance plot of {var_label} for wet water years. "
+        "Exceedance curves smooth out noise - visible gaps are meaningful. "
         "Compare applied water in wet conditions."),
 }
 
