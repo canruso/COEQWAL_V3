@@ -8,7 +8,9 @@ from collected observations.
 from __future__ import annotations
 
 import base64
+import json
 import os
+import re
 import numpy as np
 import pandas as pd
 
@@ -125,6 +127,107 @@ def _pct_diff(val: float, ref: float) -> str:
 def _sid_label(sid: int, baseline: int) -> str:
     tag = f"s{sid:04d}"
     return f"{tag} (baseline)" if sid == baseline else tag
+
+
+# ---------------------------------------------------------------------------
+# JSON parsing helpers
+# ---------------------------------------------------------------------------
+
+_STRUCTURED_DEFAULTS: dict = {
+    "narrative": "",
+    "ranking": [],
+    "best_scenario": "",
+    "worst_scenario": "",
+    "cited_values": {},
+}
+
+
+def _parse_llm_response(raw_text: str) -> dict:
+    """Parse LLM response text into structured dict.
+
+    Attempts JSON parsing with multiple fallback strategies.
+    Never raises - always returns a valid dict.
+
+    Returns
+    -------
+    dict with keys: narrative, ranking, best_scenario, worst_scenario, cited_values
+    """
+    if not raw_text or not raw_text.strip():
+        return {**_STRUCTURED_DEFAULTS, "narrative": raw_text or ""}
+
+    # Strategy 1: full text is valid JSON
+    parsed = _try_json_loads(raw_text.strip())
+    if parsed is not None:
+        return _ensure_keys(parsed)
+
+    # Strategy 2: extract from markdown code fence
+    fence_match = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", raw_text, re.DOTALL)
+    if fence_match:
+        parsed = _try_json_loads(fence_match.group(1).strip())
+        if parsed is not None:
+            return _ensure_keys(parsed)
+
+    # Strategy 3: find outermost JSON object boundaries
+    first_brace = raw_text.find("{")
+    last_brace = raw_text.rfind("}")
+    if first_brace != -1 and last_brace > first_brace:
+        parsed = _try_json_loads(raw_text[first_brace:last_brace + 1])
+        if parsed is not None:
+            return _ensure_keys(parsed)
+
+    # Fallback: treat entire text as narrative
+    return {**_STRUCTURED_DEFAULTS, "narrative": raw_text}
+
+
+def _try_json_loads(text: str) -> dict | None:
+    """Attempt json.loads, return dict or None."""
+    try:
+        obj = json.loads(text)
+        if isinstance(obj, dict):
+            return obj
+    except (json.JSONDecodeError, TypeError, ValueError):
+        pass
+    return None
+
+
+def _ensure_keys(parsed: dict) -> dict:
+    """Ensure all expected keys exist in a parsed dict, filling defaults."""
+    result = {**_STRUCTURED_DEFAULTS}
+    for key in _STRUCTURED_DEFAULTS:
+        if key in parsed:
+            result[key] = parsed[key]
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Stats text parsing
+# ---------------------------------------------------------------------------
+
+def _extract_means_from_stats(stats_text: str, baseline: int) -> dict[str, float]:
+    """Extract per-scenario mean values from formatted stats text.
+
+    Parses lines like '  s0020 (baseline): mean=123.4, ...'
+    or '  s0020 (baseline): mean=123.4 (+5.2%), ...'
+
+    Returns dict mapping scenario tag (e.g. "s0020") to mean value.
+    Returns empty dict if stats_text is empty or unparseable.
+    """
+    if not stats_text:
+        return {}
+    result: dict[str, float] = {}
+    # Match lines like "  s0020 (baseline): ... mean=123.4 ..."
+    # or "  s0020: ... mean=123.4 ..."
+    pattern = re.compile(
+        r"^\s*(s\d{4})(?:\s*\(baseline\))?\s*:.*?mean=([\d.]+)",
+        re.MULTILINE,
+    )
+    for match in pattern.finditer(stats_text):
+        tag = match.group(1)
+        try:
+            result[tag] = float(match.group(2))
+        except ValueError:
+            continue
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -455,12 +558,216 @@ def compute_var_stats(
 
 
 # ---------------------------------------------------------------------------
+# Validation
+# ---------------------------------------------------------------------------
+
+def validate_observation(
+    structured: dict,
+    stats_text: str,
+    scenarios: list[int],
+    baseline: int,
+) -> list[str]:
+    """Check LLM structured claims against computed statistics.
+
+    Parameters
+    ----------
+    structured : dict
+        Parsed LLM output with keys: ranking, best_scenario, worst_scenario,
+        cited_values.
+    stats_text : str
+        Formatted stats string from compute_var_stats().
+    scenarios : list[int]
+        All scenario IDs including baseline.
+    baseline : int
+        Baseline scenario ID.
+
+    Returns
+    -------
+    list[str] - warning strings. Empty list means all checks passed.
+    Never raises exceptions.
+    """
+    try:
+        return _validate_observation_inner(structured, stats_text, scenarios, baseline)
+    except Exception:
+        return ["Validation failed due to unexpected error"]
+
+
+def _validate_observation_inner(
+    structured: dict,
+    stats_text: str,
+    scenarios: list[int],
+    baseline: int,
+) -> list[str]:
+    """Inner validation logic (may raise). Wrapped by validate_observation."""
+    warnings: list[str] = []
+
+    if not isinstance(structured, dict):
+        return ["Structured output is not a dict"]
+
+    ranking = structured.get("ranking", [])
+    best = structured.get("best_scenario", "")
+    worst = structured.get("worst_scenario", "")
+    cited = structured.get("cited_values", {})
+
+    # Normalize inputs - handle None, wrong types
+    if not isinstance(ranking, list):
+        ranking = []
+        warnings.append("ranking is not a list")
+    if not isinstance(best, str):
+        best = str(best) if best is not None else ""
+    if not isinstance(worst, str):
+        worst = str(worst) if worst is not None else ""
+    if not isinstance(cited, dict):
+        cited = {}
+        warnings.append("cited_values is not a dict")
+
+    # Non-baseline scenario tags
+    bl_tag = f"s{baseline:04d}"
+    non_bl_tags = sorted([f"s{s:04d}" for s in scenarios if s != baseline])
+
+    # Check 1: baseline exclusion from best/worst
+    if best == bl_tag:
+        warnings.append(f"best_scenario is the baseline ({bl_tag})")
+    if worst == bl_tag:
+        warnings.append(f"worst_scenario is the baseline ({bl_tag})")
+
+    # Extract means from stats for ground-truth comparisons
+    means = _extract_means_from_stats(stats_text, baseline)
+    non_bl_means = {k: v for k, v in means.items() if k != bl_tag}
+
+    # Check 2: ranking completeness
+    if ranking and non_bl_tags:
+        ranking_set = set(ranking)
+        expected_set = set(non_bl_tags)
+        missing = expected_set - ranking_set
+        extra_bl = {bl_tag} & ranking_set
+        if missing:
+            warnings.append(f"Ranking missing scenarios: {sorted(missing)}")
+        if extra_bl:
+            warnings.append("Ranking includes baseline scenario")
+
+    # Check 3: ranking order vs stats sort
+    if ranking and len(non_bl_means) >= 2:
+        # Skip if all non-baseline means are tied (ranking is ambiguous)
+        unique_mean_vals = set(non_bl_means.values())
+        if len(unique_mean_vals) > 1:
+            # Sort by descending mean to get ground-truth order
+            sorted_desc = sorted(non_bl_means, key=non_bl_means.get, reverse=True)
+            sorted_asc = sorted(non_bl_means, key=non_bl_means.get)
+            # Filter ranking to only scenarios present in means
+            ranking_filtered = [r for r in ranking if r in non_bl_means]
+            if len(ranking_filtered) >= 2:
+                # Check if ranking matches either ascending or descending order
+                if ranking_filtered != sorted_desc and ranking_filtered != sorted_asc:
+                    warnings.append(
+                        f"Ranking order {ranking_filtered} does not match "
+                        f"stats order (desc: {sorted_desc}, asc: {sorted_asc})"
+                    )
+
+    # Check 4: best scenario
+    if best and non_bl_means:
+        # Check both directions - best could be highest or lowest mean
+        stats_highest = max(non_bl_means, key=non_bl_means.get)
+        stats_lowest = min(non_bl_means, key=non_bl_means.get)
+        # All means equal -> any choice is fine
+        unique_means = set(non_bl_means.values())
+        if len(unique_means) > 1 and best not in (stats_highest, stats_lowest):
+            warnings.append(
+                f"best_scenario '{best}' is neither the highest-mean "
+                f"({stats_highest}) nor lowest-mean ({stats_lowest}) scenario"
+            )
+
+    # Check 5: worst scenario
+    if worst and non_bl_means:
+        stats_highest = max(non_bl_means, key=non_bl_means.get)
+        stats_lowest = min(non_bl_means, key=non_bl_means.get)
+        unique_means = set(non_bl_means.values())
+        if len(unique_means) > 1 and worst not in (stats_highest, stats_lowest):
+            warnings.append(
+                f"worst_scenario '{worst}' is neither the highest-mean "
+                f"({stats_highest}) nor lowest-mean ({stats_lowest}) scenario"
+            )
+
+    # Check 6: cited values appear in stats_text
+    if cited and stats_text:
+        for key, val in cited.items():
+            if val is None:
+                continue
+            try:
+                val_float = float(val)
+            except (TypeError, ValueError):
+                continue
+            # Format the value the same way stats text does (1 decimal)
+            formatted = f"{val_float:.1f}"
+            if formatted not in stats_text:
+                warnings.append(f"Cited value '{key}={formatted}' not found in stats text")
+
+    return warnings
+
+
+# ---------------------------------------------------------------------------
+# JSON format instruction for LLM
+# ---------------------------------------------------------------------------
+
+_JSON_FORMAT_INSTRUCTION = """
+
+IMPORTANT: Respond with a single JSON object (no markdown fences, no text outside the JSON). Use this exact schema:
+{
+  "narrative": "<your full analysis text here>",
+  "ranking": ["s####", "s####", ...],
+  "best_scenario": "s####",
+  "worst_scenario": "s####",
+  "cited_values": {"<description>": <number>, ...}
+}
+
+Rules for the JSON fields:
+- "narrative": your complete analysis as a single string (use \\n for line breaks)
+- "ranking": ordered list of non-baseline scenario IDs from best to worst performing
+- "best_scenario": the single best non-baseline scenario ID
+- "worst_scenario": the single worst non-baseline scenario ID
+- "cited_values": dict mapping descriptive keys to numeric values you reference (e.g. {"s0030_mean_storage": 2145.3})
+"""
+
+
+# ---------------------------------------------------------------------------
 # LLM interaction functions
 # ---------------------------------------------------------------------------
 
-def analyze_plot(image_path, prompt, model="claude-sonnet-4-20250514",
-                 max_tokens=500, api_key=None):
-    """Send a plot image to Claude and return the observation text."""
+def analyze_plot(
+    image_path, prompt, model="claude-sonnet-4-20250514",
+    max_tokens=1000, api_key=None,
+    stats_text="", scenarios=None, baseline=None,
+) -> dict:
+    """Send a plot image to Claude and return structured observation.
+
+    Parameters
+    ----------
+    image_path : str
+        Path to the plot image file.
+    prompt : str
+        Full prompt text (from build_prompt).
+    model : str
+        Claude model name.
+    max_tokens : int
+        Max response tokens.
+    api_key : str or None
+        Anthropic API key (falls back to env var).
+    stats_text : str
+        Formatted stats string for validation. Optional.
+    scenarios : list[int] or None
+        All scenario IDs including baseline. Optional.
+    baseline : int or None
+        Baseline scenario ID. Optional.
+
+    Returns
+    -------
+    dict with keys: narrative (str), structured (dict), validation (list[str]),
+    raw (str).
+
+    When stats_text, scenarios, and baseline are all provided, runs validation.
+    Otherwise validation list is empty.
+    Backward compatible - callers can still call analyze_plot(path, prompt).
+    """
     client = _get_client(api_key)
 
     with open(image_path, "rb") as f:
@@ -468,6 +775,9 @@ def analyze_plot(image_path, prompt, model="claude-sonnet-4-20250514",
 
     ext = os.path.splitext(image_path)[1].lower()
     media_type = _MEDIA_TYPES.get(ext, "image/png")
+
+    # Append JSON format instruction to the prompt
+    full_prompt = prompt + _JSON_FORMAT_INSTRUCTION
 
     response = client.messages.create(
         model=model,
@@ -483,12 +793,33 @@ def analyze_plot(image_path, prompt, model="claude-sonnet-4-20250514",
                         "data": image_data,
                     },
                 },
-                {"type": "text", "text": prompt},
+                {"type": "text", "text": full_prompt},
             ],
         }],
     )
 
-    return response.content[0].text
+    raw_text = response.content[0].text
+    parsed = _parse_llm_response(raw_text)
+
+    # Build structured sub-dict (everything except narrative)
+    structured = {
+        "ranking": parsed.get("ranking", []),
+        "best_scenario": parsed.get("best_scenario", ""),
+        "worst_scenario": parsed.get("worst_scenario", ""),
+        "cited_values": parsed.get("cited_values", {}),
+    }
+
+    # Run validation if all required args provided
+    validation: list[str] = []
+    if stats_text and scenarios is not None and baseline is not None:
+        validation = validate_observation(structured, stats_text, scenarios, baseline)
+
+    return {
+        "narrative": parsed.get("narrative", raw_text),
+        "structured": structured,
+        "validation": validation,
+        "raw": raw_text,
+    }
 
 
 def generate_summary(observations_text, scenario_info, model="claude-sonnet-4-20250514", max_tokens=10000, api_key=None):
