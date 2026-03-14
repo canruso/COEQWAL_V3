@@ -1,0 +1,10 @@
+Grouping,Description,Variables
+Reservoirs (TAF),Major Reservoirs (TAF),"S_SHSTA, S_OROVL, S_FOLSM, S_SLUIS, S_SLUIS_CVP, S_SLUIS_SWP, S_TRNTY, S_MELON"
+Flows (CFS),"Channel flows, Spills, and Delta outflow (CFS)","C_SAC041, C_SAC085, SP_SAC083_YBP037, C_FTR003, C_SAC257, C_KSWCK, C_AMR004, NDO, C_SJR070, C_STS017, C_TUO003, C_SJR115, C_MCD005"
+Flows (TAF),"Channel flows, Spills, and Delta outflow (TAF)","C_SAC041, C_SAC085, SP_SAC083_YBP037, C_FTR003, C_SAC257, C_KSWCK, C_AMR004, NDO, C_SJR070, C_STS017, C_TUO003, C_SJR115, C_MCD005"
+Deliveries (CFS),Aggregated CVP and SWP Deliveries (CFS),"DEL_CVP_PAG_N, DEL_CVP_PSC_N, DEL_CVP_PMI_N, SWP_FRSA, DEL_SWP_PMI, DEL_SWP_PMI_S, DEL_SWP_TOTA, DEL_CVP_PAG_S, DEL_CVP_PEX_S, DEL_CVP_PMI_S, DEL_CVP_PRF_S"
+Deliveries (TAF),Aggregated CVP and SWP Deliveries (TAF),"DEL_CVP_PAG_N, DEL_CVP_PSC_N, DEL_CVP_PMI_N, SWP_FRSA, DEL_SWP_PMI, DEL_SWP_PMI_S, DEL_SWP_TOTA, DEL_CVP_PAG_S, DEL_CVP_PEX_S, DEL_CVP_PMI_S, DEL_CVP_PRF_S"
+Exports (CFS),Export Pumping from Delta (CFS),"C_DMC000, C_DMC000_TD, C_CAA003_SWP, C_CAA003"
+Exports (TAF),Export Pumping from Delta (TAF),"C_DMC000, C_DMC000_TD, C_CAA003_SWP, C_CAA003"
+Salinity (Umhos/Cm),Delta Salinity (electrical conductivity) at principal locations,"JP_EC_MONTH, RS_EC_MONTH, EM_EC_MONTH, TRACYEC_MAX14DAY, BANKSEC_MAX14DAY"
+Salinity (Km),Delta Salinity (2 ppt distance in Km from Goldan Gate bridge),X2_PRV_KM
