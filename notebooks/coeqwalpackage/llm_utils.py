@@ -646,19 +646,30 @@ def _validate_observation_inner(
         if extra_bl:
             warnings.append("Ranking includes baseline scenario")
 
+    # Helper: check if two means are within tolerance (1% relative)
+    def _means_close(a: float, b: float, tol: float = 0.01) -> bool:
+        denom = max(abs(a), abs(b), 1e-9)
+        return abs(a - b) / denom <= tol
+
     # Check 3: ranking order vs stats sort
     if ranking and len(non_bl_means) >= 2:
-        # Skip if all non-baseline means are tied (ranking is ambiguous)
-        unique_mean_vals = set(non_bl_means.values())
-        if len(unique_mean_vals) > 1:
-            # Sort by descending mean to get ground-truth order
+        # Skip if all non-baseline means are within tolerance
+        mean_vals = list(non_bl_means.values())
+        all_close = all(_means_close(mean_vals[0], v) for v in mean_vals[1:])
+        if not all_close:
             sorted_desc = sorted(non_bl_means, key=non_bl_means.get, reverse=True)
             sorted_asc = sorted(non_bl_means, key=non_bl_means.get)
-            # Filter ranking to only scenarios present in means
             ranking_filtered = [r for r in ranking if r in non_bl_means]
             if len(ranking_filtered) >= 2:
-                # Check if ranking matches either ascending or descending order
-                if ranking_filtered != sorted_desc and ranking_filtered != sorted_asc:
+                # Allow swaps between scenarios with near-tied means
+                def _order_matches_with_tolerance(candidate, reference):
+                    for i in range(len(candidate) - 1):
+                        ci, cj = candidate[i], candidate[i + 1]
+                        ri, rj = reference.index(ci) if ci in reference else -1, reference.index(cj) if cj in reference else -1
+                        if ri > rj and not _means_close(non_bl_means.get(ci, 0), non_bl_means.get(cj, 0)):
+                            return False
+                    return True
+                if not _order_matches_with_tolerance(ranking_filtered, sorted_desc) and not _order_matches_with_tolerance(ranking_filtered, sorted_asc):
                     warnings.append(
                         f"Ranking order {ranking_filtered} does not match "
                         f"stats order (desc: {sorted_desc}, asc: {sorted_asc})"
@@ -666,27 +677,31 @@ def _validate_observation_inner(
 
     # Check 4: best scenario
     if best and non_bl_means:
-        # Check both directions - best could be highest or lowest mean
         stats_highest = max(non_bl_means, key=non_bl_means.get)
         stats_lowest = min(non_bl_means, key=non_bl_means.get)
-        # All means equal -> any choice is fine
-        unique_means = set(non_bl_means.values())
-        if len(unique_means) > 1 and best not in (stats_highest, stats_lowest):
-            warnings.append(
-                f"best_scenario '{best}' is neither the highest-mean "
-                f"({stats_highest}) nor lowest-mean ({stats_lowest}) scenario"
-            )
+        mean_vals = list(non_bl_means.values())
+        all_close = all(_means_close(mean_vals[0], v) for v in mean_vals[1:])
+        if not all_close:
+            best_close_to_extreme = _means_close(non_bl_means.get(best, 0), non_bl_means[stats_highest]) or _means_close(non_bl_means.get(best, 0), non_bl_means[stats_lowest])
+            if not best_close_to_extreme:
+                warnings.append(
+                    f"best_scenario '{best}' is neither the highest-mean "
+                    f"({stats_highest}) nor lowest-mean ({stats_lowest}) scenario"
+                )
 
     # Check 5: worst scenario
     if worst and non_bl_means:
         stats_highest = max(non_bl_means, key=non_bl_means.get)
         stats_lowest = min(non_bl_means, key=non_bl_means.get)
-        unique_means = set(non_bl_means.values())
-        if len(unique_means) > 1 and worst not in (stats_highest, stats_lowest):
-            warnings.append(
-                f"worst_scenario '{worst}' is neither the highest-mean "
-                f"({stats_highest}) nor lowest-mean ({stats_lowest}) scenario"
-            )
+        mean_vals = list(non_bl_means.values())
+        all_close = all(_means_close(mean_vals[0], v) for v in mean_vals[1:])
+        if not all_close:
+            worst_close_to_extreme = _means_close(non_bl_means.get(worst, 0), non_bl_means[stats_highest]) or _means_close(non_bl_means.get(worst, 0), non_bl_means[stats_lowest])
+            if not worst_close_to_extreme:
+                warnings.append(
+                    f"worst_scenario '{worst}' is neither the highest-mean "
+                    f"({stats_highest}) nor lowest-mean ({stats_lowest}) scenario"
+                )
 
     # Check 6: cited values appear in stats_text
     if cited and stats_text:
@@ -722,7 +737,7 @@ IMPORTANT: Respond with a single JSON object (no markdown fences, no text outsid
 
 Rules for the JSON fields:
 - "narrative": your complete analysis as a single string (use \\n for line breaks)
-- "ranking": ordered list of non-baseline scenario IDs from best to worst performing
+- "ranking": ordered list of ALL non-baseline scenario IDs from best to worst performing (must include every non-baseline scenario)
 - "best_scenario": the single best non-baseline scenario ID
 - "worst_scenario": the single worst non-baseline scenario ID
 - "cited_values": dict mapping descriptive keys to numeric values you reference (e.g. {"s0030_mean_storage": 2145.3})
