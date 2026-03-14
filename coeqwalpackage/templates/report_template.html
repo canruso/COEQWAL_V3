@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>{{ title }}</title>
+<style>
+/* Google Docs-safe CSS: no flexbox, no grid, simple fonts, table layout */
+body {
+    font-family: Georgia, "Times New Roman", serif;
+    color: #222;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px 30px;
+    line-height: 1.5;
+}
+h1 { font-size: 28px; margin-top: 0; }
+h2 { font-size: 22px; border-bottom: 2px solid #333; padding-bottom: 4px; margin-top: 40px; }
+h3 { font-size: 18px; color: #1a5276; margin-top: 30px; }
+h4 { font-size: 15px; color: #555; margin-top: 20px; margin-bottom: 8px; }
+p { margin: 6px 0; }
+a { color: #1a5276; text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Cover */
+.cover { text-align: center; margin-bottom: 40px; }
+.cover h1 { font-size: 32px; margin-bottom: 4px; }
+.cover .subtitle { font-size: 16px; color: #555; margin-bottom: 20px; }
+
+/* Tables */
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 10px 0;
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 13px;
+}
+th, td {
+    border: 1px solid #999;
+    padding: 6px 10px;
+    text-align: left;
+}
+th {
+    background-color: #e8e8e8;
+    font-weight: bold;
+}
+tr.baseline td { background-color: #d4e6f1; font-weight: bold; }
+
+/* TOC */
+.toc { margin: 20px 0 40px 0; }
+.toc ul { list-style: none; padding-left: 0; }
+.toc li { margin: 3px 0; }
+.toc .toc-section { font-weight: bold; margin-top: 10px; }
+.toc .toc-var { padding-left: 20px; }
+
+/* Images */
+.plot-img { max-width: 100%; height: auto; border: 1px solid #ccc; margin: 8px 0; }
+.img-missing {
+    background: #f0f0f0;
+    border: 1px dashed #999;
+    padding: 30px;
+    text-align: center;
+    color: #888;
+    font-style: italic;
+    margin: 8px 0;
+}
+
+/* Narrative */
+.narrative { margin: 8px 0; padding: 8px 12px; background: #f9f9f9; border-left: 3px solid #1a5276; }
+
+/* Validation warnings */
+.validation-box {
+    background: #fff8e1;
+    border: 1px solid #f9a825;
+    border-left: 4px solid #f9a825;
+    padding: 8px 12px;
+    margin: 8px 0;
+    font-size: 13px;
+}
+.validation-box strong { color: #e65100; }
+
+/* Missing data placeholder */
+.missing-box {
+    background: #f5f5f5;
+    border: 1px dashed #bbb;
+    padding: 12px;
+    text-align: center;
+    color: #999;
+    font-style: italic;
+    margin: 8px 0;
+}
+
+/* Ranking table */
+table.ranking { width: auto; min-width: 300px; }
+table.ranking td.rank-num { text-align: center; width: 50px; }
+
+/* Summary stats */
+.summary-stats { font-size: 13px; color: #555; margin: 10px 0; }
+
+/* Executive summary */
+.exec-summary { margin: 30px 0; }
+.exec-summary h2 { color: #1a5276; }
+.exec-findings { margin: 12px 0; line-height: 1.6; }
+.exec-tradeoffs li, .exec-unexpected li { margin: 6px 0; }
+.exec-section-highlights dt { font-weight: bold; margin-top: 8px; }
+.exec-section-highlights dd { margin: 2px 0 8px 20px; }
+.exec-scenario-assessment td:first-child { font-weight: bold; white-space: nowrap; width: 80px; }
+
+/* Print */
+@media print {
+    .page-break { page-break-before: always; }
+    body { max-width: none; padding: 10px; }
+    .toc a { color: #000; }
+}
+</style>
+</head>
+<body>
+
+<!-- Cover -->
+<div class="cover">
+    <h1>{{ title }}</h1>
+    <p class="subtitle">COEQWAL Scenario Review - LLM-Generated Analysis</p>
+    <p class="subtitle">Generated {{ generation_date }}</p>
+</div>
+
+<!-- Scenario table -->
+<table>
+    <tr><th>Scenario ID</th><th>Label</th></tr>
+    {% for sc in scenarios %}
+    <tr{% if sc.is_baseline %} class="baseline"{% endif %}>
+        <td>{{ sc.id }}{% if sc.is_baseline %} (baseline){% endif %}</td>
+        <td>{{ sc.label }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+<div class="summary-stats">
+    {{ total_plots }} plot analyses across {{ total_variables }} variables in {{ total_sections }} sections.
+    {% if total_warnings > 0 %}{{ total_warnings }} validation warning(s).{% endif %}
+    {% if total_missing > 0 %}{{ total_missing }} missing output(s).{% endif %}
+</div>
+
+{% if executive_summary %}
+<!-- Executive Summary -->
+<div class="exec-summary">
+    <h2 id="executive-summary">Executive Summary</h2>
+
+    {% if executive_summary.overall_findings %}
+    <div class="exec-findings">
+        {% for paragraph in executive_summary.overall_findings.split('\n\n') %}
+        <p>{{ paragraph }}</p>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if executive_summary.key_tradeoffs %}
+    <h3>Key Tradeoffs</h3>
+    <ul class="exec-tradeoffs">
+        {% for item in executive_summary.key_tradeoffs %}
+        <li>{{ item }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if executive_summary.unexpected_results %}
+    <h3>Unexpected Results</h3>
+    <ul class="exec-unexpected">
+        {% for item in executive_summary.unexpected_results %}
+        <li>{{ item }}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
+    {% if executive_summary.section_highlights %}
+    <h3>Section Highlights</h3>
+    <dl class="exec-section-highlights">
+        {% for sec_name, highlight in executive_summary.section_highlights.items() %}
+        <dt>{{ sec_name }}</dt>
+        <dd>{{ highlight }}</dd>
+        {% endfor %}
+    </dl>
+    {% endif %}
+
+    {% if executive_summary.scenario_rankings %}
+    <h3>Scenario Assessments</h3>
+    <table class="exec-scenario-assessment">
+        <tr><th>Scenario</th><th>Assessment</th></tr>
+        {% for sc_id, assessment in executive_summary.scenario_rankings.items() %}
+        <tr>
+            <td>{{ sc_id }}</td>
+            <td>{{ assessment }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+</div>
+{% endif %}
+
+<!-- Table of Contents -->
+<div class="toc">
+    <h2>Table of Contents</h2>
+    <ul>
+    {% if executive_summary %}
+        <li class="toc-section"><a href="#executive-summary">Executive Summary</a></li>
+    {% endif %}
+    {% for section in sections %}
+        <li class="toc-section"><a href="#section-{{ loop.index }}">{{ section.title }}</a></li>
+        {% for var in section.variables %}
+        <li class="toc-var"><a href="#var-{{ section.idx }}-{{ loop.index }}">{{ var.label }}</a></li>
+        {% endfor %}
+    {% endfor %}
+    </ul>
+</div>
+
+<!-- Sections -->
+{% for section in sections %}
+<div class="page-break">
+    <h2 id="section-{{ section.idx }}">{{ section.title }}</h2>
+
+    {% for var in section.variables %}
+    <h3 id="var-{{ section.idx }}-{{ loop.index }}">{{ var.label }}</h3>
+
+    {% for entry in var.entries %}
+    <h4>{{ entry.plot_type_label }}</h4>
+
+    {% if entry.missing %}
+    <div class="missing-box">No LLM output found for this plot.</div>
+    {% else %}
+
+    {# Image #}
+    {% if entry.image_data %}
+    <img class="plot-img" src="{{ entry.image_data }}" alt="{{ var.label }} - {{ entry.plot_type_label }}">
+    {% else %}
+    <div class="img-missing">Image not found</div>
+    {% endif %}
+
+    {# Narrative #}
+    {% if entry.observation %}
+    <div class="narrative">{{ entry.observation }}</div>
+    {% endif %}
+
+    {# Ranking table #}
+    {% if entry.ranking %}
+    <table class="ranking">
+        <tr><th>Rank</th><th>Scenario</th></tr>
+        {% for sc_id in entry.ranking %}
+        <tr>
+            <td class="rank-num">{{ loop.index }}</td>
+            <td>{{ sc_id }}{% if entry.best_scenario and loop.first %} (best){% endif %}{% if entry.worst_scenario and loop.last %} (worst){% endif %}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+
+    {# Validation warnings #}
+    {% if entry.validation %}
+    <div class="validation-box">
+        <strong>Validation Warning{{ 's' if entry.validation|length > 1 else '' }}:</strong>
+        <ul>
+        {% for w in entry.validation %}
+            <li>{{ w }}</li>
+        {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    {% endif %}{# end missing check #}
+    {% endfor %}{# end entries #}
+    {% endfor %}{# end variables #}
+</div>
+{% endfor %}{# end sections #}
+
+</body>
+</html>
