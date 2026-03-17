@@ -19,8 +19,8 @@ import numpy as np
 import datetime as dt
 from collections import OrderedDict as Odict
 
-import cs_util as util
-import AuxFunctions as af
+from . import cs_util as util
+from . import AuxFunctions as af
     
 DEFAULTS = {
         'CSII': {

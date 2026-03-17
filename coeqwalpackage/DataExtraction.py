@@ -5,9 +5,9 @@ import pandas as pd
 import numpy as np
 
 # Import custom modules - NEED WINDOWS OS
-import AuxFunctions as af, cs3, csPlots, cs_util as util, dss3_functions_reference as dss
-import csPlots as csplt
-import cqwlutils as cu
+from . import AuxFunctions as af, cs3, csPlots, cs_util as util, dss3_functions_reference as dss
+from . import csPlots as csplt
+from . import cqwlutils as cu
 
 """READ NAMES & CONSTRUCT STUDY VARIABLES"""
 def read_names(DssList, DssTab, DssMin, DssMax, hdr=True):
