@@ -27,7 +27,7 @@ import re
 import os
 import datetime as dt
 
-import dss3_functions_reference as dss  ####IMPORTANT - change import to reflect Python3 vs Python2.x versions!!!
+from . import dss3_functions_reference as dss  ####IMPORTANT - change import to reflect Python3 vs Python2.x versions!!!
 
 #%% other utility functions - taken from PlotAllocDiff.py
 

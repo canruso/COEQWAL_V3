@@ -6,8 +6,8 @@ Created on Wed Feb 19 15:04:17 2020
 """
 
 from collections import OrderedDict as Odict
-import cs3
-import AuxFunctions as af
+from . import cs3
+from . import AuxFunctions as af
 import os, sys
 import datetime as dthow
 import numpy as np

@@ -10,8 +10,8 @@ import pandas as pnd
 
 #sys.path.append(r'C:\Users\jgilbert\01_Programs\Excel DSS Add-in V3.3.jmg\libraries\64-bit')
 sys.path.append('D:\\02_Projects\\CalSim\\util\\CalSim_Utilities\\Python_Functions\\Python_DSS')
-import dss3_functions_reference as dss
-import AuxFunctions as af
+from . import dss3_functions_reference as dss
+from . import AuxFunctions as af
 
 import datetime as dt
 
