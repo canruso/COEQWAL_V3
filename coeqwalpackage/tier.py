@@ -813,10 +813,71 @@ def build_combined_storage_timeseries(
             elif use_total_wba_acres_for_detaw:
                 detaw_area = float(pd.to_numeric(wba_df["GIS_Acres"], errors="coerce").sum())
             else:
-                raise ValueError("DETAW area unknown — set detaw_area_acres or enable use_total_wba_acres_for_detaw.")
+                raise ValueError("DETAW area unknown - set detaw_area_acres or enable use_total_wba_acres_for_detaw.")
 
             values_ft = series_af / detaw_area
             series_map[f"DETAW_{scenario}"] = values_ft
+
+    # Fallback: if no TOT columns matched, sum L1+L2+L3 layers per (SR, scenario)
+    if not series_map:
+        layer_data = {}  # key: (sr_normalized, scenario) -> list of series
+        detaw_layers = {}  # key: scenario -> list of series
+        for col in gw1_df.columns:
+            if not isinstance(col, tuple) or len(col) < 5:
+                continue
+            _model, var_tag, _var_type, _timestep, _unit = col[:5]
+            if not isinstance(var_tag, str):
+                continue
+
+            # SR layer columns (e.g. SR1:L1_s0002)
+            if re.match(r"^SR\d+:L[123]_s\d{4}$", var_tag):
+                sr_raw, rest = var_tag.split(":")
+                sr_num = re.search(r"\d+", sr_raw).group()
+                sr = f"SR{int(sr_num):02d}"  # normalize: SR1 -> SR01
+                scen_raw = rest.split("_s")[-1]
+                scenario = f"s{int(scen_raw):04d}"
+                series = pd.to_numeric(gw1_df[col], errors="coerce")
+                series = series[series.index >= pd.Timestamp(f"{start_year}-01-01")]
+                layer_data.setdefault((sr, scenario), []).append(series)
+
+            # DETAW layer columns (e.g. DETAW:L1_s0002)
+            elif re.match(r"^DETAW:L[123]_s\d{4}$", var_tag):
+                scen_raw = var_tag.split("_s")[-1]
+                scenario = f"s{int(scen_raw):04d}"
+                series = pd.to_numeric(gw1_df[col], errors="coerce")
+                series = series[series.index >= pd.Timestamp(f"{start_year}-01-01")]
+                detaw_layers.setdefault(scenario, []).append(series)
+
+        # Sum L1+L2+L3 for each (SR, scenario)
+        for (sr, scenario), series_list in layer_data.items():
+            if len(series_list) < 3:
+                continue  # require all 3 layers
+            summed = series_list[0].add(series_list[1], fill_value=0).add(series_list[2], fill_value=0)
+            if sr not in sr_to_wba:
+                continue
+            wba_name = sr_to_wba[sr]
+            fid = sr_to_fid.get(sr)
+            area_acres = fid_to_acres.get(fid)
+            if area_acres is None or float(area_acres) == 0.0:
+                continue
+            series_ft = (summed / float(area_acres)) * 1000.0  # TAF -> FT
+            neg_idx = np.where(series_ft < 0)[0]
+            if len(neg_idx) > 0:
+                series_ft = series_ft.iloc[:neg_idx[0]]
+            series_map[f"{wba_name}_{scenario}"] = series_ft
+
+        # Sum DETAW layers
+        for scenario, series_list in detaw_layers.items():
+            if len(series_list) < 3:
+                continue
+            summed = series_list[0].add(series_list[1], fill_value=0).add(series_list[2], fill_value=0)
+            if detaw_area_acres is not None:
+                detaw_area = float(detaw_area_acres)
+            elif use_total_wba_acres_for_detaw:
+                detaw_area = float(pd.to_numeric(wba_df["GIS_Acres"], errors="coerce").sum())
+            else:
+                raise ValueError("DETAW area unknown - set detaw_area_acres or enable use_total_wba_acres_for_detaw.")
+            series_map[f"DETAW_{scenario}"] = summed / detaw_area
 
     monthly_from_tot = (
         pd.concat(series_map, axis=1).loc[window_start:window_end]
@@ -972,6 +1033,64 @@ def build_gw_timeseries(
             col_name = f"DETAW_{scenario}"
             af_map[col_name] = series_af
             ft_map[col_name] = series_af / detaw_area
+
+    # Fallback: if no TOT columns matched, sum L1+L2+L3 layers per (SR, scenario)
+    if not ft_map:
+        layer_data = {}  # key: (sr_normalized, scenario) -> list of series
+        detaw_layers = {}  # key: scenario -> list of series
+        for col in gw1_df.columns:
+            if not isinstance(col, tuple) or len(col) < 5:
+                continue
+            _model, var_tag, _var_type, _timestep, _unit = col[:5]
+            if not isinstance(var_tag, str):
+                continue
+
+            # SR layer columns (e.g. SR1:L1_s0002)
+            if re.match(r"^SR\d+:L[123]_s\d{4}$", var_tag):
+                sr_raw, rest = var_tag.split(":")
+                sr_num = re.search(r"\d+", sr_raw).group()
+                sr = f"SR{int(sr_num):02d}"  # normalize: SR1 -> SR01
+                scen_raw = rest.split("_s")[-1]
+                scenario = f"s{int(scen_raw):04d}"
+                series = pd.to_numeric(gw1_df[col], errors="coerce")
+                series = series[series.index >= pd.Timestamp(f"{start_year}-01-01")]
+                layer_data.setdefault((sr, scenario), []).append(series)
+
+            # DETAW layer columns (e.g. DETAW:L1_s0002)
+            elif re.match(r"^DETAW:L[123]_s\d{4}$", var_tag):
+                scen_raw = var_tag.split("_s")[-1]
+                scenario = f"s{int(scen_raw):04d}"
+                series = pd.to_numeric(gw1_df[col], errors="coerce")
+                series = series[series.index >= pd.Timestamp(f"{start_year}-01-01")]
+                detaw_layers.setdefault(scenario, []).append(series)
+
+        # Sum L1+L2+L3 for each (SR, scenario)
+        for (sr, scenario), series_list in layer_data.items():
+            if len(series_list) < 3:
+                continue  # require all 3 layers
+            summed = series_list[0].add(series_list[1], fill_value=0).add(series_list[2], fill_value=0)
+            if sr not in sr_to_wba:
+                continue
+            wba_name = sr_to_wba[sr]
+            fid = sr_to_fid.get(sr)
+            area_acres = fid_to_acres.get(fid)
+            if area_acres is None or float(area_acres) == 0.0:
+                continue
+            neg_idx = np.where(summed < 0)[0]
+            if len(neg_idx) > 0:
+                summed = summed.iloc[:neg_idx[0]]
+            col_name = f"{wba_name}_{scenario}"
+            af_map[col_name] = summed * 1000.0  # TAF -> AF
+            ft_map[col_name] = (summed / float(area_acres)) * 1000.0  # TAF -> FT
+
+        # Sum DETAW layers
+        for scenario, series_list in detaw_layers.items():
+            if len(series_list) < 3:
+                continue
+            summed = series_list[0].add(series_list[1], fill_value=0).add(series_list[2], fill_value=0)
+            col_name = f"DETAW_{scenario}"
+            af_map[col_name] = summed
+            ft_map[col_name] = summed / detaw_area
 
     # Add s0000 baseline from storage file
     storage_df = pd.read_csv(wba_storage_csv_path, index_col=0, parse_dates=True)
