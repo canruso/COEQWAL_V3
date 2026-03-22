@@ -201,9 +201,12 @@ def create_subset_unit(df, varname, units, water_year_type=None, month=None):
         df_var = filtered_columns.loc[:, filtered_columns.columns.get_level_values(1).str.contains(varname)]
         filtered_columns = filtered_columns.loc[:,
                            filtered_columns.columns.get_level_values(1).str.contains('WYT_SAC_')]
-        for i in range(len(df_var.columns)):
-            df_nan = filtered_columns[filtered_columns.columns[i]].isna()
-            df_var.loc[df_nan, df_var.columns[i]] = np.nan
+        for var_col in df_var.columns:
+            scen_suffix = str(var_col[1]).split('_')[-1]
+            wyt_cols = [c for c in filtered_columns.columns if str(c[1]).endswith(scen_suffix)]
+            if wyt_cols:
+                df_nan = filtered_columns[wyt_cols[0]].isna()
+                df_var.loc[df_nan, var_col] = np.nan
         return df_var
     return df.loc[:, filtered_columns]
 
