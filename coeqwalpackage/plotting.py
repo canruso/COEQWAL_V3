@@ -1874,6 +1874,91 @@ def plot_tier_radar(df, cols, scenario_col, highlight_scenarios, highlight_color
     plt.show()
     return fig, ax
 
+AXIS_DESCRIPTIONS = {
+    "NOD DW": (
+        "Tiers reflect the degree of Municipal & Industrial demands satisfied "
+        "by CalSim demand unit or diversion node, north of the delta."
+    ),
+    "SOD DW": (
+        "Tiers reflect the degree of Municipal & Industrial demands satisfied "
+        "by CalSim demand unit or diversion node, south of the delta."
+    ),
+    "NOD Ag": (
+        "Tiers correspond to the impact of water shortages on agricultural production, north of the delta."
+    ),
+    "SOD Ag": (
+        "Tiers correspond to the impact of water shortages on agricultural production, south of the delta."
+    ),
+    "SOD Eflows": (
+        "Tiers reflect the extent to which modeled flows sustain ecological function "
+        "relative to natural or functional flow (FF) targets, south of the delta. The "
+        "framework distinguishes between fully functional ecosystems, partially functional "
+        "conditions, existing regulatory baselines, and degraded/no-function states."
+    ),
+    "NOD Eflows": (
+        "Tiers reflect the extent to which modeled flows sustain ecological function "
+        "relative to natural or functional flow (FF) targets, north of the delta. The "
+        "framework distinguishes between fully functional ecosystems, partially functional "
+        "conditions, existing regulatory baselines, and degraded/no-function states."
+    ),
+    "Delta Ecology": (
+        "Tiers reflect ecological responses to flow, measured by direct indicators "
+        "(SAV growth, salinity, turbidity, microhabitat availability). Indicators are "
+        "assigned a given score based on average winter/spring flows, and scores are "
+        "scaled accordingly to accommodate threshold effects and additive impacts from "
+        "multiple years of wet/dry conditions."
+    ),
+    "InDelta Salinity": (
+        "Tiers reflect the frequency with which water in the western Delta falls into "
+        "fresh, moderate, or saline categories as an indicator of its suitability for "
+        "in-Delta uses. Tiers are defined based on the frequency with which two west-Delta "
+        "salinity stations (Emmaton [EM], Jersey Point [JP]) are below/above three salinity "
+        "thresholds (uS/cm): 1) 900 – low salinity, 2) 1600 – moderate, 3) 2500 – high."
+    ),
+    "Exports and Salinity": (
+        "Tier reflects the amount of fresh water exported from the Delta pumps (Banks, Jones) "
+        "over the 100-year simulation period. Volume pumped is reduced proportionally when "
+        "salinity exceeds 900 uS/cm; water above 2500 uS/cm is assigned 0 value. Tiers are "
+        "defined based on combined total volume pumped at each location over 100 years."
+    ),
+    "NOD Reservoir": (
+        "Tier reflects the degree to which a reservoir, north of the delta, fills each spring "
+        "(Apr 30 storage) in advance of the summer delivery season. Tiers are designated based "
+        "on how frequently April 30 storage exceeds or falls below historical percentile thresholds, "
+        "which vary by reservoir. Tier 1 = more consistently higher than recent history; "
+        "Tier 2 = roughly equivalent; Tier 3 = moderately lower; Tier 4 = consistently and "
+        "substantially lower."
+    ),
+    "SOD Reservoir": (
+        "Tier reflects the degree to which a reservoir, south of the delta, fills each spring "
+        "(Apr 30 storage) in advance of the summer delivery season. Tiers are designated based "
+        "on how frequently April 30 storage exceeds or falls below historical percentile thresholds, "
+        "which vary by reservoir. Tier 1 = more consistently higher than recent history; "
+        "Tier 2 = roughly equivalent; Tier 3 = moderately lower; Tier 4 = consistently and "
+        "substantially lower."
+    ),
+    "NOD GW": (
+        "Tier reflects how groundwater storage conditions compare to a reference condition. "
+        "Groundwater responds slowly and can exhibit long-term upward or downward trends. "
+        "Tier designations at the Water Budget Area (WBA) level are based on trend and "
+        "magnitude characteristics relative to the reference, north of the delta."
+    ),
+    "SOD GW": (
+        "Tier reflects how groundwater storage conditions compare to a reference condition. "
+        "Groundwater responds slowly and can exhibit long-term upward or downward trends. "
+        "Tier designations at the Water Budget Area (WBA) level are based on trend and "
+        "magnitude characteristics relative to the reference, south of the delta."
+    ),
+    "Salmon Abundance": (
+        "Tiers reflect whether the population shows strong growth (Tier 1), moderate growth "
+        "(Tier 2), little or no change (Tier 3), or experiences population decline (Tier 4)."
+    ),
+    "Riparian Habitat": (
+        "Tiers reflect the potential for (1) maintaining existing GDEs; "
+        "(2) promoting riparian forest regeneration; and "
+        "(3) prioritizing and supporting restoration areas. (TBD, from Delta Science Project)"
+    ),
+}
 
 def plot_tier_radar_interactive(df, cols, scenario_col, highlight_scenarios,
                                 highlight_colors, highlight_labels, title,
@@ -1934,7 +2019,31 @@ def plot_tier_radar_interactive(df, cols, scenario_col, highlight_scenarios,
             name=highlight_labels[sc_idx],
             text=hover_texts, hoverinfo='text'))
 
-    # Step 4: Axis configuration
+    # Step 4: Axis description hover anchors — invisible markers at each axis
+    # tip that show the category description on hover
+    tip_r = max_tier + 0.5
+    for i, lbl in enumerate(axis_labels):
+        description = AXIS_DESCRIPTIONS.get(lbl, "No description available.")
+        wrapped = _wrap_text(description, width=60)
+        hover_text = f"<b>{lbl}</b><br>" + "<br>".join(wrapped)
+        fig.add_trace(go.Scatterpolar(
+            r=[tip_r],
+            theta=[lbl],
+            mode='markers',
+            marker=dict(size=12, color='rgba(0,0,0,0)', symbol='circle'),
+            name='Axis descriptions',
+            legendgroup='axis_desc',
+            showlegend=(i == 0),
+            text=[hover_text],
+            hoverinfo='text',
+            hoverlabel=dict(
+                bgcolor='white',
+                bordercolor='grey',
+                font=dict(size=12, color='black')
+            )
+        ))
+
+    # Step 5: Axis configuration
     fig.update_layout(
         title=dict(text=title, font=dict(size=16, weight='bold')),
         polar=dict(
@@ -1957,3 +2066,18 @@ def plot_tier_radar_interactive(df, cols, scenario_col, highlight_scenarios,
 
     fig.show()
     return fig
+
+def _wrap_text(text: str, width: int = 60) -> list[str]:
+    words = text.split()
+    lines, current = [], []
+    length = 0
+    for word in words:
+        if length + len(word) + (1 if current else 0) > width:
+            lines.append(' '.join(current))
+            current, length = [word], len(word)
+        else:
+            current.append(word)
+            length += len(word) + (1 if len(current) > 1 else 0)
+    if current:
+        lines.append(' '.join(current))
+    return lines
