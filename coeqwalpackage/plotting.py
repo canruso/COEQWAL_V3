@@ -1960,6 +1960,99 @@ AXIS_DESCRIPTIONS = {
     ),
 }
 
+TIER_DEFINITIONS = {
+    "NOD DW": {
+        1: "Near full deliveries in most years, no years with large shortfalls (≥ 90% of target met in ≥ 90% of years, no year with ≤ 70% of target delivered)",
+        2: "Near full deliveries in at least half of years, no years with critical shortfalls (≥ 90% of target met in ≥ 50% of years, no years with ≤ 50% of target delivered)",
+        3: "Near full deliveries in at least half of years, no more than 20 years with critical shortfalls (≥ 90% of target met in ≥ 50% of years, no more than 20% of years with < 50% of target delivered)",
+        4: "None of the above criteria met (Either ≥ 90% of target met in < 50% of years and/or ≥ 20% years with < 50% of target delivered)",
+    },
+    "SOD DW": {
+        1: "Near full deliveries in most years, no years with large shortfalls (≥ 90% of target met in ≥ 90% of years, no year with ≤ 70% of target delivered)",
+        2: "Near full deliveries in at least half of years, no years with critical shortfalls (≥ 90% of target met in ≥ 50% of years, no years with ≤ 50% of target delivered)",
+        3: "Near full deliveries in at least half of years, no more than 20 years with critical shortfalls (≥ 90% of target met in ≥ 50% of years, no more than 20% of years with < 50% of target delivered)",
+        4: "None of the above criteria met (Either ≥ 90% of target met in < 50% of years and/or ≥ 20% years with < 50% of target delivered)",
+    },
+    "NOD Ag": {
+        1: "Increased production: Agricultural production increases with respect to today's outcomes",
+        2: "Minimal impact: Agricultural production declines less than 5% with respect to today's outcomes",
+        3: "Moderate impact: Agricultural production declines 5%-20% with respect to today's outcomes",
+        4: "Severe impact: Agricultural production declines more than 20% with respect to today's outcomes",
+    },
+    "SOD Ag": {
+        1: "Increased production: Agricultural production increases with respect to today's outcomes",
+        2: "Minimal impact: Agricultural production declines less than 5% with respect to today's outcomes",
+        3: "Moderate impact: Agricultural production declines 5%-20% with respect to today's outcomes",
+        4: "Severe impact: Agricultural production declines more than 20% with respect to today's outcomes",
+    },
+    "NOD Eflows": {
+        1: "Functional Ecosystem: Functional flows to sustain native freshwater species in 90% of years; must have higher mean daily flows in spring and winter than summer.",
+        2: "Modified Functional Flows: Partial functional flows in wet season and spring; full functional flows in summer in 75% of years. Must have higher mean daily flows in spring and winter than summer.",
+        3: "Existing Flow Requirements: CalSim minimum flow constraints for Baseline Scenario in 50% of years",
+        4: "No function: none of the above thresholds met",
+    },
+    "SOD Eflows": {
+        1: "Functional Ecosystem: Functional flows to sustain native freshwater species in 90% of years; must have higher mean daily flows in spring and winter than summer.",
+        2: "Modified Functional Flows: Partial functional flows in wet season and spring; full functional flows in summer in 75% of years. Must have higher mean daily flows in spring and winter than summer.",
+        3: "Existing Flow Requirements: CalSim minimum flow constraints for Baseline Scenario in 50% of years",
+        4: "No function: none of the above thresholds met",
+    },
+    "Delta Ecology": {
+        1: "Scenario scores in the top 25%: low SAV, high turbidity, fresh conditions, expanded microhabitats in most years",
+        2: "Scenario scores in the top 50%: unchanged SAV, high turbidity, fresh conditions, some microhabitats available in most years",
+        3: "Scenario scores in the top 75%: unchanged SAV, standard turbidity, moderate salinity, few microhabitats available in most years",
+        4: "None of the above thresholds met: unchanged SAV, low turbidity, moderate to high salinity, few microhabitats available in most years",
+    },
+    "InDelta Salinity": {
+        1: "Max of EM and JP is below the low threshold 75% of all months and above the highest threshold no more than 5% of all months",
+        2: "Max of EM and JP is below the low threshold ≥ 65% of months, below moderate threshold ≥ 75% of months, and above highest threshold no more than 12% of months",
+        3: "Max of EM and JP is below the low threshold ≥ 55% of months, below moderate threshold ≥ 65% of months, and above highest threshold no more than 20% of months",
+        4: "Max of EM and JP is below the low threshold < 55% of months and/or above the highest threshold more than 20% of all months",
+    },
+    "Exports and Salinity": {
+        1: "Total combined salinity-penalized export volume at Banks and Jones > 505 million acre-feet",
+        2: "Total combined salinity-penalized export volume at Banks and Jones > 465 and < 505 million acre-feet",
+        3: "Total combined salinity-penalized export volume at Banks and Jones > 400 and < 465 million acre-feet",
+        4: "Total combined salinity-penalized export volume at Banks and Jones < 400 million acre-feet",
+    },
+    "NOD Reservoir": {
+        1: "Storage ≥ top threshold (50th percentile of recent historical data) for at least 90% of years (April values)",
+        2: "Storage ≥ middle threshold (33rd percentile of recent historical data) for at least 67% of years (April values)",
+        3: "Storage ≥ middle threshold (33rd percentile of recent historical data) for at least 30% of years (April values)",
+        4: "Storage below middle threshold for more than 70% of years (April values); lower threshold set at 20th percentile of recent historical values",
+    },
+    "SOD Reservoir": {
+        1: "Storage ≥ top threshold (50th percentile of recent historical data) for at least 90% of years (April values)",
+        2: "Storage ≥ middle threshold (33rd percentile of recent historical data) for at least 67% of years (April values)",
+        3: "Storage ≥ middle threshold (33rd percentile of recent historical data) for at least 30% of years (April values)",
+        4: "Storage below middle threshold for more than 70% of years (April values); lower threshold set at 20th percentile of recent historical values",
+    },
+    "NOD GW": {
+        1: "Groundwater trend in WBA is stable or increasing from 1960-2021 and average total storage is greater than in the reference scenario",
+        2: "Groundwater trend in WBA is stable or increasing but total storage is less than in the reference",
+        3: "Groundwater trend is declining but at a moderate rate (fitted linear trend less negative than -0.015 ft/yr)",
+        4: "Groundwater trends declining more severely at a rate greater than 0.015 ft/year (slope <= -0.015 ft/yr)",
+    },
+    "SOD GW": {
+        1: "Groundwater trend in WBA is stable or increasing from 1960-2021 and average total storage is greater than in the reference scenario",
+        2: "Groundwater trend in WBA is stable or increasing but total storage is less than in the reference",
+        3: "Groundwater trend is declining but at a moderate rate (fitted linear trend less negative than -0.015 ft/yr)",
+        4: "Groundwater trends declining more severely at a rate greater than 0.015 ft/year (slope <= -0.015 ft/yr)",
+    },
+    "Salmon Abundance": {
+        1: "≥ 80% chance (>800/1,000 model runs) that salmon population grows 8× its starting size (rolling 10-year average)",
+        2: "≥ 80% chance (>800/1,000 model runs) that salmon population grows 2–8× its starting size (rolling 10-year average)",
+        3: "≥ 80% chance (>800/1,000 model runs) that salmon population exceeds its starting size (rolling 10-year average)",
+        4: "Population change does not satisfy Tier 1, 2, or 3",
+    },
+    "Riparian Habitat": {
+        1: "Tier 1 is met if... (TBD)",
+        2: "Tier 2 is met if... (TBD)",
+        3: "Tier 3 is met if... (TBD)",
+        4: "Tier 4 is assigned if... (TBD)",
+    },
+}
+
 def plot_tier_radar_interactive(df, cols, scenario_col, highlight_scenarios,
                                 highlight_colors, highlight_labels, title,
                                 max_tier=4, save_path=None):
@@ -2021,27 +2114,35 @@ def plot_tier_radar_interactive(df, cols, scenario_col, highlight_scenarios,
 
     # Step 4: Axis description hover anchors — invisible markers at each axis
     # tip that show the category description on hover
-    tip_r = max_tier + 0.5
     for i, lbl in enumerate(axis_labels):
-        description = AXIS_DESCRIPTIONS.get(lbl, "No description available.")
-        wrapped = _wrap_text(description, width=60)
-        hover_text = f"<b>{lbl}</b><br>" + "<br>".join(wrapped)
-        fig.add_trace(go.Scatterpolar(
-            r=[tip_r],
-            theta=[lbl],
-            mode='markers',
-            marker=dict(size=12, color='rgba(0,0,0,0)', symbol='circle'),
-            name='Axis descriptions',
-            legendgroup='axis_desc',
-            showlegend=(i == 0),
-            text=[hover_text],
-            hoverinfo='text',
-            hoverlabel=dict(
-                bgcolor='white',
-                bordercolor='grey',
-                font=dict(size=12, color='black')
-            )
-        ))
+        category_desc = AXIS_DESCRIPTIONS.get(lbl, "No description available.")
+        tier_defs = TIER_DEFINITIONS.get(lbl, {})
+        for tier in range(1, max_tier + 1):
+            inv_r = invert(tier)  # radial position matches the inverted scale
+            tier_text = tier_defs.get(tier, "No definition available.")
+            wrapped = _wrap_text(tier_text, width=60)
+            wrapped_desc = _wrap_text(category_desc, width=60)
+            wrapped_tier = _wrap_text(tier_text, width=60)
+            hover_text = (f"<b>{lbl}</b><br>" +
+                        "<br>".join(wrapped_desc) +
+                        f"<br><br><b>Tier {tier}:</b><br>" +
+                        "<br>".join(wrapped_tier))
+            fig.add_trace(go.Scatterpolar(
+                r=[inv_r],
+                theta=[lbl],
+                mode='markers',
+                marker=dict(size=14, color='rgba(0,0,0,0)', symbol='circle'),
+                name='Tier definitions',
+                legendgroup='tier_def',
+                showlegend=(i == 0 and tier == 1),
+                text=[hover_text],
+                hoverinfo='text',
+                hoverlabel=dict(
+                    bgcolor='white',
+                    bordercolor='grey',
+                    font=dict(size=12, color='black')
+                )
+            ))
 
     # Step 5: Axis configuration
     fig.update_layout(
