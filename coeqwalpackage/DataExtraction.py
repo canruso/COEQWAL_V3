@@ -767,6 +767,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
     demands_list = []
     demands_dssvar_list = []
     for d in all_du.Demand_Variable:
+        # does the next line prevent the UD_EBMUD variable from being read?
         if d not in ['UD_EBMUD (calculated in WRESL)', '1911.5 TAF']: #skip including UD_EBMUD and the 1911.5 for now - we'll get those later
             if '+' in d:
                 lus = d.split('+')
@@ -776,10 +777,13 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 demands_dssvar_list.append(d.strip())
                 demands_list.append(d.strip())
 
-    # print("demands_list:")
-    # print(demands_list)
-    # print("demands_dssvar_list:")
-    # print(demands_dssvar_list)
+    # try apending UD_EBMUD
+    demands_list.append('UD_EBMUD')  
+    
+    print("demands_list:")
+    print(demands_list)
+    print("demands_dssvar_list:")
+    print(demands_dssvar_list)
     
     # most demadns are in the SV file, but there are a few in the DV file that need
     # to be extracted -  this next section divides variables into and SV and DV set
@@ -859,6 +863,8 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
 # 10      21.36     9.55      21.36      3.56
 # 11      17.36     8.18      17.36      3.22
 # 12      9.59      7.38      9.59       4.41
+
+    print("Defining UD_JLIND")
     cacwd_mi = [15.84,15.90,12.61,8.32,4.19,3.55,3.56,3.22,4.41,5.47,9.55,13.38]
     demands_df[('MANUAL-ADD','UD_JLIND','URBAN-DEMAND','1MON','L2020A','PER-CUM','TAF')] = (0.6 * 3.5 * (np.array(cacwd_mi)[demands_df.index.month - 1]) / 100)
 
@@ -877,6 +883,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
 # 10	0.15	0.21		
 # 11	0.14	0.26		
 # 12	0.12	0.08		
+    print("Calculating UD_PLMAS")
     PLMASPatt = [0.04,0.04,0.05,0.06,0.09,0.12,0.15,0.14,0.12,0.09,0.05,0.05]
     taf_to_cfs = 1233481.84 / (demands_df.index.days_in_month * 86400)
     demands_df[('MANUAL-ADD','UD_PLMAS','URBAN-DEMAND','1MON','L2020A','PER-CUM','CFS')] = (0.672 * taf_to_cfs * (np.array(PLMASPatt)[demands_df.index.month - 1]))
@@ -917,11 +924,16 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
     CPLT_monthly_cfs_value = 0
     days_in_month = demands_df.index.days_in_month
     ANTOC_monthly_cfs_values = ANTOC_monthly_cfs_value * 0.001984 * days_in_month
+    print("Defining TABLEA_CONTRACT_MWD (TAF)")
     demands_df[('MANUAL-ADD','TABLEA_CONTRACT_MWD','URBAN-DEMAND','1MON','L2020A','PER-CUM','TAF')] = len(demands_df)*[MWD_yearly_taf_value/12]
+    print("Defining UD_ANTOC")
     demands_df[('MANUAL-ADD','UD_ANTOC','URBAN-DEMAND','1MON','L2020A','PER-CUM','CFS')] = ANTOC_monthly_cfs_values
+    print("Defining U_CPLT (TAF)")
     demands_df[('MANUAL-ADD','U_CPLT','URBAN-DEMAND','1MON','L2020A','PER-CUM','TAF')] = CPLT_monthly_taf_value
     # also add the CFS value for the TAF definitions to provide both columns
+    print("Defining U_CPLT (CFS)")
     demands_df[('MANUAL-ADD','U_CPLT','URBAN-DEMAND','1MON','L2020A','PER-CUM','CFS')] = CPLT_monthly_cfs_value
+    print("Defining TABLEA_CONTRACT_MWD (CFS)")
     demands_df[('MANUAL-ADD','TABLEA_CONTRACT_MWD','URBAN-DEMAND','1MON','L2020A','PER-CUM','CFS')] = ((MWD_yearly_taf_value / 12) * 1000 * 43560) / (86400 * demands_df.index.days_in_month)
 
 # define D_ANC000_ANGLS_DEM { !units CFS 
@@ -976,6 +988,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
     upang_values = pd.Series(upang_values, index=demands_df.index)
     
     # assign values
+    print("Defining D_ANC000_ANGLS_DEM")
     col = ('MANUAL-ADD','D_ANC000_ANGLS_DEM','URBAN-DEMAND','1MON','L2020A','PER-CUM','CFS')
     demands_df[col] = upang_values.values  # always 1D
     
@@ -996,6 +1009,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
     if aggregate_demands:
             
         # ---------- UD_NAPA ----------
+        print("Calculating UD_NAPA")
         cols_ud_napa = [
             ('CALSIM', 'SWP_CO_NAPA', 'SWP_DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ('CALSIM', 'SWP_IN_NAPA', 'SWP_DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
@@ -1013,6 +1027,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # ---------- UD_AMCYN ----------
+        print("Calculating UD_AMCYN")
         demands_df = add_combined_column_if_exists(
             demands_df,
             target_col=('CALCULATED','UD_AMCYN','URBAN-DEMAND','1MON','L2020A','PER-CUM','CFS'),
@@ -1027,6 +1042,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # ---------- D_MWD ----------
+        print("Calculating D_MWD_PMI")
         cols_d_mwd = [
             ('CALSIM', 'D_PRRIS_MWDSC_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ('CALSIM', 'D_ESB413_MWDSC_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
@@ -1044,6 +1060,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # ---------- UD_AMADR_NU ----------
+        print("Calculating UD_AMADR_NU")
         cols_ud_amadr = [
             ('CALSIM', 'DEMAND_AMADR_CAWP_', 'DEBUG', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ('CALSIM', 'DEMAND_AMADR_AWS_',  'DEBUG', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
@@ -1059,6 +1076,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
         
         # --- CSB103 ---
+        print("Calculating DEM_D_CSB103_BRBRA_PMI")
         # DEM_D_CSB103_BRBRA_PMI = (SHORT_D_CSB103_BRBRA_PMI + D_CSB103_BRBRA_PMI)/perdv_swp_34 
         cols_ud_csb103 = [
             ('CALSIM', 'SHORT_D_CSB103_BRBRA_PMI', 'DELIVERY-SHORTAGE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
@@ -1080,6 +1098,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
 
         # --- CSB038 ---
         # DEM_D_CSB038_OBISPO_PMI = (short_D_CSB038_OBISPO_PMI + D_CSB038_OBISPO_PMI)/perdv_swp_35  
+        print("Calculating DEM_D_CSB038_OBISPO_PMI")
         cols_ud_csb038 = [
             ('CALSIM', 'SHORT_D_CSB038_OBISPO_PMI', 'DELIVERY-SHORTAGE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ('CALSIM', 'D_CSB038_OBISPO_PMI',  'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
@@ -1100,6 +1119,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         
         # --- DEM_VNTRA_PMI ---
         # dem_VNTRA_PMI = (short_D_CSTIC_VNTRA_PMI + D_CSTIC_VNTRA_PMI)/perdv_swp_39 + (short_D_PYRMD_VNTRA_PMI + D_PYRMD_VNTRA_PMI)/perdv_swp_38        
+        print("Calculating DEM_VNTRA_PMI")
         demands_df = add_two_term_ratio_if_exists(
             demands_df,
             target_col=('CALCULATED','DEM_VNTRA_PMI','URBAN-DEMAND','1MON','L2020A','PER-CUM','CFS'),
@@ -1120,6 +1140,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
 
         # --- ESB324 ---
         # dem_D_ESB324_AVEK_PMI = (short_D_ESB324_AVEK_PMI + D_ESB324_AVEK_PMI)/perdv_swp_4 
+        print("Calculating DEM_D_ESB324_AVEK_PMI")
         cols_ud_esb324 = [
             ('CALSIM', 'SHORT_D_ESB324_AVEK_PMI', 'DELIVERY-SHORTAGE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ('CALSIM', 'D_ESB324_AVEK_PMI',  'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
@@ -1140,6 +1161,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
 
         # --- ESB347 ---
         # dem_D_ESB347_PLMDL_PMI = (short_D_ESB347_PLMDL_PMI + D_ESB347_PLMDL_PMI)/perdv_swp_29 
+        print("Calculating DEM_D_ESB347_PLMDL_PMI")
         cols_ud_esb347 = [
             ('CALSIM', 'SHORT_D_ESB347_PLMDL_PMI', 'DELIVERY-SHORTAGE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ('CALSIM', 'D_ESB347_PLMDL_PMI',  'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
@@ -1160,6 +1182,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
 
         # --- ESB414 ---
         # dem_D_ESB414_BRDNO_PMI = (short_D_ESB414_BRDNO_PMI + D_ESB414_BRDNO_PMI)/perdv_swp_30
+        print("Calculating DEM_D_ESB414_BRDNO_PMI")
         cols_ud_esb414 = [
             ('CALSIM', 'SHORT_D_ESB414_BRDNO_PMI', 'DELIVERY-SHORTAGE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ('CALSIM', 'D_ESB414_BRDNO_PMI',  'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
@@ -1180,6 +1203,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
  
         # --- ESB415 ---
         # dem_D_ESB415_GABRL_PMI = (short_D_ESB415_GABRL_PMI + D_ESB415_GABRL_PMI)/perdv_swp_31 
+        print("Calculating DEM_D_ESB415_GABRL_PMI")
         cols_ud_esb415 = [
             ('CALSIM', 'SHORT_D_ESB415_GABRL_PMI', 'DELIVERY-SHORTAGE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ('CALSIM', 'D_ESB415_GABRL_PMI',  'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
@@ -1200,6 +1224,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
 
         # --- ESB420 ---
         # dem_D_ESB420_GRGNO_PMI = (short_D_ESB420_GRGNO_PMI + D_ESB420_GRGNO_PMI)/perdv_swp_32 
+        print("Calculating DEM_D_ESB420_GRGNO_PMI")
         cols_ud_esb420 = [
             ('CALSIM', 'SHORT_D_ESB420_GRGNO_PMI', 'DELIVERY-SHORTAGE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ('CALSIM', 'D_ESB420_GRGNO_PMI',  'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
@@ -1220,6 +1245,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
 
         # --- DEM_ACFC ---
         # dem_ACFC_PMI = (short_D_SBA009_ACFC_PMI + D_SBA009_ACFC_PMI)/perdv_swp_1 + (short_D_SBA020_ACFC_PMI + D_SBA020_ACFC_PMI)/perdv_swp_2
+        print("Calculating DEM_ACFC")
         demands_df = add_two_term_ratio_if_exists(
             demands_df,
             target_col=('CALCULATED','DEM_ACFC','URBAN-DEMAND','1MON','L2020A','PER-CUM','CFS'),
@@ -1240,6 +1266,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
 
         # --- SBA029 ---
         # dem_D_SBA029_ACWD_PMI = (short_D_SBA029_ACWD_PMI + D_SBA029_ACWD_PMI)/perdv_swp_3 
+        print("Calculating DEM_D_SBA029_ACWD_PMI")
         cols_ud_sba029 = [
             ('CALSIM', 'SHORT_D_SBA029_ACWD_PMI', 'DELIVERY-SHORTAGE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ('CALSIM', 'D_SBA029_ACWD_PMI',  'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
@@ -1260,6 +1287,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
 
         # --- SBA036 ---
         # dem_D_SBA036_SCVWD_PMI = (short_D_SBA036_SCVWD_PMI + D_SBA036_SCVWD_PMI)/perdv_swp_35
+        print("Calculating DEM_D_SBA036_SCVWD_PMI")
         cols_ud_sba029 = [
             ('CALSIM', 'SHORT_D_SBA036_SCVWD_PMI', 'DELIVERY-SHORTAGE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ('CALSIM', 'D_SBA036_SCVWD_PMI',  'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
@@ -1279,6 +1307,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
 
         # ---------- D_SVWRD_CSTLN_PMI ----------
+        print("Calculating UD_AMADR_NU")
         cols_ud_amadr = [
             ('CALSIM', 'D_SBA009_ACFC_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ('CALSIM', 'D_SBA020_ACFC_PMI',  'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
@@ -1313,6 +1342,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
     
         # --- KCWA ---
+        print("Calculating DEM_D_CAA194_KERNA_PMI")
         # dem_D_CAA194_KERNA_PMI = (short_D_CAA194_KERNA_PMI + D_CAA194_KERNA_PMI)/perdv_swp_15 
         cols_ud_kerna = [
             ('CALSIM', 'SHORT_D_CAA194_KERNA_PMI', 'DELIVERY-SHORTAGE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
@@ -1354,6 +1384,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
 
     delivs_list = []
     for d in all_du.Delivery_Variable:
+        # does the next line prevent the DN_EBMUD variable from being read?
         if d not in ['DN_EBMUD', 'del_swp_mwd']:
             if '+' in d:
                 lus = d.split('+')
@@ -1365,6 +1396,12 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 delivs_list.append(lu2)
     # add delivery for MWD
     delivs_list.append('DEL_SWP_MWD')   
+
+    # try apending DN_EBMUD
+    delivs_list.append('DN_EBMUD')   
+
+    print("delivs_list:")
+    print(delivs_list)
 
     deliv_var_df = pd.DataFrame(data=delivs_list, columns=['Part B:'])
     deliv_var_df['Part C:'] = [""]*len(deliv_var_df)
@@ -1396,6 +1433,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
     if aggregate_deliveries:      
 
         # --- DN_06_NA ---
+        print("Calculating DN_06_NA")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','DN_06_NA','SW_DELIVERY-NET','1MON','L2020A','PER-CUM','CFS'),
@@ -1407,6 +1445,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- DN_07N_NA ---
+        print("Calculating DN_07N_NA")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','DN_07N_NA','SW_DELIVERY-NET','1MON','L2020A','PER-CUM','CFS'),
@@ -1418,6 +1457,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- DN_07S_NA ---
+        print("Calculating DN_07S_NA")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','DN_07S_NA','SW_DELIVERY-NET','1MON','L2020A','PER-CUM','CFS'),
@@ -1429,6 +1469,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- DN_15N_NA1 ---
+        print("Calculating DN_15N_NA1")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','DN_15N_NA1','SW_DELIVERY-NET','1MON','L2020A','PER-CUM','CFS'),
@@ -1440,6 +1481,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- DN_15S_NA1 ---
+        print("Calculating DN_15S_NA1")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','DN_15S_NA1','SW_DELIVERY-NET','1MON','L2020A','PER-CUM','CFS'),
@@ -1451,6 +1493,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- DN_16_NA1 ---
+        print("Calculating DN_16_NA1")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','DN_16_NA1','SW_DELIVERY-NET','1MON','L2020A','PER-CUM','CFS'),
@@ -1462,6 +1505,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- DN_17N_NA ---
+        print("Calculating DN_17N_NA")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','DN_17N_NA','SW_DELIVERY-NET','1MON','L2020A','PER-CUM','CFS'),
@@ -1473,6 +1517,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- DN_20_NA2 ---
+        print("Calculating DN_20_NA2")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','DN_20_NA2','SW_DELIVERY-NET','1MON','L2020A','PER-CUM','CFS'),
@@ -1484,6 +1529,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- DN_26S_NA ---
+        print("Calculating DN_26S_NA")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','DN_26S_NA','SW_DELIVERY-NET','1MON','L2020A','PER-CUM','CFS'),
@@ -1495,6 +1541,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- DN_60S_NA1 ---
+        print("Calculating DN_60S_NA1")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','DN_60S_NA1','SW_DELIVERY-NET','1MON','L2020A','PER-CUM','CFS'),
@@ -1506,6 +1553,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- DN_60S_NA2 ---
+        print("Calculating DN_60S_NA2")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','DN_60S_NA2','SW_DELIVERY-NET','1MON','L2020A','PER-CUM','CFS'),
@@ -1517,9 +1565,10 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- D_AMCYN ---
+        print("Calculating D_AMCYN")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
-            target_col=('CALCULATED','D_AMADR_NU','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
+            target_col=('CALCULATED','D_AMCYN','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
             add_cols=[
                 ('CALSIM', 'D_WTPAMC_AMCYN', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'D_WTPJAC_AMCYN', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
@@ -1528,6 +1577,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- D_AMADR_NU ---
+        print("Calculating D_AMADR_NU")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','D_AMADR_NU','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
@@ -1539,6 +1589,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
          # --- D_CACWD ---
+        print("Calculating D_CACWD")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','D_CACWD','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
@@ -1550,6 +1601,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- D_VNTRA_MPMI ---
+        print("Calculating D_VNTRA_PMI")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','D_VNTRA_PMI','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
@@ -1561,6 +1613,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- D_ACFC_PMI ---
+        print("Calculating D_ACFC_PMI")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','D_ACFC_PMI','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
@@ -1572,6 +1625,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- D_AMADR_NU ---
+        print("Calculating D_AMADR_NU")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','D_AMADR_NU','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
@@ -1583,6 +1637,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- D_AMCYN ---
+        print("Calculating D_AMCYN")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','D_AMCYN','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
@@ -1594,6 +1649,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- D_ANTOC ---
+        print("Calculating D_ANTOC")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','D_ANTOC','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
@@ -1605,6 +1661,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- D_FRFLD ---
+        print("Calculating D_FRFLD")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','D_FRFLD','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
@@ -1616,6 +1673,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- D_GRSVL ---
+        print("Calculating D_GRSVL")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','D_GRSVL','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
@@ -1627,6 +1685,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- D_WSPNT_NU ---
+        print("Calculating D_WSPNT_NU")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','D_WSPNT_NU','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
@@ -1638,6 +1697,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
         
         # --- D_ACFC_PMI ---
+        print("Calculating D_ACFC_PMI")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','D_ACFC_PMI','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
