@@ -1285,42 +1285,47 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             record_used_cols=used_cols,
         )
 
-        # --- SBA036 ---
+        # # --- SBA036 ---
+        # # dem_D_SBA036_SCVWD_PMI = (short_D_SBA036_SCVWD_PMI + D_SBA036_SCVWD_PMI)/perdv_swp_35
+        # print("Calculating DEM_D_SBA036_SCVWD_PMI")
+        # cols_ud_sba036 = [
+        #     ('CALSIM', 'SHORT_D_SBA036_SCVWD_PMI', 'DELIVERY-SHORTAGE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+        #     ('CALSIM', 'D_SBA036_SCVWD_PMI',  'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+        # ]  
+        # div_col_ud_sba036 = [
+        #     ('CALSIM', 'PERDV_SWP_35', 'SWP-OUTPUT', '1MON', 'L2020A', 'PER-AVER', 'PERCENT'),
+        # ]  
+
+        # demands_df = add_combined_column_if_exists(
+        #     demands_df,
+        #     target_col=('CALCULATED','DEM_D_SBA036_SCVWD_PMI','URBAN-DEMAND','1MON','L2020A','PER-CUM','CFS'),
+        #     add_cols=cols_ud_sba036,
+        #     sub_cols=None,
+        #     multiplier=1.0,
+        #     divisor_col=div_col_ud_sba036[0],
+        #     record_used_cols=used_cols,
+        # )
+
+        # ---------- dem_D_SBA036_SCVWD_PMI ----------
         # dem_D_SBA036_SCVWD_PMI = (short_D_SBA036_SCVWD_PMI + D_SBA036_SCVWD_PMI)/perdv_swp_35
-        print("Calculating DEM_D_SBA036_SCVWD_PMI")
-        cols_ud_sba029 = [
-            ('CALSIM', 'SHORT_D_SBA036_SCVWD_PMI', 'DELIVERY-SHORTAGE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+        cols_ud_sba036 = [
+            ('CALSIM', 'short_D_SBA036_SCVWD_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ('CALSIM', 'D_SBA036_SCVWD_PMI',  'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-        ]  
-        div_col_ud_sba029 = [
+        ]
+        
+        div_col_ud_sba036 = [
             ('CALSIM', 'PERDV_SWP_35', 'SWP-OUTPUT', '1MON', 'L2020A', 'PER-AVER', 'PERCENT'),
         ]  
-
         demands_df = add_combined_column_if_exists(
             demands_df,
             target_col=('CALCULATED','DEM_D_SBA036_SCVWD_PMI','URBAN-DEMAND','1MON','L2020A','PER-CUM','CFS'),
-            add_cols=cols_ud_sba029,
+            add_cols=cols_ud_sba036,
             sub_cols=None,
             multiplier=1.0,
-            divisor_col=div_col_ud_sba029[0],
+            divisor_col=div_col_ud_sba036[0],
             record_used_cols=used_cols,
         )
-
-        # ---------- D_SVWRD_CSTLN_PMI ----------
-        print("Calculating UD_AMADR_NU")
-        cols_ud_amadr = [
-            ('CALSIM', 'D_SBA009_ACFC_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-            ('CALSIM', 'D_SBA020_ACFC_PMI',  'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-        ]
         
-        demands_df = add_combined_column_if_exists(
-            demands_df,
-            target_col=('CALCULATED','UD_AMADR_NU','URBAN-DEMAND','1MON','L2020A','PER-CUM','CFS'),
-            add_cols=cols_ud_amadr,
-            sub_cols=None,
-            multiplier=1.0,
-            record_used_cols=used_cols,
-        )
         # --- SVWRD ---
         # dem_D_SVRWD_CSTLN_PMI = (short_D_SVRWD_CSTLN_PMI + D_SVRWD_CSTLN_PMI)/perdv_swp_11
         cols_ud_svwrd = [
@@ -1399,6 +1404,12 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
 
     # try apending DN_EBMUD
     delivs_list.append('DN_EBMUD')   
+    
+    # try apending D_CAA194_KERNA_PMI
+    delivs_list.append('D_CAA194_KERNA_PMI')   
+
+    # try apending D_SVRWD_CSTLN_PMI
+    delivs_list.append('D_SVRWD_CSTLN_PMI')   
 
     print("delivs_list:")
     print(delivs_list)
