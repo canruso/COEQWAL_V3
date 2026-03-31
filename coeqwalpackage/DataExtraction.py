@@ -928,14 +928,14 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
     demands_df[('MANUAL-ADD','TABLEA_CONTRACT_MWD','URBAN-DEMAND','1MON','L2020A','PER-CUM','TAF')] = len(demands_df)*[MWD_yearly_taf_value/12]
     print("Defining UD_ANTOC")
     demands_df[('MANUAL-ADD','UD_ANTOC','URBAN-DEMAND','1MON','L2020A','PER-CUM','CFS')] = ANTOC_monthly_cfs_values
-    print("Defining U_CPLT (TAF)")
-    demands_df[('MANUAL-ADD','U_CPLT','URBAN-DEMAND','1MON','L2020A','PER-CUM','TAF')] = CPLT_monthly_taf_value
+    print("Defining U_CLPT (TAF)")
+    demands_df[('MANUAL-ADD','U_CLPT','URBAN-DEMAND','1MON','L2020A','PER-CUM','TAF')] = CPLT_monthly_taf_value
     # also add the CFS value for the TAF definitions to provide both columns
-    print("Defining U_CPLT (CFS)")
-    demands_df[('MANUAL-ADD','U_CPLT','URBAN-DEMAND','1MON','L2020A','PER-CUM','CFS')] = CPLT_monthly_cfs_value
+    print("Defining U_CLPT (CFS)")
+    demands_df[('MANUAL-ADD','U_CLPT','URBAN-DEMAND','1MON','L2020A','PER-CUM','CFS')] = CPLT_monthly_cfs_value
     print("Defining TABLEA_CONTRACT_MWD (CFS)")
     demands_df[('MANUAL-ADD','TABLEA_CONTRACT_MWD','URBAN-DEMAND','1MON','L2020A','PER-CUM','CFS')] = ((MWD_yearly_taf_value / 12) * 1000 * 43560) / (86400 * demands_df.index.days_in_month)
-
+                                                                                                                                                      
 # define D_ANC000_ANGLS_DEM { !units CFS 
 # 	case october  {condition month == oct
 # 		value 2.6}
@@ -978,6 +978,32 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
          9: 4.4,  # Sep
 }
 
+# define D_UTC014_UTICA_DEM { !units CFS 
+# 	case october  {condition month == oct
+# 		value 2.6}
+# 	case november {condition month == nov
+# 		value 1.7} 
+# 	case december {condition month == dec
+# 		value 1.3}
+# 	case january  {condition month == jan
+# 		value 1.3}
+# 	case february {condition month == feb
+# 		value 1.4}
+# 	case march    {condition month == mar
+# 		value 1.3}
+# 	case april    {condition month == apr
+# 		value 2.}
+# 	case mmay     {condition month == may
+# 		value 2.9}
+# 	case june     {condition month == jun
+# 		value 4.}
+# 	case july     {condition month == jul
+# 		value 5.2}
+# 	case august   {condition month == aug
+# 		value 4.9}
+# 	case sept     {condition month == sep
+# 		value 4.4}}
+
     # ensure datetime index
     demands_df.index = pd.to_datetime(demands_df.index)
     
@@ -986,12 +1012,17 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
     
     # ensure it's a 1D Series
     upang_values = pd.Series(upang_values, index=demands_df.index)
+    utica_values = upang_values # utica is defined like upang
     
     # assign values
     print("Defining D_ANC000_ANGLS_DEM")
     col = ('MANUAL-ADD','D_ANC000_ANGLS_DEM','URBAN-DEMAND','1MON','L2020A','PER-CUM','CFS')
     demands_df[col] = upang_values.values  # always 1D
     
+    print("Defining D_UTC014_UTICA_DEM")
+    col = ('MANUAL-ADD','D_UTC014_UTICA_DEM','URBAN-DEMAND','1MON','L2020A','PER-CUM','CFS')
+    demands_df[col] = utica_values.values  # always 1D
+
     # check assignment
     # test = pd.DataFrame({
     #     "date": demands_df.index,
@@ -1411,6 +1442,12 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
     # try apending D_SVRWD_CSTLN_PMI
     delivs_list.append('D_SVRWD_CSTLN_PMI')   
 
+    # try apending D_MFM007_WSPNT_NU
+    delivs_list.append('D_MFM007_WSPNT_NU')   
+
+    # try apending D_BCM003_WSPNT_NU
+    delivs_list.append('D_BCM003_WSPNT_NU')   
+
     print("delivs_list:")
     print(delivs_list)
 
@@ -1599,17 +1636,19 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             record_used_cols=used_cols,
         )
                 
-         # --- D_CACWD ---
-        print("Calculating D_CACWD")
-        delivs_cfs_df = add_combined_column_if_exists(
-            delivs_cfs_df,
-            target_col=('CALCULATED','D_CACWD','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
-            add_cols=[
-                ('CALSIM', 'D_MFM007_WSPNT_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-                ('CALSIM', 'D_BCM003_WSPNT_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-            ],
-            record_used_cols=used_cols,
-        )
+        # --- D_CACWD ---
+        # REDUNDANT WITH D_WSPNT_NU
+
+        # print("Calculating D_CACWD")
+        # delivs_cfs_df = add_combined_column_if_exists(
+        #     delivs_cfs_df,
+        #     target_col=('CALCULATED','D_CACWD','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
+        #     add_cols=[
+        #         ('CALSIM', 'D_MFM007_WSPNT_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+        #         ('CALSIM', 'D_BCM003_WSPNT_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+        #     ],
+        #     record_used_cols=used_cols,
+        # )
                 
         # --- D_VNTRA_MPMI ---
         print("Calculating D_VNTRA_PMI")
@@ -1696,10 +1735,11 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- D_WSPNT_NU ---
-        print("Calculating D_WSPNT_NU")
+        # replaced by D_CACWD
+        print("Calculating D_CACWD")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
-            target_col=('CALCULATED','D_WSPNT_NU','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
+            target_col=('CALCULATED','D_CACWD','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
             add_cols=[
                 ('CALSIM', 'D_MFM007_WSPNT_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'D_BCM003_WSPNT_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
