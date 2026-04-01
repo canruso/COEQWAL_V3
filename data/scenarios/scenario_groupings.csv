@@ -10,7 +10,7 @@ Environment CC50,"Whether rivers, salmon, and the Delta estuary receive the flow
 Delta CC50,"Whether the Delta is a place where communities, farms, and ecosystems coexist and thrive; CC50 Climate","47, 79, 78, 82, 83, 84, 85"
 Operations and impacts CC50,"How water management decisions affect trade-offs, equity and resilience; CC50 Climate","47, 49, 50, 51"
 Drinking water CC95,"Whether people and communities can reliably access safe drinking water for daily life, health, and essential services; CC95 Climate","56, 95, 96, 97"
-Groundwater CC95,"Whether agricultural water deliveries can sustain food protection, while preventing over-draft of groundwater basins; CC95 Climate","56, 87, 88, 89, 93, 94"
+Groundwater CC95,"Whether agricultural water deliveries can sustain food protection, while preventing over-draft of groundwater basins; CC95 Climate","56, 87, 88, 89, 27, 93, 94"
 Environment CC95,"Whether rivers, salmon, and the Delta estuary receive the flows they need to remain functional and resilient; CC95 Climate","56, 91, 104, 93, 92, 98"
 Delta CC95,"Whether the Delta is a place where communities, farms, and ecosystems coexist and thrive; CC95 Climate","56, 99, 98, 102, 103, 104, 105"
 Operations and impacts CC95,"How water management decisions affect trade-offs, equity and resilience; CC95 Climate","56, 58, 59, 60"
