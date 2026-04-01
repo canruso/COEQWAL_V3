@@ -1442,11 +1442,11 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
     # try apending D_SVRWD_CSTLN_PMI
     delivs_list.append('D_SVRWD_CSTLN_PMI')   
 
-    # try apending D_MFM007_WSPNT_NU
-    delivs_list.append('D_MFM007_WSPNT_NU')   
+    # # try apending D_MFM007_WSPNT_NU
+    # delivs_list.append('D_MFM007_WSPNT_NU')   
 
-    # try apending D_BCM003_WSPNT_NU
-    delivs_list.append('D_BCM003_WSPNT_NU')   
+    # # try apending D_BCM003_WSPNT_NU
+    # delivs_list.append('D_BCM003_WSPNT_NU')   
 
     print("delivs_list:")
     print(delivs_list)
@@ -1637,18 +1637,17 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
                 
         # --- D_CACWD ---
-        # REDUNDANT WITH D_WSPNT_NU
-
-        # print("Calculating D_CACWD")
-        # delivs_cfs_df = add_combined_column_if_exists(
-        #     delivs_cfs_df,
-        #     target_col=('CALCULATED','D_CACWD','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
-        #     add_cols=[
-        #         ('CALSIM', 'D_MFM007_WSPNT_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-        #         ('CALSIM', 'D_BCM003_WSPNT_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-        #     ],
-        #     record_used_cols=used_cols,
-        # )
+        # NOTE: same as D_WSPNT_NU, which is redundant
+        print("Calculating D_CACWD")
+        delivs_cfs_df = add_combined_column_if_exists(
+            delivs_cfs_df,
+            target_col=('CALCULATED','D_CACWD','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
+            add_cols=[
+                ('CALSIM', 'D_MFM007_WSPNT_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_BCM003_WSPNT_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+            ],
+            record_used_cols=used_cols,
+        )
                 
         # --- D_VNTRA_MPMI ---
         print("Calculating D_VNTRA_PMI")
@@ -1736,16 +1735,16 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 
         # --- D_WSPNT_NU ---
         # replaced by D_CACWD
-        print("Calculating D_CACWD")
-        delivs_cfs_df = add_combined_column_if_exists(
-            delivs_cfs_df,
-            target_col=('CALCULATED','D_CACWD','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
-            add_cols=[
-                ('CALSIM', 'D_MFM007_WSPNT_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-                ('CALSIM', 'D_BCM003_WSPNT_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-            ],
-            record_used_cols=used_cols,
-        )
+        # print("Calculating D_WSPNT_NU")
+        # delivs_cfs_df = add_combined_column_if_exists(
+        #     delivs_cfs_df,
+        #     target_col=('CALCULATED','D_WSPNT_NU','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
+        #     add_cols=[
+        #         ('CALSIM', 'D_MFM007_WSPNT_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+        #         ('CALSIM', 'D_BCM003_WSPNT_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+        #     ],
+        #     record_used_cols=used_cols,
+        # )
         
         # --- D_ACFC_PMI ---
         print("Calculating D_ACFC_PMI")
