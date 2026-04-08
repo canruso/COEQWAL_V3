@@ -192,3 +192,192 @@ def run_scenario_review(
             saved_paths.append(saved)
 
     return saved_paths
+
+def run_batch_review(
+    df,
+    plots_root: str,
+    set_name: str,
+    all_scenarios: list,
+    baseline: int,
+    scenario_labels: dict,
+    output_base: str,
+    *,
+    doc_spec=None,
+    scenario_context=None,
+    tucp_years=None,
+    wyt_wet=None,
+    wyt_dry=None,
+    wyt_month=5,
+    sections=None,
+    variables=None,
+    plot_types=None,
+    dry_run=False,
+) -> dict:
+    """Batch-process all plots for one scenario set through the LLM pipeline.
+
+    For each (variable, plot_type) entry in doc_spec, this function:
+      1. Checks whether a JSON output already exists (skips if so).
+      2. Checks whether the image file exists on disk (skips if not).
+      3. Computes statistics from df via compute_var_stats().
+      4. Builds a prompt via build_prompt().
+      5. Calls analyze_plot() to get the LLM observation.
+      6. Saves the result as a JSON file under output_base/set_name/<subdir>/.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        The full multi-scenario dataframe loaded by read_in_df().
+    plots_root : str
+        Root directory containing one subfolder per scenario set.
+    set_name : str
+        Name of the scenario set folder (e.g. "s20_s35_s36_s37").
+    all_scenarios : list of int
+        All scenario IDs for this set, baseline first.
+    baseline : int
+        Baseline scenario ID.
+    scenario_labels : dict
+        Optional mapping of scenario ID -> human label. Pass {} if unused.
+    output_base : str
+        Root directory where JSON outputs are written.
+    doc_spec : list or None
+        Pre-built doc spec from build_doc_spec_with_labels(). If None, it is
+        built dynamically from the plots folder.
+    scenario_context : dict or None
+        Optional scenario descriptions passed to build_prompt().
+    tucp_years : dict or None
+        Mapping of scenario ID -> list of TUCP water years.
+    wyt_wet, wyt_dry : list or None
+        Water year type lists for wet/dry filtering.
+    wyt_month : int
+        Month used to assign water year types (default 5 = May).
+    sections, variables, plot_types : list or None
+        Optional filters to restrict processing to a subset.
+    dry_run : bool
+        If True, enumerate what would be processed without calling the LLM.
+
+    Returns
+    -------
+    dict with keys:
+        "processed" : list of dicts describing items that were (or would be) processed.
+        "skipped"   : list of dicts describing items that were skipped and why.
+    """
+    import json as _json
+    from coeqwalpackage.review_config import (
+        build_doc_spec_with_labels, iter_doc_spec, get_subdir, build_filename, get_units,
+    )
+    from coeqwalpackage.llm_utils import analyze_plot, compute_var_stats
+    from coeqwalpackage.prompts import build_prompt
+
+    set_plots_dir = os.path.join(plots_root, set_name)
+
+    if doc_spec is None:
+        doc_spec = build_doc_spec_with_labels(set_plots_dir)
+
+    processed = []
+    skipped = []
+
+    for section_title, varname, label, units, plot_type in iter_doc_spec(doc_spec):
+        # Apply optional filters
+        if sections is not None and section_title not in sections:
+            skipped.append({"tag": f"{varname}/{plot_type}", "reason": "section filtered"})
+            continue
+        if variables is not None and not any(varname.startswith(v) for v in variables):
+            skipped.append({"tag": f"{varname}/{plot_type}", "reason": "variable filtered"})
+            continue
+        if plot_types is not None and plot_type not in plot_types:
+            skipped.append({"tag": f"{varname}/{plot_type}", "reason": "plot_type filtered"})
+            continue
+
+        subdir = get_subdir(plot_type)
+        img_filename = build_filename(varname, plot_type)
+        img_path = os.path.join(set_plots_dir, subdir, img_filename)
+        json_path = os.path.join(
+            output_base, set_name, subdir,
+            img_filename.replace(".png", ".json"),
+        )
+
+        # Skip if image does not exist (e.g. TUCP plots with no TUCP data)
+        if not os.path.isfile(img_path):
+            skipped.append({"tag": f"{varname}/{plot_type}", "reason": "image missing"})
+            continue
+
+        # Skip if JSON already exists (resume support)
+        if os.path.isfile(json_path):
+            skipped.append({"tag": f"{varname}/{plot_type}", "reason": "already done"})
+            continue
+
+        entry = {
+            "tag": f"{varname}/{plot_type}",
+            "varname": varname,
+            "var_label": label,
+            "plot_type": plot_type,
+            "img_path": img_path,
+            "json_path": json_path,
+        }
+        processed.append(entry)
+
+        if dry_run:
+            continue
+
+        # Compute stats
+        stats_text = compute_var_stats(
+            df=df,
+            varname=varname,
+            units=units,
+            scenarios=all_scenarios,
+            baseline=baseline,
+            plot_type=plot_type,
+            scenario_labels=scenario_labels or {},
+            tucp_years=tucp_years,
+            wyt_wet=wyt_wet,
+            wyt_dry=wyt_dry,
+            wyt_month=wyt_month,
+        )
+
+        # Build scenario name strings for prompt
+        scenario_names = ", ".join(
+            scenario_labels.get(s, f"s{s:04d}") for s in all_scenarios if s != baseline
+        )
+        baseline_name = scenario_labels.get(baseline, f"s{baseline:04d}")
+
+        prompt = build_prompt(
+            plot_type=plot_type,
+            var_label=label,
+            scenario_names=scenario_names,
+            baseline=baseline_name,
+            scenario_context=scenario_context,
+            stats_text=stats_text if stats_text else None,
+        )
+
+        # Call LLM
+        try:
+            result = analyze_plot(
+                image_path=img_path,
+                prompt=prompt,
+                stats_text=stats_text,
+                scenarios=all_scenarios,
+                baseline=baseline,
+            )
+        except Exception as exc:
+            print(f"  [ERROR] {varname}/{plot_type}: {exc}")
+            skipped.append({"tag": f"{varname}/{plot_type}", "reason": f"LLM error: {exc}"})
+            processed.pop()
+            continue
+
+        # Save JSON output
+        os.makedirs(os.path.dirname(json_path), exist_ok=True)
+        output_data = {
+            "var_label":   label,
+            "plot_type":   plot_type,
+            "stats":       stats_text,
+            "observation": result.get("narrative", ""),
+            "structured":  result.get("structured", {}),
+            "validation":  result.get("validation", []),
+            "raw":         result.get("raw", ""),
+        }
+        with open(json_path, "w") as fh:
+            _json.dump(output_data, fh, indent=2)
+
+        print(f"  [OK] {varname}/{plot_type} -> {os.path.relpath(json_path, output_base)}")
+
+    return {"processed": processed, "skipped": skipped}

@@ -26,6 +26,7 @@ generator, etc.) work without modification.
 
 import os
 from collections import defaultdict
+import re
 
 # ---------------------------------------------------------------------------
 # Units map - variables that are NOT TAF
@@ -265,3 +266,136 @@ def iter_doc_spec(doc_spec):
             units   = get_units(varname)
             for plot_type in var_entry["plots"]:
                 yield section["title"], varname, label, units, plot_type
+
+
+def _extract_s_tokens(text):
+    """Extract all sNNNN tokens from a string, returning them as integers."""
+    return [int(m) for m in re.findall(r's(\d+)', str(text))]
+
+
+def parse_scenario_set_configs(plots_root: str, scenario_groupings_csv: str) -> list:
+    """Scan plots_root for scenario set folders and match them to scenario_groupings.csv.
+
+    Parameters
+    ----------
+    plots_root : str
+        Path to the directory containing one subfolder per scenario set
+        (e.g. ``plots_output/s20_s35_s36_s37``).
+    scenario_groupings_csv : str
+        Path to scenario_groupings.csv. Must contain a ``Scenarios`` column
+        whose values are comma-separated sNNNN tokens (e.g. ``s0020, s0035``).
+
+    Returns
+    -------
+    list of dict
+        Each dict has keys: ``set_name``, ``plots_base``, ``baseline``,
+        ``compare``, ``all_scenarios``.
+    """
+    import pandas as pd
+
+    scen_groups_df = pd.read_csv(scenario_groupings_csv)
+
+    if "Scenarios" not in scen_groups_df.columns:
+        raise KeyError("Column 'Scenarios' not found in scenario_groupings.csv")
+
+    # Build a map: frozenset(scenario_ids) -> scenario_ids list (preserves order)
+    group_map = {}
+    for _, row in scen_groups_df.iterrows():
+        ids = _extract_s_tokens(row["Scenarios"])
+        if ids:
+            group_map[frozenset(ids)] = ids
+
+    # Discover folders under plots_root
+    if not os.path.isdir(plots_root):
+        return []
+
+    configs = []
+    seen = set()
+
+    for folder_name in sorted(os.listdir(plots_root)):
+        folder_path = os.path.join(plots_root, folder_name)
+        if not os.path.isdir(folder_path):
+            continue
+
+        folder_ids = set(_extract_s_tokens(folder_name))
+        if not folder_ids:
+            continue
+
+        # Match folder to a group in the CSV
+        matched_ids = None
+        for key, ids in group_map.items():
+            if key == folder_ids:
+                matched_ids = ids
+                break
+
+        if matched_ids is None:
+            # Fall back: use the order implied by the folder name itself
+            matched_ids = _extract_s_tokens(folder_name)
+
+        if not matched_ids:
+            continue
+
+        set_name = folder_name
+        if set_name in seen:
+            continue
+        seen.add(set_name)
+
+        configs.append({
+            "set_name":      set_name,
+            "plots_base":    folder_path,
+            "baseline":      matched_ids[0],
+            "compare":       matched_ids[1:],
+            "all_scenarios": matched_ids,
+        })
+
+    return configs
+
+def _build_static_doc_spec():
+    """Build a static DOC_SPEC from LABEL_MAP and SUBDIR_MAP at import time."""
+    from collections import defaultdict
+
+    # Section assignment mirrors _SECTION_PATTERNS in scenario_review.py
+    _SECTION_PATTERNS = [
+        ("Reservoir Storage",  lambda v: v.startswith("S_")),
+        ("Deliveries",         lambda v: v.startswith("DEL_") or v.startswith("C_DMC") or v.startswith("C_CAA")),
+        ("Flows & Salinity",   lambda v: v.startswith("C_SAC") or v.startswith("C_SJR")
+                                         or v.startswith("SP_SAC") or v.startswith("X2_")
+                                         or v.endswith("_EC_MONTH")),
+        ("Stream Gain",        lambda v: v.startswith("SG_")),
+        ("Applied Water",      lambda v: v.startswith("AWO")),
+    ]
+    _SECTION_ORDER = [
+        "Reservoir Storage", "Deliveries", "Flows & Salinity",
+        "Stream Gain", "Applied Water", "Other",
+    ]
+
+    def _get_section(varname):
+        for title, test in _SECTION_PATTERNS:
+            if test(varname):
+                return title
+        return "Other"
+
+    # All known plot types (use the full PLOT_TYPE_ORDER as the default set)
+    all_plot_types = list(PLOT_TYPE_ORDER)
+
+    # Group variables by section
+    section_vars = defaultdict(list)
+    for varname in sorted(LABEL_MAP.keys()):
+        section_vars[_get_section(varname)].append(varname)
+
+    spec = []
+    for section_title in _SECTION_ORDER:
+        variables = []
+        for varname in section_vars.get(section_title, []):
+            variables.append({
+                "varname": varname,
+                "label":   LABEL_MAP.get(varname, varname),
+                "plots":   list(PLOT_TYPE_ORDER),   # all known plot types; missing files are skipped at load time
+            })
+        if variables:
+            spec.append({"title": section_title, "variables": variables})
+
+    return spec
+
+
+DOC_SPEC = _build_static_doc_spec()
