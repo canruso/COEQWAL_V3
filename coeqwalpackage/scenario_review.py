@@ -1,181 +1,194 @@
-"""Batch LLM scenario review loop.
-
-Iterates over the document spec (review_config.DOC_SPEC), finds each plot
-image, computes stats, calls the LLM, validates the response, and saves
-results as JSON files. Designed to be called from a single notebook cell.
-"""
-
 from __future__ import annotations
 
-import json
 import os
-import shutil
-import time
+from collections import defaultdict
 
-from coeqwalpackage.review_config import DOC_SPEC, get_units, get_subdir, build_filename
-from coeqwalpackage.prompts import build_prompt, extract_plot_type
-from coeqwalpackage.llm_utils import analyze_plot, compute_var_stats
+from docx import Document
+from docx.shared import Inches
+
+from coeqwalpackage.review_config import (
+    build_doc_spec_with_labels,
+    get_subdir,
+    build_filename,
+    parse_scenario_set_configs,
+)
+
+_SECTION_PATTERNS = [
+    ("Reservoir Storage",  lambda v: v.startswith("S_")),
+    ("Deliveries",         lambda v: v.startswith("DEL_") or v.startswith("C_DMC") or v.startswith("C_CAA")),
+    ("Flows & Salinity",   lambda v: v.startswith("C_SAC") or v.startswith("C_SJR") or v.startswith("SP_SAC")
+                                     or v.startswith("X2_") or v.endswith("_EC_MONTH")),
+    ("Stream Gain",        lambda v: v.startswith("SG_")),
+    ("Applied Water",      lambda v: v.startswith("AWO")),
+]
+
+_SECTION_ORDER = [
+    "Reservoir Storage",
+    "Deliveries",
+    "Flows & Salinity",
+    "Stream Gain",
+    "Applied Water",
+    "Other",
+]
 
 
-def run_batch_review(
-    df,
-    plots_root: str,
+def _get_section(varname: str) -> str:
+    for section_name, test in _SECTION_PATTERNS:
+        if test(varname):
+            return section_name
+    return "Other"
+
+
+def _add_picture_safe(doc: Document, path: str, width_inches: float, required: bool = True) -> bool:
+    if os.path.isfile(path):
+        doc.add_picture(path, width=Inches(width_inches))
+        return True
+    if required:
+        print(f"  [MISSING] {path}")
+    return False
+
+
+def list_available_scenario_sets(plots_root: str, scenario_groupings_csv: str):
+    return parse_scenario_set_configs(plots_root, scenario_groupings_csv)
+
+
+def generate_scenario_review_doc(
+    plots_base: str,
     set_name: str,
-    all_scenarios: list[int],
     baseline: int,
-    scenario_labels: dict[int, str],
-    output_base: str,
+    compare: list[int],
+    output_path: str,
     *,
-    scenario_context: dict | None = None,
-    tucp_years: dict[int, list[int]] | None = None,
-    wyt_wet: list[int] | None = None,
-    wyt_dry: list[int] | None = None,
-    wyt_month: int = 5,
-    sections: list[str] | None = None,
-    variables: list[str] | None = None,
-    plot_types: list[str] | None = None,
-    dry_run: bool = False,
-) -> dict:
-    """Run the full LLM review loop over all variables and plot types.
+    width_inches: float = 7.0,
+    placeholder: str = "{{Add analysis here}}",
+    summary_placeholder: str = (
+        "{{After adding and reviewing plots, summarize the outcomes in this "
+        "scenario compared to the baseline. Note major differences, patterns, "
+        "and anything unexpected.}}"
+    ),
+):
+    if not os.path.isdir(plots_base):
+        raise FileNotFoundError(f"Plots folder not found: {plots_base}")
 
-    Parameters
-    ----------
-    df : DataFrame
-        Converted data with MultiIndex columns.
-    plots_root : str
-        Root directory containing plot subdirs (e.g., .../plots_output/s20_s39).
-    set_name : str
-        Scenario set directory name (e.g., "s20_s39_s40_s41_s42").
-    all_scenarios : list[int]
-        All scenario IDs including baseline.
-    baseline : int
-        Baseline scenario ID.
-    scenario_labels : dict
-        Mapping of scenario ID -> label string.
-    output_base : str
-        Root output directory for JSON results.
-    scenario_context : dict, optional
-        Scenario descriptions for prompt context.
-    tucp_years : dict, optional
-        TUCP years per scenario for TUCP-filtered plots.
-    wyt_wet, wyt_dry : list[int], optional
-        Water year type classifications.
-    wyt_month : int
-        Month to classify water year type (default 5 = May).
-    sections : list[str], optional
-        Filter to specific sections (e.g., ["Reservoir Storage"]).
-    variables : list[str], optional
-        Filter to specific variable names (e.g., ["S_SHSTA_"]).
-    plot_types : list[str], optional
-        Filter to specific plot types (e.g., ["mon_ts", "moy_all"]).
-    dry_run : bool
-        If True, skip LLM calls and just report what would be processed.
+    doc_spec = build_doc_spec_with_labels(plots_base)
+    if not doc_spec or not doc_spec[0]["variables"]:
+        print(f"[SKIP] No plot files found under {plots_base}")
+        return None
 
-    Returns
-    -------
-    dict with keys: processed, skipped, failed, results
-    """
-    plots_base = os.path.join(plots_root, set_name)
-    scenario_names_str = ", ".join([f"s{s:04d}" for s in all_scenarios])
+    scenario_id_str = ", ".join(f"s{s:04d}" for s in compare)
     baseline_str = f"s{baseline:04d}"
 
-    processed = []
-    skipped = []
-    failed = []
-    results = {}
+    doc = Document()
 
-    for section in DOC_SPEC:
-        section_title = section["title"]
-        if sections and section_title not in sections:
+    doc.add_heading(
+        f"CalSim3 Scenario Output Review: {scenario_id_str} vs {baseline_str}",
+        level=0,
+    )
+    doc.add_paragraph(f"Scenario ID(s): {scenario_id_str}")
+    doc.add_paragraph(f"Baseline: {baseline_str}")
+    doc.add_paragraph("Scenario Description(s):")
+    doc.add_paragraph("Reference Description:")
+    doc.add_paragraph("Review Date (updates appended):")
+    doc.add_paragraph("Reviewer(s):")
+    doc.add_paragraph(f"Summary of Findings:\n{summary_placeholder}")
+
+    variables = doc_spec[0]["variables"]
+
+    sections_dict = defaultdict(list)
+    for var_entry in variables:
+        sections_dict[_get_section(var_entry["varname"])].append(var_entry)
+
+    for sec_idx, section_name in enumerate(_SECTION_ORDER, start=1):
+        if section_name not in sections_dict:
             continue
 
-        for var_entry in section["variables"]:
+        doc.add_heading(f"{sec_idx}. {section_name}", level=1)
+
+        for var_idx, var_entry in enumerate(sections_dict[section_name], start=1):
             varname = var_entry["varname"]
             label = var_entry["label"]
-            units = get_units(varname)
+            plot_types = var_entry["plots"]
 
-            if variables and varname not in variables:
-                continue
+            doc.add_heading(f"{var_idx}. {label}", level=2)
 
-            for plot_type in var_entry["plots"]:
-                if plot_types and plot_type not in plot_types:
-                    continue
-
-                filename = build_filename(varname, plot_type)
+            any_added = False
+            for plot_type in plot_types:
                 subdir = get_subdir(plot_type)
-                image_path = os.path.join(plots_base, subdir, filename)
-                tag = f"{varname}/{plot_type}"
+                filename = build_filename(varname, plot_type)
+                img_path = os.path.join(plots_base, subdir, filename)
+                is_tucp = "tucp" in plot_type.lower()
 
-                # Skip missing images (expected for TUCP when data unavailable)
-                if not os.path.isfile(image_path):
-                    skipped.append({"tag": tag, "reason": "image not found", "path": image_path})
-                    continue
+                if is_tucp:
+                    if os.path.isfile(img_path):
+                        doc.add_picture(img_path, width=Inches(width_inches))
+                        doc.add_paragraph(placeholder)
+                        any_added = True
+                else:
+                    if _add_picture_safe(doc, img_path, width_inches, required=True):
+                        doc.add_paragraph(placeholder)
+                        any_added = True
 
-                # Check if already processed (skip re-runs)
-                output_dir = os.path.join(output_base, set_name, subdir)
-                json_path = os.path.join(output_dir, filename.replace(".png", ".json"))
-                if os.path.isfile(json_path):
-                    skipped.append({"tag": tag, "reason": "already processed"})
-                    continue
+            if not any_added:
+                doc.add_paragraph(f"[No plot files found for {varname}]")
 
-                if dry_run:
-                    processed.append({"tag": tag, "image": image_path, "dry_run": True})
-                    continue
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    doc.save(output_path)
+    print(f"Saved: {output_path}")
+    return output_path
 
-                # Compute stats
-                stats_text = compute_var_stats(
-                    df, varname, units, all_scenarios, baseline, plot_type, scenario_labels,
-                    tucp_years=tucp_years, wyt_wet=wyt_wet, wyt_dry=wyt_dry, wyt_month=wyt_month,
-                )
 
-                # Build prompt
-                prompt = build_prompt(
-                    plot_type, label, scenario_names_str, baseline_str,
-                    scenario_context=scenario_context, stats_text=stats_text,
-                )
+def run_scenario_review(
+    plots_root: str,
+    review_output_dir: str,
+    scenario_groupings_csv: str,
+    *,
+    width_inches: float = 7.0,
+    placeholder: str = "{{Add analysis here}}",
+    summary_placeholder: str = (
+        "{{After adding and reviewing plots, summarize the outcomes in this "
+        "scenario compared to the baseline. Note major differences, patterns, "
+        "and anything unexpected.}}"
+    ),
+    selected_set_name: str | None = None,
+    file_prefix: str = "Scenario_Review",
+) -> list[str]:
+    scenario_set_configs = parse_scenario_set_configs(plots_root, scenario_groupings_csv)
 
-                # Call LLM
-                try:
-                    observation = analyze_plot(
-                        image_path, prompt,
-                        stats_text=stats_text, scenarios=all_scenarios, baseline=baseline,
-                    )
-                except Exception as e:
-                    failed.append({"tag": tag, "error": str(e)})
-                    continue
+    if selected_set_name is not None:
+        scenario_set_configs = [
+            cfg for cfg in scenario_set_configs
+            if cfg["set_name"] == selected_set_name
+        ]
 
-                # Save outputs
-                os.makedirs(output_dir, exist_ok=True)
-                shutil.copy2(image_path, os.path.join(output_dir, filename))
+    if not scenario_set_configs:
+        raise FileNotFoundError(
+            "No valid scenario sets found. Check scenario_groupings.csv and plots_root."
+        )
 
-                record = {
-                    "section": section_title,
-                    "varname": varname,
-                    "var_label": label,
-                    "units": units,
-                    "filename": filename,
-                    "plot_type": plot_type,
-                    "stats": stats_text,
-                    "prompt": prompt,
-                    "observation": observation["narrative"],
-                    "structured": observation["structured"],
-                    "validation": observation["validation"],
-                }
-                with open(json_path, "w") as f:
-                    json.dump(record, f, indent=2)
+    os.makedirs(review_output_dir, exist_ok=True)
+    saved_paths = []
 
-                n_warnings = len(observation["validation"])
-                status = "PASS" if n_warnings == 0 else f"WARN ({n_warnings})"
-                processed.append({"tag": tag, "status": status})
-                results[tag] = record
+    for cfg in scenario_set_configs:
+        set_name = cfg["set_name"]
+        plots_base = cfg["plots_base"]
 
-                print(f"  [{status}] {tag}")
+        print(f"\nGenerating review template for: {set_name}")
 
-    summary = {"processed": len(processed), "skipped": len(skipped), "failed": len(failed)}
-    print(f"\nDone: {summary['processed']} processed, {summary['skipped']} skipped, {summary['failed']} failed")
-    if failed:
-        print("Failures:")
-        for f_item in failed:
-            print(f"  {f_item['tag']}: {f_item['error']}")
+        out_filename = f"{file_prefix}_{set_name}_Not_Annotated.docx"
+        out_path = os.path.join(review_output_dir, out_filename)
 
-    return {"processed": processed, "skipped": skipped, "failed": failed, "results": results}
+        saved = generate_scenario_review_doc(
+            plots_base=plots_base,
+            set_name=set_name,
+            baseline=cfg["baseline"],
+            compare=cfg["compare"],
+            output_path=out_path,
+            width_inches=width_inches,
+            placeholder=placeholder,
+            summary_placeholder=summary_placeholder,
+        )
+
+        if saved is not None:
+            saved_paths.append(saved)
+
+    return saved_paths

@@ -8,18 +8,23 @@ from pathlib import Path
 from contextlib import redirect_stdout
 import calendar
 from typing import Sequence, Tuple, Dict, List
-
-# Import data manipulation libraries
 import numpy as np
 import pandas as pd
-
-# Import visualization libraries
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-
+# I replace the original read_in_df, read_in_parquet_df, load_metadata_df, and load_metadata_parquet_df to make it shorter.
 def read_in_df(df_path, names_path):
-    df = pd.read_csv(df_path, header=[0, 1, 2, 3, 4, 5, 6], index_col=0, parse_dates=True)
+    base_path, _ = os.path.splitext(df_path)
+    parquet_path = f"{base_path}.parquet"
+    csv_path = f"{base_path}.csv"
+    if os.path.exists(parquet_path):
+        df = pd.read_parquet(parquet_path)
+    elif os.path.exists(csv_path):
+        df = pd.read_csv(csv_path, header=[0, 1, 2, 3, 4, 5, 6], index_col=0, parse_dates=True)
+    else:
+        df = pd.read_csv(df_path, header=[0, 1, 2, 3, 4, 5, 6], index_col=0, parse_dates=True)
+
     dss_names = pd.read_csv(names_path)["0"].tolist()
     return df, dss_names
 
@@ -31,12 +36,22 @@ def read_in_parquet_df(df_path, names_path):
     return df, dss_names
 
 def load_metadata_df(extract_path, all_data, metadata_file, nrows=200):
-    metadata_df = pd.read_excel(extract_path + metadata_file, engine='openpyxl', skiprows=7, usecols="B:K", nrows=nrows)
-    metadata_df.columns = ['Pathnames', 'Part A', 'Part B', 'Part C', 'UNITS', 'Part F', 'Empty1', 'Col', 'Empty2',
-                           'Description']
-
+    metadata_df = pd.read_excel(os.path.join(extract_path, metadata_file), engine='openpyxl', skiprows=7, usecols="B:K", nrows=nrows)
+    metadata_df.columns = ['Pathnames', 'Part A', 'Part B', 'Part C', 'UNITS', 'Part F', 'Empty1', 'Col', 'Empty2', 'Description']
     metadata_df.drop(['Empty1', 'Empty2'], axis=1, inplace=True)
-    df = pd.read_csv(extract_path + all_data, header=[0, 1, 2, 3, 4, 5, 6], index_col=0, parse_dates=True)
+    
+    data_base_path, _ = os.path.splitext(all_data)
+    parquet_path = os.path.join(extract_path, f"{data_base_path}.parquet")
+    csv_path = os.path.join(extract_path, f"{data_base_path}.csv")
+    
+    if os.path.exists(parquet_path):
+        df = pd.read_parquet(parquet_path)
+    elif os.path.exists(csv_path):
+        df = pd.read_csv(csv_path, header=[0, 1, 2, 3, 4, 5, 6], index_col=0, parse_dates=True)
+    else:
+        exact_path = os.path.join(extract_path, all_data)
+        df = pd.read_csv(exact_path, header=[0, 1, 2, 3, 4, 5, 6], index_col=0, parse_dates=True)
+        
     return metadata_df, df
 
 def load_metadata_parquet_df(extract_path, all_data, metadata_file, nrows=200):
