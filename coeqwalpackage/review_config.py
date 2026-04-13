@@ -399,3 +399,66 @@ def _build_static_doc_spec():
 
 
 DOC_SPEC = _build_static_doc_spec()
+
+
+# ---------------------------------------------------------------------------
+# Scenario set context loader
+# ---------------------------------------------------------------------------
+def load_set_context(set_name, context_dir=None):
+    """Load scenario set context from a YAML file.
+
+    Each YAML file lives at ``<context_dir>/<set_name>.yaml`` and has:
+
+        description: "<one-line summary>"
+        scenarios:
+          s0020: "Baseline, for reference"
+          s0035: "Prioritize HHS standards"
+        expectations:
+          - "Expected pattern 1"
+        questions:
+          - "Targeted question 1"
+
+    Returns the normalized dict, or ``None`` if no file exists.
+    Backward-compatible: downstream code falls back to generic prompts
+    when this returns ``None``.
+    """
+    if context_dir is None:
+        module_dir = os.path.dirname(os.path.abspath(__file__))
+        repo_root = os.path.dirname(module_dir)
+        context_dir = os.path.join(repo_root, "data", "scenario_contexts")
+
+    yaml_path = os.path.join(context_dir, f"{set_name}.yaml")
+    if not os.path.isfile(yaml_path):
+        return None
+
+    try:
+        import yaml
+    except ImportError:
+        raise ImportError(
+            "PyYAML is required to load scenario contexts. Install with: pip install pyyaml"
+        )
+
+    with open(yaml_path) as f:
+        data = yaml.safe_load(f)
+
+    if not isinstance(data, dict):
+        return None
+
+    data.setdefault("description", "")
+    data.setdefault("scenarios", {})
+    data.setdefault("expectations", [])
+    data.setdefault("questions", [])
+
+    # Coerce sNNNN string keys to int
+    normalized = {}
+    for key, val in data["scenarios"].items():
+        if isinstance(key, str) and key.lower().startswith("s"):
+            try:
+                normalized[int(key[1:])] = val
+                continue
+            except ValueError:
+                pass
+        normalized[key] = val
+    data["scenarios"] = normalized
+
+    return data

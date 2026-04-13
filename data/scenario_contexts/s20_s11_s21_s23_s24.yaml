@@ -1,0 +1,25 @@
+description: Baseline comparison of DWR vs USBR operations, 2020 land use, and TUCP actions
+
+scenarios:
+  s0020: DWR baseline with 2020 land use and active TUCPs
+  s0011: DWR baseline with old land use
+  s0021: DWR baseline with 2020 land use and no TUCP actions
+  s0023: USBR current operations with 2020 land use and no TUCPs
+  s0024: USBR current operations with 2020 land use and active TUCPs
+
+expectations:
+  - Changing land use between s0011 and s0020 should change delivery amounts for most agricultural delivery endpoints.
+  - Adding or removing TUCP actions (s0020 vs s0021; s0023 vs s0024) should change Shasta and Oroville storage in dry years (with the TUCP flag).
+  - TUCP actions should decrease spring Delta outflows in dry years.
+  - Overall deliveries should see only modest changes from TUCP actions.
+  - Changes viewed across the entire simulation should be small for TUCP on/off.
+  - Groundwater levels in some areas may respond to shifts in land use, irrigation demand, delivery timing, and flows, but a broad-scale shift is not necessarily expected.
+
+questions:
+  - Which ag delivery summary variables change between s0011 and s0020 (del_cvp_psc_n, del_cvp_pag_s, etc.)?
+  - Are changes in deliveries most apparent in annual volumes or monthly patterns/timing?
+  - Do changes in deliveries tend to happen in certain months or years?
+  - Does Delta outflow change across these scenarios? How and when?
+  - What changes in reservoir storage do you see across the TUCP on/off comparisons?
+  - What changes in dry year Delta outflow and Delta salinity do you see with and without TUCPs? What about across all years in aggregate?
+  - What, if any, differences in groundwater level trends are apparent across these scenarios?

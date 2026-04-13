@@ -294,3 +294,147 @@ def generate_report(
               "Some browsers may be slow to render.")
 
     return output_path
+
+
+def generate_pdf_report(
+    json_root: str,
+    set_name: str,
+    scenario_labels: dict[int, str],
+    baseline: int,
+    output_path: str | None = None,
+    html_path: str | None = None,
+) -> str:
+    """Generate a PDF report by rendering the same template through WeasyPrint.
+
+    Requires WeasyPrint and its system dependencies (pango, cairo).
+    On macOS:  brew install pango
+    On Linux:  apt-get install libpango-1.0-0 libpangoft2-1.0-0
+    On Windows: install GTK3 runtime
+    """
+    try:
+        from weasyprint import HTML
+    except (ImportError, OSError) as exc:
+        raise RuntimeError(
+            "PDF export requires WeasyPrint with system libraries (pango, cairo). "
+            "macOS: 'brew install pango'. "
+            "Linux: 'apt-get install libpango-1.0-0 libpangoft2-1.0-0'. "
+            f"Original error: {exc}"
+        ) from exc
+
+    if output_path is None:
+        output_path = os.path.join(json_root, set_name, "report.pdf")
+
+    # Reuse the rendered HTML if it exists, else build it
+    if html_path is None or not os.path.isfile(html_path):
+        template_dir = os.path.join(os.path.dirname(__file__), "templates")
+        env = Environment(loader=FileSystemLoader(template_dir), autoescape=False)
+        template = env.get_template("report_template.html")
+        data = _build_report_data(json_root, set_name, scenario_labels, baseline)
+        html_string = template.render(**data)
+    else:
+        with open(html_path, encoding="utf-8") as f:
+            html_string = f.read()
+
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    HTML(string=html_string).write_pdf(output_path)
+
+    size_mb = os.path.getsize(output_path) / (1024 * 1024)
+    print(f"PDF report written: {output_path} ({size_mb:.1f} MB)")
+    return output_path
+
+
+def generate_docx_report(
+    json_root: str,
+    set_name: str,
+    scenario_labels: dict[int, str],
+    baseline: int,
+    output_path: str | None = None,
+    html_path: str | None = None,
+) -> str:
+    """Generate a DOCX report by rendering HTML and converting via pandoc.
+
+    Requires pandoc binary on PATH (`brew install pandoc` on macOS).
+    Reuses the existing HTML report if available, otherwise re-renders.
+    """
+    import shutil
+    import subprocess
+
+    if shutil.which("pandoc") is None:
+        raise RuntimeError(
+            "DOCX export requires pandoc. Install with 'brew install pandoc' "
+            "(macOS), 'apt-get install pandoc' (Linux), or download from "
+            "https://pandoc.org/installing.html (Windows)."
+        )
+
+    if output_path is None:
+        output_path = os.path.join(json_root, set_name, "report.docx")
+
+    # Always render to a temp HTML file so pandoc has a single source.
+    # Pandoc handles base64 images natively in HTML input.
+    if html_path is None or not os.path.isfile(html_path):
+        # Generate HTML alongside the DOCX (and reuse for PDF later)
+        html_path = os.path.join(json_root, set_name, "report.html")
+        if not os.path.isfile(html_path):
+            generate_report(json_root, set_name, scenario_labels, baseline, html_path)
+
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    subprocess.run(
+        ["pandoc", html_path, "-f", "html", "-t", "docx", "-o", output_path],
+        check=True,
+    )
+
+    size_mb = os.path.getsize(output_path) / (1024 * 1024)
+    print(f"DOCX report written: {output_path} ({size_mb:.1f} MB)")
+    return output_path
+
+
+def generate_reports(
+    json_root: str,
+    set_name: str,
+    scenario_labels: dict[int, str],
+    baseline: int,
+    formats: list[str] | None = None,
+    output_dir: str | None = None,
+) -> dict[str, str]:
+    """Generate report in one or more formats.
+
+    Parameters
+    ----------
+    formats : list of str, optional
+        Subset of {"html", "pdf", "docx"}. Defaults to ["html"].
+
+    Returns
+    -------
+    dict mapping format name -> output path.
+    """
+    if formats is None:
+        formats = ["html"]
+
+    out_dir = output_dir or os.path.join(json_root, set_name)
+    os.makedirs(out_dir, exist_ok=True)
+
+    results = {}
+
+    # HTML first - PDF and DOCX reuse it
+    html_path = None
+    if "html" in formats:
+        html_path = os.path.join(out_dir, "report.html")
+        results["html"] = generate_report(
+            json_root, set_name, scenario_labels, baseline, html_path
+        )
+
+    if "pdf" in formats:
+        results["pdf"] = generate_pdf_report(
+            json_root, set_name, scenario_labels, baseline,
+            output_path=os.path.join(out_dir, "report.pdf"),
+            html_path=html_path,
+        )
+
+    if "docx" in formats:
+        results["docx"] = generate_docx_report(
+            json_root, set_name, scenario_labels, baseline,
+            output_path=os.path.join(out_dir, "report.docx"),
+            html_path=html_path,
+        )
+
+    return results

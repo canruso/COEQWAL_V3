@@ -1,0 +1,24 @@
+description: Groundwater pumping limits and agricultural demand reductions in the San Joaquin Valley and Central Valley
+
+scenarios:
+  s0020: Reference / baseline
+  s0025: Limit groundwater pumping in the San Joaquin Valley
+  s0026: Limit agricultural demand (irrigated crop acreage) in the San Joaquin Valley
+  s0027: Limit groundwater pumping in the entire Central Valley
+  s0028: Limit agricultural demand (irrigated crop acreage) in the entire Central Valley
+
+expectations:
+  - A reduction in groundwater pumping in both the San Joaquin and entire Central Valley (s0025 and s0027) should increase regional groundwater levels somewhat.
+  - Reduced pumping should be visible as less severe downward regional groundwater trends or stable/upward groundwater trends.
+  - Reduced groundwater pumping may increase the contribution of groundwater to stream flow (stream gain).
+  - Stream gain increases should be apparent in regional and local stream gain terms (SG_SACBASIN, SG_SJRBASIN), likely more distinct when viewed as annual volumes rather than monthly due to noise in the time series.
+  - Increases in stream gains may lead to increased deliveries or channel flows.
+  - The reduction in demands (s0026 and s0028) should have similar effects on groundwater levels as the pumping limits.
+  - Demand reductions should also increase reservoir storage somewhat.
+  - Reducing demand may also increase deliveries to some agricultural demand units in dry years.
+
+questions:
+  - Are groundwater trends less steep (or positive) in s0025 and s0027 vs the baseline?
+  - Where and when do increases in deliveries or channel flows occur due to higher stream gains?
+  - What differences in reservoir storage are apparent between the demand-reduction scenarios (s0026, s0028) and the baseline?
+  - Do you see any increases in agricultural deliveries in dry years? Which demand units and in what years?

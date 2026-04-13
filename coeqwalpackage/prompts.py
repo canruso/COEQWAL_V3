@@ -125,6 +125,49 @@ SCENARIO_CONTEXT = {
 }
 
 
+def format_set_context(set_context):
+    """Format a scenario set context dict into a text block for the prompt.
+
+    Accepts the dict returned by ``review_config.load_set_context()`` which
+    has keys: ``description``, ``scenarios``, ``expectations``, ``questions``.
+    Returns an empty string if the context is ``None`` or has nothing useful.
+    """
+    if not set_context:
+        return ""
+
+    parts = []
+
+    description = set_context.get("description", "")
+    if description:
+        parts.append(f"Comparison context: {description}")
+
+    scenarios = set_context.get("scenarios", {})
+    if scenarios:
+        lines = ["Scenario descriptions:"]
+        for sid, desc in sorted(scenarios.items()):
+            if isinstance(sid, int):
+                lines.append(f"  s{sid:04d}: {desc}")
+            else:
+                lines.append(f"  {sid}: {desc}")
+        parts.append("\n".join(lines))
+
+    expectations = set_context.get("expectations", [])
+    if expectations:
+        lines = ["Expected patterns (domain expert hypotheses for this comparison):"]
+        for exp in expectations:
+            lines.append(f"  - {exp}")
+        parts.append("\n".join(lines))
+
+    questions = set_context.get("questions", [])
+    if questions:
+        lines = ["Targeted questions for this comparison:"]
+        for q in questions:
+            lines.append(f"  - {q}")
+        parts.append("\n".join(lines))
+
+    return "\n\n".join(parts)
+
+
 def extract_plot_type(filename):
     stem = filename.rsplit(".", 1)[0]
     for key in sorted(PLOT_CONTEXT.keys(), key=len, reverse=True):
@@ -133,9 +176,30 @@ def extract_plot_type(filename):
     return stem
 
 
-def build_prompt(plot_type, var_label, scenario_names, baseline, scenario_context=None, stats_text=None):
-    """Build a full prompt by combining all three layers. Complete prompt: plot context + scenario context + stats + main
-    rules."""
+def build_prompt(plot_type, var_label, scenario_names, baseline,
+                 scenario_context=None, stats_text=None, set_context=None):
+    """Build a full prompt by combining all layers.
+
+    Parameters
+    ----------
+    plot_type : str
+        Plot type key used to select PLOT_CONTEXT template.
+    var_label : str
+        Human-readable variable label.
+    scenario_names : str
+        Comma-separated list of non-baseline scenario labels.
+    baseline : str
+        Baseline scenario label.
+    scenario_context : dict or None
+        Legacy: simple {sid: description} mapping. Kept for backward compat.
+    stats_text : str or None
+        Statistics block to inject into the prompt.
+    set_context : dict or None
+        Rich scenario set context with keys: ``description``, ``scenarios``,
+        ``expectations``, ``questions``. If provided, takes precedence over
+        ``scenario_context``. The LLM is instructed to note whether the plot
+        confirms or contradicts the listed expectations.
+    """
 
     template = None
     for key in sorted(PLOT_CONTEXT.keys(), key=len, reverse=True):
@@ -147,15 +211,26 @@ def build_prompt(plot_type, var_label, scenario_names, baseline, scenario_contex
 
     body = template.format(var_label=var_label)
     header = f"Scenarios: {scenario_names}. Baseline: {baseline}."
-    ctx = scenario_context if scenario_context is not None else SCENARIO_CONTEXT
-    ctx_lines = ""
-    if ctx:
-        ctx_lines = "\nScenario descriptions:\n" + "\n".join(f"  s{sid:04d}: {desc}" for sid, desc in ctx.items())
 
     parts = [body, header]
 
-    if ctx_lines:
-        parts.append(ctx_lines)
+    if set_context:
+        ctx_block = format_set_context(set_context)
+        if ctx_block:
+            parts.append(ctx_block)
+            parts.append(
+                "When analyzing this plot, explicitly note whether the patterns you observe "
+                "confirm or contradict any of the listed expectations. If the plot does not "
+                "address any expectation, that is fine - focus on what the plot actually shows."
+            )
+    else:
+        ctx = scenario_context if scenario_context is not None else SCENARIO_CONTEXT
+        if ctx:
+            ctx_lines = "Scenario descriptions:\n" + "\n".join(
+                f"  s{sid:04d}: {desc}" for sid, desc in ctx.items()
+            )
+            parts.append(ctx_lines)
+
     if stats_text:
         parts.append(stats_text)
     parts.append(MAIN_RULES)

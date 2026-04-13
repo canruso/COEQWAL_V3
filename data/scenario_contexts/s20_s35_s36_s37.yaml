@@ -1,0 +1,19 @@
+description: Drinking water prioritization - varying how municipal vs agricultural deliveries are allocated
+
+scenarios:
+  s0020: Baseline, for reference
+  s0035: Prioritize delivery of water to meet minimum health and human safety (HHS) standards to municipal demand units and delivery locations first, then split allocation between ag and municipal
+  s0036: Prioritize delivery of "functional" levels of water (defined as 70% of maximum entitlements) to municipal locations, then split remaining allocation with agriculture
+  s0037: Prioritize delivery to meet full municipal contract entitlements where possible, reduce agricultural deliveries to accommodate
+
+expectations:
+  - Municipal (M&I) deliveries tend to be prioritized reasonably highly in the baseline, so differences in delivery between s0020 and s0035/s0036 are likely to be modest.
+  - Deliveries to southern M&I locations, especially SWP contractors in southern California (Metropolitan WD, etc.), should increase for s0037.
+  - Generally changes in reservoir storage should be minor as the same amount of water should be allocated, just prioritized differently.
+  - River flows should in general be very similar among scenarios, although some changes may occur if the timing of reservoir releases differs due to differences in the timing of urban vs agricultural (irrigation) demand.
+  - Delta outflow and salinity should likely not change much among scenarios.
+
+questions:
+  - What changes in reservoir storage are apparent? When? What reservoirs?
+  - Are there cases where salinity or flow changes across these scenarios?
+  - Do deliveries to southern M&I locations visibly increase in s0037 as expected?
