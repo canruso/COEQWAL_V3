@@ -20,76 +20,278 @@ from coeqwalpackage.cqwlutils import find_calsim_model_root
 """ INDELTA TIER CALCULATION FUNCTION """
 
 
-def calc_indelta_tier(df, scenID, stations, thresholds, tier_rules):
-    """
-    Calculate in-delta tier designation for a given scenario.
+# def calc_indelta_tier(df, scenID, stations, thresholds, tier_rules):
+#     """
+#     Calculate in-delta tier designation for a given scenario.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Input dataframe with salinity variables.
-    scenID : str
-        Scenario identifier.
-    stations : list of str
-        Variables to include (old default: ["EM_EC_MONTH", "JP_EC_MONTH"]).
-    thresholds : dict
-        Thresholds for salinity (old default: {"Top": 2500, "Mid": 1600, "Low": 900}).
-    tier_rules : dict
-        Rules for assigning tiers. Each tier is an ordered dict with keys "LT_A", "LT_B", "GT_C".
-        Example (old default):
-        ([
-            (1, {"LT_A": 0.75, "LT_B": None, "GT_C": 0.05}),
-            (2, {"LT_A": 0.65, "LT_B": 0.75, "GT_C": 0.12}),
-            (3, {"LT_A": 0.55, "LT_B": 0.65, "GT_C": 0.20}),
-            (4, {"LT_A": None, "LT_B": None, "GT_C": 0.20}),
-        ])        
-    If no rule matches, returns tier = np.nan.
+#     Parameters
+#     ----------
+#     df : pd.DataFrame
+#         Input dataframe with salinity variables.
+#     scenID : str
+#         Scenario identifier.
+#     stations : list of str
+#         Variables to include (old default: ["EM_EC_MONTH", "JP_EC_MONTH"]).
+#     thresholds : dict
+#         Thresholds for salinity (old default: {"Top": 2500, "Mid": 1600, "Low": 900}).
+#     tier_rules : dict
+#         Rules for assigning tiers. Each tier is an ordered dict with keys "LT_A", "LT_B", "GT_C".
+#         Example (old default):
+#         ([
+#             (1, {"LT_A": 0.75, "LT_B": None, "GT_C": 0.05}),
+#             (2, {"LT_A": 0.65, "LT_B": 0.75, "GT_C": 0.12}),
+#             (3, {"LT_A": 0.55, "LT_B": 0.65, "GT_C": 0.20}),
+#             (4, {"LT_A": None, "LT_B": None, "GT_C": 0.20}),
+#         ])        
+#     If no rule matches, returns tier = np.nan.
+#     """
+#     idx = pd.IndexSlice
+
+#     # get the salinity threshold values
+#     tA, tB, tC = thresholds["Low"], thresholds["Mid"], thresholds["Top"]
+
+#     # get the data for this scenario
+#     selcols = [c for c in df.columns if scenID in c[1]]
+#     if len(selcols) < len(stations):
+#         raise ValueError(f"Didn't find the salinity columns for scenario {scenID}")
+
+#     thisdat = df.loc[:, selcols]
+
+#     # store fractions for each variable
+#     fracs = {}
+#     for var in stations:
+#         col = idx[:, f"{var}_{scenID}"]
+#         values = thisdat.loc[:, col].values
+
+#         fracs[var] = {
+#             "LT_A": sum(values < tA) / len(values),  # fraction of values less than tA (low threshold)
+#             "LT_B": sum(values < tB) / len(values),  # fraction of values less than tB (middle threshold)
+#             "LT_C": sum(values < tC) / len(values),  # fraction of values less than tC (high threshold)
+#             "GT_C": sum(values > tC) / len(values),  # fraction of values higher than tC
+#         }
+
+#     # aggregate across vars
+#     max_GT_C = max(v["GT_C"] for v in fracs.values())  # maximum of the GT_C fraction above
+#     min_LT_A = min(v["LT_A"] for v in fracs.values())  # minimum of the LT_A fraction above
+#     min_LT_B = min(v["LT_B"] for v in fracs.values())  # minimum of the LT_B fraction above
+
+#     # apply tier rules in order
+#     for tier, rule in tier_rules.items():  # go through rules for each tier
+#         # cond_A is true if the min of LT_A is greater than or equal to rule for LT_A (if rule is not None)
+#         cond_A = min_LT_A >= rule["LT_A"] if rule["LT_A"] is not None else True
+#         # cond_B is true if the min of LT_B is greater than or equal to rule for LT_B
+#         cond_B = min_LT_B >= rule["LT_B"] if rule["LT_B"] is not None else True
+#         # cond_C is true if the max of GT_C is less than rule for GT_C
+#         cond_C = max_GT_C < rule["GT_C"] if rule["GT_C"] is not None else True
+
+#         if cond_A and cond_B and cond_C:  # if all conditions match, assign to this tier
+#             return tier
+
+#     # default if no rule matches
+#     return np.nan
+
+# def calc_indelta_tier(df, scenID, stations, thresholds, tier_rules):
+#     import numpy as np
+#     import pandas as pd
+
+#     idx = pd.IndexSlice
+
+#     tA, tB, tC = thresholds["Low"], thresholds["Mid"], thresholds["Top"]
+
+#     selcols = [c for c in df.columns if scenID in c[1]]
+#     if len(selcols) < len(stations):
+#         raise ValueError(f"Didn't find the salinity columns for scenario {scenID}")
+
+#     thisdat = df.loc[:, selcols]
+
+#     # ----------------------------
+#     # FRACTIONS (unchanged)
+#     # ----------------------------
+#     fracs = {}
+#     for var in stations:
+#         col = idx[:, f"{var}_{scenID}"]
+#         values = thisdat.loc[:, col].values
+
+#         fracs[var] = {
+#             "LT_A": np.mean(values < tA),
+#             "LT_B": np.mean(values < tB),
+#             "GT_C": np.mean(values > tC),
+#         }
+
+#     max_GT_C = max(v["GT_C"] for v in fracs.values())
+#     min_LT_A = min(v["LT_A"] for v in fracs.values())
+#     min_LT_B = min(v["LT_B"] for v in fracs.values())
+
+#     # ----------------------------
+#     # DISCRETE (unchanged)
+#     # ----------------------------
+#     discrete_tier = np.nan
+#     for tier, rule in tier_rules.items():
+#         cond_A = min_LT_A >= rule["LT_A"] if rule["LT_A"] is not None else True
+#         cond_B = min_LT_B >= rule["LT_B"] if rule["LT_B"] is not None else True
+#         cond_C = max_GT_C < rule["GT_C"] if rule["GT_C"] is not None else True
+
+#         if cond_A and cond_B and cond_C:
+#             discrete_tier = tier
+#             break
+
+#     # ----------------------------
+#     # CONTINUOUS (NEW)
+#     # ----------------------------
+#     scores = []
+
+#     for tier, rule in tier_rules.items():
+
+#         sA = 1.0
+#         if rule["LT_A"] is not None:
+#             sA = min(1, min_LT_A / rule["LT_A"])
+
+#         sB = 1.0
+#         if rule["LT_B"] is not None:
+#             sB = min(1, min_LT_B / rule["LT_B"])
+
+#         sC = 1.0
+#         if rule["GT_C"] is not None:
+#             # smaller is better
+#             if max_GT_C == 0:
+#                 sC = 1.0
+#             else:
+#                 sC = min(1, rule["GT_C"] / max_GT_C)
+
+#         score = sA * sB * sC
+#         scores.append((tier, score))
+
+#     # normalize weights
+#     total_score = sum(s for _, s in scores)
+
+#     if total_score == 0:
+#         continuous_tier = np.nan
+#     else:
+#         continuous_tier = sum(t * s for t, s in scores) / total_score
+
+#     # Brutal fix to avoid NaNs when discrete rules fail:
+#     if discrete_tier is np.nan:
+#         discrete_tier = int(round(continuous_tier))
+        
+#     return discrete_tier, continuous_tier
+    
+def calc_indelta_tiers(df, scenario_ids, stations, thresholds, tier_rules):
     """
+    Compute in-delta discrete and continuous tiers for all scenarios.
+
+    Returns
+    -------
+    pd.DataFrame
+        Index: ScenarioID
+        Columns:
+            - Salinity_InDelta_Tier
+            - Salinity_InDelta_Tier_continuous
+    """
+
+    import numpy as np
+    import pandas as pd
+
     idx = pd.IndexSlice
-
-    # get the salinity threshold values
     tA, tB, tC = thresholds["Low"], thresholds["Mid"], thresholds["Top"]
 
-    # get the data for this scenario
-    selcols = [c for c in df.columns if scenID in c[1]]
-    if len(selcols) < len(stations):
-        raise ValueError(f"Didn't find the salinity columns for scenario {scenID}")
+    results = {}
 
-    thisdat = df.loc[:, selcols]
+    for scenID in scenario_ids:
 
-    # store fractions for each variable
-    fracs = {}
-    for var in stations:
-        col = idx[:, f"{var}_{scenID}"]
-        values = thisdat.loc[:, col].values
+        # ----------------------------
+        # Extract data
+        # ----------------------------
+        selcols = [c for c in df.columns if scenID in c[1]]
+        if len(selcols) < len(stations):
+            raise ValueError(f"Didn't find the salinity columns for scenario {scenID}")
 
-        fracs[var] = {
-            "LT_A": sum(values < tA) / len(values),  # fraction of values less than tA (low threshold)
-            "LT_B": sum(values < tB) / len(values),  # fraction of values less than tB (middle threshold)
-            "LT_C": sum(values < tC) / len(values),  # fraction of values less than tC (high threshold)
-            "GT_C": sum(values > tC) / len(values),  # fraction of values higher than tC
+        thisdat = df.loc[:, selcols]
+
+        # ----------------------------
+        # FRACTIONS
+        # ----------------------------
+        fracs = {}
+        for var in stations:
+            col = idx[:, f"{var}_{scenID}"]
+            values = thisdat.loc[:, col].values
+
+            fracs[var] = {
+                "LT_A": np.mean(values < tA),
+                "LT_B": np.mean(values < tB),
+                "GT_C": np.mean(values > tC),
+            }
+
+        max_GT_C = max(v["GT_C"] for v in fracs.values())
+        min_LT_A = min(v["LT_A"] for v in fracs.values())
+        min_LT_B = min(v["LT_B"] for v in fracs.values())
+
+        # ----------------------------
+        # DISCRETE
+        # ----------------------------
+        discrete_tier = np.nan
+
+        for tier, rule in tier_rules.items():
+            cond_A = min_LT_A >= rule["LT_A"] if rule["LT_A"] is not None else True
+            cond_B = min_LT_B >= rule["LT_B"] if rule["LT_B"] is not None else True
+            cond_C = max_GT_C < rule["GT_C"] if rule["GT_C"] is not None else True
+
+            if cond_A and cond_B and cond_C:
+                discrete_tier = tier
+                break
+
+        # ----------------------------
+        # CONTINUOUS
+        # ----------------------------
+        scores = []
+
+        for tier, rule in tier_rules.items():
+
+            sA = 1.0
+            if rule["LT_A"] is not None:
+                sA = min(1, min_LT_A / rule["LT_A"])
+
+            sB = 1.0
+            if rule["LT_B"] is not None:
+                sB = min(1, min_LT_B / rule["LT_B"])
+
+            sC = 1.0
+            if rule["GT_C"] is not None:
+                if max_GT_C == 0:
+                    sC = 1.0
+                else:
+                    sC = min(1, rule["GT_C"] / max_GT_C)
+
+            score = sA * sB * sC
+            scores.append((tier, score))
+
+        total_score = sum(s for _, s in scores)
+
+        if total_score == 0:
+            continuous_tier = np.nan
+        else:
+            continuous_tier = sum(t * s for t, s in scores) / total_score
+
+        # ----------------------------
+        # OPTIONAL: align discrete with continuous
+        # ----------------------------
+        if np.isnan(discrete_tier) and not np.isnan(continuous_tier):
+            discrete_tier = int(round(continuous_tier))
+
+        # ----------------------------
+        # STORE
+        # ----------------------------
+        results[scenID] = {
+            "Salinity_Tier": discrete_tier,
+            "Salinity_Tier_continuous": continuous_tier
         }
 
-    # aggregate across vars
-    max_GT_C = max(v["GT_C"] for v in fracs.values())  # maximum of the GT_C fraction above
-    min_LT_A = min(v["LT_A"] for v in fracs.values())  # minimum of the LT_A fraction above
-    min_LT_B = min(v["LT_B"] for v in fracs.values())  # minimum of the LT_B fraction above
+    # ----------------------------
+    # BUILD DF
+    # ----------------------------
+    result_df = pd.DataFrame.from_dict(results, orient="index")
+    result_df.index.name = "ScenarioID"
 
-    # apply tier rules in order
-    for tier, rule in tier_rules.items():  # go through rules for each tier
-        # cond_A is true if the min of LT_A is greater than or equal to rule for LT_A (if rule is not None)
-        cond_A = min_LT_A >= rule["LT_A"] if rule["LT_A"] is not None else True
-        # cond_B is true if the min of LT_B is greater than or equal to rule for LT_B
-        cond_B = min_LT_B >= rule["LT_B"] if rule["LT_B"] is not None else True
-        # cond_C is true if the max of GT_C is less than rule for GT_C
-        cond_C = max_GT_C < rule["GT_C"] if rule["GT_C"] is not None else True
-
-        if cond_A and cond_B and cond_C:  # if all conditions match, assign to this tier
-            return tier
-
-    # default if no rule matches
-    return np.nan
-
+    return result_df
 
 """ EXPORT TIER CALCULATION FUNCTION """
 
@@ -367,38 +569,79 @@ def build_export_quality_summary(detail_dict):
         summary = summary.set_index("Scenario")
     return summary
 
-
-def assign_export_tiers(summary_df, bounds_config):
+def assign_export_tiers(summary_df, detail_dict, bounds_config):
     """
-    Assign export tiers to each scenario based on total adjusted volume.
-
-    Parameters
-    ----------
-    summary_df : pd.DataFrame
-        Output from build_export_quality_summary(). Must have columns
-        Total_AdjVolume_{label} for each station.
-    bounds_config : dict[str, list[float]]
-        Tier bounds per station label, descending. Example:
-        {"Banks": [30000, 20000, 10000], "Tracy": [20000, 15000, 10000]}
-        T1 if >= bounds[0], T2 if >= bounds[1], T3 if >= bounds[2], T4 otherwise.
-
-    Returns
-    -------
-    pd.DataFrame
-        Copy of summary_df with added Export_Tier_{label} columns.
+    Discrete: based on total adjusted volume
+    Continuous: fraction of time annual values fall within tier bounds
     """
+
+    import numpy as np
+    import pandas as pd
+
     result = summary_df.copy()
+
     for label, bounds in bounds_config.items():
-        col = f"Total_AdjVolume_{label}"
+
+        # Ensure descending order
+        bounds = sorted(bounds, reverse=True)
+
+        total_col = f"Total_AdjVolume_{label}"
         tier_col = f"Export_Tier_{label}"
-        result[tier_col] = result[col].apply(
+        cont_col = f"{tier_col}_continuous"
+
+        # ----------------------------
+        # DISCRETE (unchanged)
+        # ----------------------------
+        result[tier_col] = result[total_col].apply(
             lambda v: next(
                 (t for t, b in enumerate(bounds, 1) if v >= b),
                 len(bounds) + 1
             )
         )
-    return result
 
+        # ----------------------------
+        # CONTINUOUS
+        # ----------------------------
+        continuous_vals = {}
+
+        for scen, df in detail_dict.items():
+
+            df = df.copy()
+            df.index = pd.to_datetime(df.index)
+
+            # pick correct series
+            if label == "Total":
+                series = (
+                    df["AdjVolume_Banks"].fillna(0) +
+                    df["AdjVolume_Tracy"].fillna(0)
+                )
+            else:
+                series = df[f"AdjVolume_{label}"].fillna(0)
+
+            # annual aggregation
+            annual = series.resample("YE").sum()
+
+            if len(annual) == 0:
+                continuous_vals[scen] = np.nan
+                continue
+
+            n_years = len(annual)
+
+            # 🔑 scale bounds to annual
+            b0, b1, b2 = [b / n_years for b in bounds]
+
+            f1 = (annual >= b0).mean()
+            f2 = ((annual < b0) & (annual >= b1)).mean()
+            f3 = ((annual < b1) & (annual >= b2)).mean()
+            f4 = (annual < b2).mean()
+
+            continuous_vals[scen] = (
+                1*f1 + 2*f2 + 3*f3 + 4*f4
+            )
+
+        result[cont_col] = pd.Series(continuous_vals)
+
+    return result
 
 """ Storage """
 
@@ -409,7 +652,7 @@ def generate_storage_tier_assignment_matrix(
     tiers_output_dir, metrics_output_dir, tiers_output_filename, probabilities_output_filename,
     start_date="1921-10-01",
     percentiles=[0.25, 0.5, 0.9], tier_thresholds=(0.9, 0.5, 0.2),
-    saveprobs=False, verbose=False,
+    saveprobs=False, verbose=False, continuous = False
 ):
     """
     Generate tier assignment matrix for reservoir storage.
@@ -460,7 +703,7 @@ def generate_storage_tier_assignment_matrix(
              if variable in col and "_STORAGE_" in col and "LEVEL" not in col.upper()]
         ]
 
-    def assign_tiers_from_calsim(var_df, thresholds, date_series, var, tier_thresholds, saveprobs=saveprobs, verbose=verbose):
+    def assign_tiers_from_calsim(var_df, thresholds, date_series, var, tier_thresholds, saveprobs=saveprobs, verbose=verbose, continuous = False):
         tier_rows = []
 
         for col in var_df.columns:
@@ -500,15 +743,18 @@ def generate_storage_tier_assignment_matrix(
             low_frac = low / total
             bot_frac = bot / total
 
-            tt1, tt2, tt3 = tier_thresholds
-            if top_frac >= tt1:
-                tier = 1
-            elif (top_frac + mid_frac) >= tt2:
-                tier = 2
-            elif (top_frac + mid_frac) >= tt3:
-                tier = 3
+            if continuous:
+                tier = 1*top_frac + 2*mid_frac + 3* low_frac + 4*bot_frac
             else:
-                tier = 4
+                tt1, tt2, tt3 = tier_thresholds
+                if top_frac >= tt1:
+                    tier = 1
+                elif (top_frac + mid_frac) >= tt2:
+                    tier = 2
+                elif (top_frac + mid_frac) >= tt3:
+                    tier = 3
+                else:
+                    tier = 4
 
             tier_rows.append({
                 "Scenario": sid,
@@ -561,7 +807,7 @@ def generate_storage_tier_assignment_matrix(
                 print(f" No CalSim data found for variable {var}")
                 continue
 
-            tier_df = assign_tiers_from_calsim(var_df, thresholds, df["DATE"], var, tier_thresholds)
+            tier_df = assign_tiers_from_calsim(var_df, thresholds, df["DATE"], var, tier_thresholds, continuous = continuous)
 
             for _, r in tier_df.iterrows():
                 sid = r["Scenario"]
@@ -1333,7 +1579,7 @@ def compute_wba_trends(
 
 
 # Assign groundwater storage tiers based on trends
-def assign_tiers_from_trends(trend_matrix, baseline, output_dir, filename, severe_decline_threshold=-0.015):
+def assign_tiers_from_trends(trend_matrix, baseline, output_dir, filename, severe_decline_threshold=-0.015, continuous = False):
     if baseline not in trend_matrix.index:
         raise ValueError(f"Baseline scenario {baseline} not found in trend_matrix")
 
@@ -1344,19 +1590,40 @@ def assign_tiers_from_trends(trend_matrix, baseline, output_dir, filename, sever
 
         for scenario in trend_matrix.index:
             slope = trend_matrix.loc[scenario, wba_col]
+            # print("wba_col: " + str(wba_col) + ", scenario: " + str(scenario))
             # Determine tier category based on slope relative to baseline
             if pd.isna(slope) or pd.isna(baseline_slope):
                 tier = np.nan
             elif scenario == baseline:
                 tier = 0  # baseline tier
-            elif slope >= 0:
-                diff = slope - baseline_slope
-                tier = 1 if diff >= 0 else 2
-            elif slope >= severe_decline_threshold:
-                tier = 3
+            elif continuous:
+                if slope >= 0:
+                    if slope >= baseline_slope:
+                        print("slope positive, slope >= baseline (" + str(baseline_slope) + ")")
+                        tier = 0.5 + (baseline_slope / slope)
+                        print("baseline_slope / slope = " + str(baseline_slope / slope) + ", tier = " + str(tier))
+                    else:
+                        print("slope positive, slope < baseline")
+                        tier = 1.5 + (1 - (slope / baseline_slope))
+                        print("1 - (slope / baseline_slope) = " + str(1 - (slope / baseline_slope)) + ", tier = " + str(tier))
+                else:
+                    if slope >= severe_decline_threshold:
+                        print("slope negative, slope >= threshold")
+                        tier = 2.5 + (slope / severe_decline_threshold)
+                        print("slope / severe_decline_threshold = " + str(slope / severe_decline_threshold) + ", tier = " + str(tier))
+                    else:
+                        print("slope negative, slope < threshold")
+                        tier = max(4.5, 3.5 + (1 - (severe_decline_threshold / slope)))
+                        print("1 - (severe_decline_threshold / slope) = " + str(1 - (severe_decline_threshold / slope)) + ", tier = " + str(tier))
             else:
-                tier = 4
-
+                if slope >= 0:
+                    diff = slope - baseline_slope
+                    tier = 1 if diff >= 0 else 2
+                elif slope >= severe_decline_threshold:
+                    tier = 3
+                else:
+                    tier = 4
+            
             tier_matrix.loc[scenario, wba_col] = tier
 
     out_path = os.path.join(output_dir, filename)
