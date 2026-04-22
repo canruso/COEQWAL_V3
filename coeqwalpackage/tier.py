@@ -635,8 +635,13 @@ def assign_export_tiers(summary_df, detail_dict, bounds_config):
             f3 = ((annual < b1) & (annual >= b2)).mean()
             f4 = (annual < b2).mean()
 
+            # WAS:
+            # score = 1*f1 + 2*f2 + 3*f3 + 4*f4
+            ## NEED TO SHIFT TO GET 1-4.999999
+            raw_score = 1*f1 + 2*f2 + 3*f3 + 4*f4
+            score = 1 + (raw_score - 1) * (3.999999 / 3)
             continuous_vals[scen] = (
-                1*f1 + 2*f2 + 3*f3 + 4*f4
+                score
             )
 
         result[cont_col] = pd.Series(continuous_vals)
@@ -744,7 +749,12 @@ def generate_storage_tier_assignment_matrix(
             bot_frac = bot / total
 
             if continuous:
-                tier = 1*top_frac + 2*mid_frac + 3* low_frac + 4*bot_frac
+                # WAS:
+                # tier = 1*top_frac + 2*mid_frac + 3* low_frac + 4*bot_frac
+                # NEED TO SHIFT TO GET 1-4.999999
+                raw_score = 1*top_frac + 2*mid_frac + 3*low_frac + 4*bot_frac
+                tier = 1 + (raw_score - 1) * (3.999999 / 3)
+                
             else:
                 tt1, tt2, tt3 = tier_thresholds
                 if top_frac >= tt1:
@@ -1597,23 +1607,43 @@ def assign_tiers_from_trends(trend_matrix, baseline, output_dir, filename, sever
             elif scenario == baseline:
                 tier = 0  # baseline tier
             elif continuous:
+                # WAS:
+                # if slope >= 0:
+                #     if slope >= baseline_slope:
+                #         print("slope positive, slope >= baseline (" + str(baseline_slope) + ")")
+                #         tier = 0.5 + (baseline_slope / slope)
+                #         print("baseline_slope / slope = " + str(baseline_slope / slope) + ", tier = " + str(tier))
+                #     else:
+                #         print("slope positive, slope < baseline")
+                #         tier = 1.5 + (1 - (slope / baseline_slope))
+                #         print("1 - (slope / baseline_slope) = " + str(1 - (slope / baseline_slope)) + ", tier = " + str(tier))
+                # else:
+                #     if slope >= severe_decline_threshold:
+                #         print("slope negative, slope >= threshold")
+                #         tier = 2.5 + (slope / severe_decline_threshold)
+                #         print("slope / severe_decline_threshold = " + str(slope / severe_decline_threshold) + ", tier = " + str(tier))
+                #     else:
+                #         print("slope negative, slope < threshold")
+                #         tier = max(4.5, 3.5 + (1 - (severe_decline_threshold / slope)))
+                #         print("1 - (severe_decline_threshold / slope) = " + str(1 - (severe_decline_threshold / slope)) + ", tier = " + str(tier))
+                ## NEED TO SHIFT TO GET 1-4.999999
                 if slope >= 0:
                     if slope >= baseline_slope:
                         print("slope positive, slope >= baseline (" + str(baseline_slope) + ")")
-                        tier = 0.5 + (baseline_slope / slope)
+                        tier = 1 + (baseline_slope / slope)
                         print("baseline_slope / slope = " + str(baseline_slope / slope) + ", tier = " + str(tier))
                     else:
                         print("slope positive, slope < baseline")
-                        tier = 1.5 + (1 - (slope / baseline_slope))
+                        tier = 2 + (1 - (slope / baseline_slope))
                         print("1 - (slope / baseline_slope) = " + str(1 - (slope / baseline_slope)) + ", tier = " + str(tier))
                 else:
                     if slope >= severe_decline_threshold:
                         print("slope negative, slope >= threshold")
-                        tier = 2.5 + (slope / severe_decline_threshold)
+                        tier = 3 + (slope / severe_decline_threshold)
                         print("slope / severe_decline_threshold = " + str(slope / severe_decline_threshold) + ", tier = " + str(tier))
                     else:
                         print("slope negative, slope < threshold")
-                        tier = max(4.5, 3.5 + (1 - (severe_decline_threshold / slope)))
+                        tier = max(4.999999, 4 + (1 - (severe_decline_threshold / slope)))
                         print("1 - (severe_decline_threshold / slope) = " + str(1 - (severe_decline_threshold / slope)) + ", tier = " + str(tier))
             else:
                 if slope >= 0:
