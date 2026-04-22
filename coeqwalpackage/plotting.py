@@ -1177,7 +1177,7 @@ def plot_moy_averages_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF
                             wyt: list[int] | None = None, wyt_month: int | None = None,
                             pTitle: str = "MOY Averages", xLab: str = "Month", lTitle: str = "Scenarios",
                             fTitle: str = "moy_multi", fPath: str = "fPath", pSave: bool = True, dpi: int = 300,
-                            legend_position: str = "bottom"):
+                            legend_position: str = "bottom", plot: bool = True):
 
     series_map = cu.per_scenario_series(df, varname=varname, units=units, scenarios=scenarios, use_tucp=use_tucp,
                                         tucp_var_base=tucp_var_base, tucp_wy_month_count=tucp_wy_month_count,
@@ -1187,8 +1187,8 @@ def plot_moy_averages_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF
     styles = get_scenario_styles_multi(scenarios, scenario_labels=scenario_labels, baseline_id=baseline_id,
                                        baseline_label_override=baseline_label_override, label_style=label_style)
 
-    plt.figure(figsize=(14, 8))
     month_numbers = np.arange(1, 13)
+    records = []
 
     for sid in scenarios:
         s = series_map[sid].dropna()
@@ -1197,7 +1197,27 @@ def plot_moy_averages_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF
         moy = s.groupby(s.index.month).mean()
         moy = moy.reindex(month_numbers)
         st = styles.get(sid, {})
-        plt.plot(month_numbers, moy.values, marker="o", color=st.get("color", None),
+        for month, value in zip(month_numbers, moy.values):
+            records.append({
+                "scenario_id": sid,
+                "label": st.get("label", f"s{sid:04d}"),
+                "month": month,
+                "value": value,
+            })
+
+    moy_df = pd.DataFrame(records)
+
+    if not plot:
+        return moy_df
+
+    plt.figure(figsize=(14, 8))
+
+    for sid in scenarios:
+        subset = moy_df[moy_df["scenario_id"] == sid]
+        if subset.empty:
+            continue
+        st = styles.get(sid, {})
+        plt.plot(subset["month"], subset["value"], marker="o", color=st.get("color", None),
                  linestyle=st.get("linestyle", "-"), linewidth=st.get("linewidth", 1.8),
                  label=st.get("label", f"s{sid:04d}"))
 
@@ -1207,7 +1227,7 @@ def plot_moy_averages_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF
     plt.ylabel(f"{varname}\nUnits: {units}", fontsize=14)
     if legend_position == "bottom":
         plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=3)
-    else:  # 'right' (default)
+    else:
         plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper left", bbox_to_anchor=(1.02, 1))
     plt.tight_layout()
 
