@@ -1480,6 +1480,35 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
     # aggregate delivery variables
     if aggregate_deliveries:      
 
+        ## NEW AGGREGATE VARIABLE FROM KRISTIN:
+        # --- D_BKR004_NBA009_NAPA_ALL ---
+        print("Calculating D_BKR004_NBA009_NAPA_ALL")
+        delivs_cfs_df = add_combined_column_if_exists(
+            delivs_cfs_df,
+            target_col=('CALCULATED','D_BKR004_NBA009_NAPA_ALL','DIVERSION','1MON','L2020A','PER-CUM','CFS'),
+            add_cols=[
+                ('CALSIM', 'D_BKR004_NBA009_NAPA', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_BKR004_NBA009_SMT', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_BKR004_NBA009_VPW', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+            ],
+            record_used_cols=None, # change to used_cols if we want to drop the terms after the aggregation
+        )
+
+        ## NEW AGGREGATE VARIABLE FROM KRISTIN:
+        # --- D_WTPCYC_ALL ---
+        print("Calculating D_WTPCYC_ALL")
+        delivs_cfs_df = add_combined_column_if_exists(
+            delivs_cfs_df,
+            target_col=('CALCULATED','D_WTPCYC_ALL','SW_DELIVERY-NET','1MON','L2020A','PER-CUM','CFS'),
+            add_cols=[
+                ('CALSIM', 'DN_16_PU', 'SW_DELIVERY-NET', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_WTPCYC_16_PU_SWP_PMI', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_WTPCYC_16_PU_SWP_PCO', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+            ],
+            record_used_cols=None, # change to used_cols if we want to drop the terms after the aggregation
+        )
+                
+       
         # --- DN_06_NA ---
         print("Calculating DN_06_NA")
         delivs_cfs_df = add_combined_column_if_exists(
