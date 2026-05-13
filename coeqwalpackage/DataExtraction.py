@@ -1501,7 +1501,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             delivs_cfs_df,
             target_col=('CALCULATED','D_WTPCYC_ALL','SW_DELIVERY-NET','1MON','L2020A','PER-CUM','CFS'),
             add_cols=[
-                ('CALSIM', 'DN_16_PU', 'SW_DELIVERY-NET', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'DN_16_PU', 'SW-DELIVERY-NET', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'D_WTPCYC_16_PU_SWP_PMI', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'D_WTPCYC_16_PU_SWP_PCO', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
