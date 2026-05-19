@@ -54,14 +54,18 @@ def calc_indelta_tiers(df, scenario_ids, stations, thresholds, tier_rules):
     # ============================================================
     # Normalization helper
     # ============================================================
-    def interpolate(obs, better, worse, direction):
+    def interpolate(obs, better, worse, direction, interior = True):
         """
-        Returns position in [0,1]
+        Returns position in [0,1] or (1,1)
 
         0 -> exactly at better boundary
         1 -> exactly at worse boundary
         """
-
+        if interior:
+            eps = 0.001
+        else:
+            eps = 0.000
+            
         if better is None or worse is None:
             return np.nan
 
@@ -76,7 +80,7 @@ def calc_indelta_tiers(df, scenario_ids, stations, thresholds, tier_rules):
             # lower is better
             p = (obs - better) / (worse - better)
 
-        return np.clip(p, 0, 0.999)
+        return np.clip(p, eps, 1 - eps)
 
     # ============================================================
     # Main loop
@@ -152,6 +156,8 @@ def calc_indelta_tiers(df, scenario_ids, stations, thresholds, tier_rules):
         # ========================================================
         # CONTINUOUS
         # ========================================================
+        
+        eps = 0.001
 
         progresses = []
 
@@ -210,8 +216,8 @@ def calc_indelta_tiers(df, scenario_ids, stations, thresholds, tier_rules):
 
         # hard guarantee
         continuous = min(
-            max(continuous, discrete_tier),
-            discrete_tier + 0.999
+            max(continuous, discrete_tier + eps),
+            discrete_tier + 1 - eps
         )
 
         # ========================================================
@@ -527,7 +533,8 @@ def assign_export_tiers(summary_df, detail_dict, bounds_config):
     """
 
     result = summary_df.copy()
-
+    eps = 0.001
+    
     for label, bounds in bounds_config.items():
 
         # Ensure descending:
@@ -602,24 +609,7 @@ def assign_export_tiers(summary_df, detail_dict, bounds_config):
 
             discrete_tier = int(result.loc[scen, tier_col])
 
-            # --------------------------------------------------------
-            # Interpolate within assigned tier
-            # --------------------------------------------------------
-
-            # Tier 1: [1,2)
-            # if discrete_tier == 1:
-
-            #     if b1 == 0:
-            #         progress = 0
-            #     else:
-            #         progress = (b1 - total_export) / b1
-
-            #     continuous = 1 + np.clip(progress, 0, 0.999)
-            #
-            # PROBLEM: DISCRETE TIER 1 ALWAYS GETS MAPPED TO CONTINUOUS TIER 1
-            # I think this is because there is no upper bound for tier 1 - there is no limit on total_export (the other tiers instead are bounded)
-            # Possible solution: get the upper bound from the data:
-            
+            # get max export from data
             tier1_max = result.loc[result[tier_col] == 1, total_col].max()
             
             if discrete_tier == 1:
@@ -631,7 +621,7 @@ def assign_export_tiers(summary_df, detail_dict, bounds_config):
                 else:
                     progress = (tier1_max - total_export) / denom
             
-                continuous = 1 + np.clip(progress, 0, 0.999)
+                continuous = 1 + np.clip(progress, eps, 1 - eps)
             
             # Tier 2: [2,3)
             elif discrete_tier == 2:
@@ -643,7 +633,7 @@ def assign_export_tiers(summary_df, detail_dict, bounds_config):
                 else:
                     progress = (b1 - total_export) / denom
 
-                continuous = 2 + np.clip(progress, 0, 0.999)
+                continuous = 2 + np.clip(progress, eps, 1 - eps)
 
             # Tier 3: [3,4)
             elif discrete_tier == 3:
@@ -655,7 +645,7 @@ def assign_export_tiers(summary_df, detail_dict, bounds_config):
                 else:
                     progress = (b2 - total_export) / denom
 
-                continuous = 3 + np.clip(progress, 0, 0.999)
+                continuous = 3 + np.clip(progress, eps, 1 - eps)
 
             # Tier 4: [4,5)
             else:
@@ -665,7 +655,7 @@ def assign_export_tiers(summary_df, detail_dict, bounds_config):
                 else:
                     progress = (b3 - total_export) / b3
 
-                continuous = 4 + np.clip(progress, 0, 0.999)
+                continuous = 4 + np.clip(progress, eps, 1 - eps)
 
             continuous_vals[scen] = continuous
 
@@ -829,7 +819,8 @@ def generate_storage_tier_assignment_matrix(
                 discrete_tier = 1
             elif cumulative_mid >= tt2:
                 discrete_tier = 2
-            elif cumulative_mid >= tt3:
+            # elif cumulative_mid >= tt3:
+            elif cumulative_low >= tt3:
                 discrete_tier = 3
             else:
                 discrete_tier = 4
@@ -852,11 +843,13 @@ def generate_storage_tier_assignment_matrix(
                 elif discrete_tier == 3:
     
                     denom = tt2 - tt3
-                    progress = 0 if denom <= 0 else (tt2 - cumulative_mid) / denom
+                    # progress = 0 if denom <= 0 else (tt2 - cumulative_mid) / denom
+                    progress = 0 if denom <= 0 else (tt2 - cumulative_low) / denom
     
                 else:
     
-                    progress = 0 if tt3 <= 0 else (tt3 - cumulative_mid) / tt3
+                    # progress = 0 if tt3 <= 0 else (tt3 - cumulative_mid) / tt3
+                    progress = 0 if tt3 <= 0 else (tt3 - cumulative_low) / tt3
     
                 # Strict interior clipping
                 progress = np.clip(progress, eps, 1 - eps)
