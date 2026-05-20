@@ -1054,7 +1054,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             add_cols=cols_ud_napa,
             sub_cols=None,
             multiplier=1.0,
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # ---------- UD_AMCYN ----------
@@ -1069,7 +1069,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'D_BKR004_NBA009_NAPA_PLS', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS')
             ],
             multiplier=0.179,
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # ---------- D_MWD ----------
@@ -1087,7 +1087,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             add_cols=cols_d_mwd,
             sub_cols=None,
             multiplier=1.0,
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # ---------- UD_AMADR_NU ----------
@@ -1103,7 +1103,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             add_cols=cols_ud_amadr,
             sub_cols=None,
             multiplier=1.0,
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
         
         # --- CSB103 ---
@@ -1124,7 +1124,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             sub_cols=None,
             multiplier=1.0,
             divisor_col=div_col_ud_csb103[0],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
 
         # --- CSB038 ---
@@ -1145,7 +1145,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             sub_cols=None,
             multiplier=1.0,
             divisor_col=div_col_ud_csb038[0],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
         
         # --- DEM_VNTRA_PMI ---
@@ -1166,7 +1166,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM','D_PYRMD_VNTRA_PMI','FLOW-DELIVERY','1MON','L2020A','PER-AVER','CFS')
             ],
             term2_den_col=('CALSIM','PERDV_SWP_38','SWP-OUTPUT','1MON','L2020A','PER-AVER','PERCENT'),
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
 
         # --- ESB324 ---
@@ -1187,7 +1187,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             sub_cols=None,
             multiplier=1.0,
             divisor_col=div_col_ud_esb324[0],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
 
         # --- ESB347 ---
@@ -1208,7 +1208,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             sub_cols=None,
             multiplier=1.0,
             divisor_col=div_col_ud_esb347[0],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
 
         # --- ESB414 ---
@@ -1229,7 +1229,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             sub_cols=None,
             multiplier=1.0,
             divisor_col=div_col_ud_esb414[0],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
  
         # --- ESB415 ---
@@ -1250,7 +1250,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             sub_cols=None,
             multiplier=1.0,
             divisor_col=div_col_ud_esb415[0],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
 
         # --- ESB420 ---
@@ -1271,7 +1271,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             sub_cols=None,
             multiplier=1.0,
             divisor_col=div_col_ud_esb420[0],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
 
         # --- DEM_ACFC ---
@@ -1292,7 +1292,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM','D_SBA020_ACFC_PMI','FLOW-DELIVERY','1MON','L2020A','PER-AVER','CFS')
             ],
             term2_den_col=('CALSIM','PERDV_SWP_2','SWP-OUTPUT','1MON','L2020A','PER-AVER','PERCENT'),
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
 
         # --- SBA029 ---
@@ -1313,7 +1313,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             sub_cols=None,
             multiplier=1.0,
             divisor_col=div_col_ud_sba029[0],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
 
         # # --- SBA036 ---
@@ -1354,7 +1354,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             sub_cols=None,
             multiplier=1.0,
             divisor_col=div_col_ud_sba036[0],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
         
         # --- SVWRD ---
@@ -1374,7 +1374,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             sub_cols=None,
             multiplier=1.0,
             divisor_col=div_col_ud_svwrd[0],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
     
         # --- KCWA ---
@@ -1395,7 +1395,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             sub_cols=None,
             multiplier=1.0,
             divisor_col=div_col_ud_kerna[0],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
     
     # drop duplicate columns
@@ -1664,7 +1664,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'GP_06_NA', 'GW-PUMPING', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'RU_06_NA', 'REUSE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- DN_07N_NA ---
@@ -1676,7 +1676,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'GP_07N_NA', 'GW-PUMPING', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'RU_07N_NA', 'REUSE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- DN_07S_NA ---
@@ -1688,7 +1688,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'GP_07S_NA', 'GW-PUMPING', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'RU_07S_NA', 'REUSE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- DN_15N_NA1 ---
@@ -1700,7 +1700,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'GP_15N_NA1', 'GW-PUMPING', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'RU_15N_NA1', 'REUSE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- DN_15S_NA1 ---
@@ -1712,7 +1712,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'GP_15S_NA1', 'GW-PUMPING', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'RU_15S_NA1', 'REUSE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- DN_16_NA1 ---
@@ -1724,7 +1724,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'GP_16_NA1', 'GW-PUMPING', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'RU_16_NA1', 'REUSE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- DN_17N_NA ---
@@ -1736,7 +1736,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'GP_17N_NA', 'GW-PUMPING', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'RU_17N_NA', 'REUSE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- DN_20_NA2 ---
@@ -1748,7 +1748,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'GP_20_NA2', 'GW-PUMPING', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'RU_20_NA2', 'REUSE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- DN_26S_NA ---
@@ -1760,7 +1760,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'GP_26S_NA', 'GW-PUMPING', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'RU_26S_NA', 'REUSE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- DN_60S_NA1 ---
@@ -1772,7 +1772,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'GP_60S_NA1', 'GW-PUMPING', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'RU_60S_NA1', 'REUSE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- DN_60S_NA2 ---
@@ -1784,7 +1784,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'GP_60S_NA2', 'GW-PUMPING', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'RU_60S_NA2', 'REUSE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- D_AMCYN ---
@@ -1796,7 +1796,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'D_WTPAMC_AMCYN', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'D_WTPJAC_AMCYN', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- D_AMADR_NU ---
@@ -1808,7 +1808,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'D_TGC003_AMADR_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'D_TBAUD_AMADR_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- D_CACWD ---
@@ -1821,7 +1821,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'D_MFM007_WSPNT_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'D_BCM003_WSPNT_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- D_VNTRA_MPMI ---
@@ -1833,7 +1833,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'D_CSTIC_VNTRA_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'D_PYRMD_VNTRA_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- D_ACFC_PMI ---
@@ -1847,7 +1847,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'D_SBA009_ACFC_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'D_SBA020_ACFC_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- D_AMADR_NU ---
@@ -1859,7 +1859,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'D_TGC003_AMADR_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'D_TBAUD_AMADR_NU', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- D_AMCYN ---
@@ -1871,7 +1871,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'D_WTPAMC_AMCYN', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'D_WTPJAC_AMCYN', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- D_ANTOC ---
@@ -1883,7 +1883,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'D_SJR006_ANTOC', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'D_CCC007_ANTOC', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- D_FRFLD ---
@@ -1895,7 +1895,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'D_WTPNBR_FRFLD', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'D_WTPWMN_FRFLD', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- D_GRSVL ---
@@ -1907,7 +1907,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                 ('CALSIM', 'D_CSD014_GRSVL', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'D_DES006_GRSVL', 'DIVERSION', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
-            record_used_cols=used_cols,
+            record_used_cols=None,
         )
                 
         # --- D_WSPNT_NU ---
@@ -1923,17 +1923,17 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         #     record_used_cols=used_cols,
         # )
         
-        # --- D_ACFC_PMI ---
-        print("Calculating D_ACFC_PMI")
-        delivs_cfs_df = add_combined_column_if_exists(
-            delivs_cfs_df,
-            target_col=('CALCULATED','D_ACFC_PMI','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
-            add_cols=[
-                ('CALSIM', 'D_SBA009_ACFC_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-                ('CALSIM', 'D_SBA020_ACFC_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-            ],
-            record_used_cols=used_cols,
-        )
+        # # --- D_ACFC_PMI ---
+        # print("Calculating D_ACFC_PMI")
+        # delivs_cfs_df = add_combined_column_if_exists(
+        #     delivs_cfs_df,
+        #     target_col=('CALCULATED','D_ACFC_PMI','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
+        #     add_cols=[
+        #         ('CALSIM', 'D_SBA009_ACFC_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+        #         ('CALSIM', 'D_SBA020_ACFC_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+        #     ],
+        #     record_used_cols=used_cols,
+        # )
 
     # drop duplicate columns
     delivs_cfs_df = delivs_cfs_df.loc[:, ~delivs_cfs_df.columns.duplicated()]
