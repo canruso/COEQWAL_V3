@@ -1611,7 +1611,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             target_col=('CALCULATED','D_CAA194_KERNA_ALL','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
             add_cols=[
                 ('CALSIM', 'D_CAA194_KERNA_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-                ('CALSIM', 'D_CAA194_KERNA_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_CAA194_KERN_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
             record_used_cols=None, # change to used_cols if we want to drop the terms after the aggregation
         )
