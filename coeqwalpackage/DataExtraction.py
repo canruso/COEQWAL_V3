@@ -1340,7 +1340,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         # ---------- dem_D_SBA036_SCVWD_PMI ----------
         # dem_D_SBA036_SCVWD_PMI = (short_D_SBA036_SCVWD_PMI + D_SBA036_SCVWD_PMI)/perdv_swp_35
         cols_ud_sba036 = [
-            ('CALSIM', 'short_D_SBA036_SCVWD_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+            ('CALSIM', 'SHORT_D_SBA036_SCVWD_PMI', 'DELIVERY-SHORTAGE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ('CALSIM', 'D_SBA036_SCVWD_PMI',  'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
         ]
         
@@ -1508,7 +1508,153 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             record_used_cols=None, # change to used_cols if we want to drop the terms after the aggregation
         )
                 
+        # --- D_CSB103_BRBRA_ALL ---
+        print("Calculating D_CSB103_BRBRA_ALL")
+        delivs_cfs_df = add_combined_column_if_exists(
+            delivs_cfs_df,
+            target_col=('CALCULATED','D_CSB103_BRBRA_ALL','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
+            add_cols=[
+                ('CALSIM', 'D_CSB103_BRBRA_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_CSB103_BRBRA_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+            ],
+            record_used_cols=None, # change to used_cols if we want to drop the terms after the aggregation
+        )
        
+        # --- D_CSB038_OBISPO_ALL ---
+        print("Calculating D_CSB038_OBISPO_ALL")
+        delivs_cfs_df = add_combined_column_if_exists(
+            delivs_cfs_df,
+            target_col=('CALCULATED','D_CSB038_OBISPO_ALL','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
+            add_cols=[
+                ('CALSIM', 'D_CSB038_OBISPO_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_CSB038_OBISPO_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+            ],
+            record_used_cols=None, # change to used_cols if we want to drop the terms after the aggregation
+        )
+       
+        # --- D_ESB324_AVEK_ALL ---
+        print("Calculating D_ESB324_AVEK_ALL")
+        delivs_cfs_df = add_combined_column_if_exists(
+            delivs_cfs_df,
+            target_col=('CALCULATED','D_ESB324_AVEK_ALL','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
+            add_cols=[
+                ('CALSIM', 'D_ESB324_AVEK_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_ESB324_AVEK_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+            ],
+            record_used_cols=None, # change to used_cols if we want to drop the terms after the aggregation
+        )
+       
+        # --- D_ESB347_PLMDL_ALL ---
+        print("Calculating D_ESB347_PLMDL_ALL")
+        delivs_cfs_df = add_combined_column_if_exists(
+            delivs_cfs_df,
+            target_col=('CALCULATED','D_ESB347_PLMDL_ALL','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
+            add_cols=[
+                ('CALSIM', 'D_ESB347_PLMDL_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_ESB347_PLMDL_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+            ],
+            record_used_cols=None, # change to used_cols if we want to drop the terms after the aggregation
+        )
+       
+        # --- D_ESB414_BRDNO_ALL ---
+        print("Calculating D_ESB414_BRDN_ALL")
+        delivs_cfs_df = add_combined_column_if_exists(
+            delivs_cfs_df,
+            target_col=('CALCULATED','D_ESB414_BRDNO_ALL','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
+            add_cols=[
+                ('CALSIM', 'D_ESB414_BRDNO_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_ESB414_BRDNO_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+            ],
+            record_used_cols=None, # change to used_cols if we want to drop the terms after the aggregation
+        )
+
+        # --- D_SBA029_ACWD_ALL ---
+        print("Calculating D_SBA029_ACWD_ALL")
+        delivs_cfs_df = add_combined_column_if_exists(
+            delivs_cfs_df,
+            target_col=('CALCULATED','D_SBA029_ACWD_ALL','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
+            add_cols=[
+                ('CALSIM', 'D_SBA029_ACWD_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_SBA029_ACWD_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+            ],
+            record_used_cols=None, # change to used_cols if we want to drop the terms after the aggregation
+        )
+
+        # --- D_SBA036_SCVWD_ALL ---
+        print("Calculating D_SBA036_SCVWD_ALL")
+        delivs_cfs_df = add_combined_column_if_exists(
+            delivs_cfs_df,
+            target_col=('CALCULATED','D_SBA036_SCVWD_ALL','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
+            add_cols=[
+                ('CALSIM', 'D_SBA036_SCVWD_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_SBA036_SCVWD_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+            ],
+            record_used_cols=None, # change to used_cols if we want to drop the terms after the aggregation
+        )
+
+        # --- D_SVRWD_CSTLN_ALL ---
+        print("Calculating D_SVRWD_CSTLN_ALL")
+        delivs_cfs_df = add_combined_column_if_exists(
+            delivs_cfs_df,
+            target_col=('CALCULATED','D_SVRWD_CSTLN_ALL','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
+            add_cols=[
+                ('CALSIM', 'D_SVRWD_CSTLN_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_SVRWD_CSTLN_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+            ],
+            record_used_cols=None, # change to used_cols if we want to drop the terms after the aggregation
+        )
+
+        # --- D_CAA194_KERNA_ALL ---
+        print("Calculating D_CAA194_KERNA_ALL")
+        delivs_cfs_df = add_combined_column_if_exists(
+            delivs_cfs_df,
+            target_col=('CALCULATED','D_CAA194_KERNA_ALL','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
+            add_cols=[
+                ('CALSIM', 'D_CAA194_KERNA_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_CAA194_KERNA_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+            ],
+            record_used_cols=None, # change to used_cols if we want to drop the terms after the aggregation
+        )
+
+        # --- D_SWP_MWD_ALL ---
+        print("Calculating D_SWP_MWD_ALL")
+        delivs_cfs_df = add_combined_column_if_exists(
+            delivs_cfs_df,
+            target_col=('CALCULATED','D_SWP_MWD_ALL','DELIVERY-SWP','1MON','L2020A','PER-CUM','CFS'),
+            add_cols=[
+                ('CALSIM', 'DEL_SWP_MWD', 'DELIVERY-SWP', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_PRRIS_MWDSC_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_ESB413_MWDSC_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_ESB433_MWDSC_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_WSB031_MWDSC_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+            ],
+            record_used_cols=None, # change to used_cols if we want to drop the terms after the aggregation
+        )
+
+        # --- D_ESB355_LROCK_ALL ---
+        print("Calculating D_ESB355_LROCK_ALL")
+        delivs_cfs_df = add_combined_column_if_exists(
+            delivs_cfs_df,
+            target_col=('CALCULATED','D_ESB355_LROCK_ALL','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
+            add_cols=[
+                ('CALSIM', 'D_ESB355_LROCK_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_ESB355_LROCK_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+            ],
+            record_used_cols=None, # change to used_cols if we want to drop the terms after the aggregation
+        )
+
+        # --- D_WSB032_CLRTA2_ALL ---
+        print("Calculating D_WSB032_CLRTA2_ALL")
+        delivs_cfs_df = add_combined_column_if_exists(
+            delivs_cfs_df,
+            target_col=('CALCULATED','D_WSB032_CLRTA2_ALL','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
+            add_cols=[
+                ('CALSIM', 'D_WSB032_CLRTA2_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_WSB032_CLRTA2_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+            ],
+            record_used_cols=None, # change to used_cols if we want to drop the terms after the aggregation
+        )
+
         # --- DN_06_NA ---
         print("Calculating DN_06_NA")
         delivs_cfs_df = add_combined_column_if_exists(
@@ -1698,6 +1844,8 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             add_cols=[
                 ('CALSIM', 'D_SBA009_ACFC_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'D_SBA020_ACFC_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_SBA009_ACFC_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_SBA020_ACFC_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
             record_used_cols=used_cols,
         )
