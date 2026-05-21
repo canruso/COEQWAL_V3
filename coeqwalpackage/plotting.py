@@ -1311,6 +1311,7 @@ def plot_moy_averages_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF
         plt.savefig(os.path.join(fPath, f"{varname}_{fTitle}.png"), dpi=dpi, bbox_inches="tight")
 
     plt.close()
+    return moy_df  # ← added: return DataFrame when plot=True
 
 def plot_annual_totals_ts_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF", scenarios: list[int],
                                 scenario_labels: dict[int, str] | None = None, baseline_id: int | None = None,
@@ -1318,13 +1319,29 @@ def plot_annual_totals_ts_multi(df: pd.DataFrame, *, varname: str, units: str = 
                                 months: list[int] | None = None,
                                 freq: str = "YS-OCT", pTitle: str = "Annual Totals", xLab: str = "Water Year",
                                 lTitle: str = "Scenarios", fTitle: str = "ann_tot_ts_multi", fPath: str = "fPath",
-                                pSave: bool = True, dpi: int = 300, legend_position: str = "bottom"):
+                                pSave: bool = True, dpi: int = 300, legend_position: str = "bottom",
+                                plot: bool = True):  # ← added: plot parameter
 
     series_map = cu.per_scenario_series(df, varname=varname, units=units, scenarios=scenarios, use_tucp=False,
                                         use_wyt=False, months=months)
 
     styles = get_scenario_styles_multi(scenarios, scenario_labels=scenario_labels, baseline_id=baseline_id,
                                        baseline_label_override=baseline_label_override, label_style=label_style)
+
+    # ← added: build DataFrame before plotting so it can be returned in both branches
+    ann_parts = []
+    for sid in scenarios:
+        s = series_map[sid].dropna()
+        if s.empty:
+            continue
+        ann = s.resample(freq).sum(min_count=1)
+        ann_parts.append(pd.DataFrame({"scenario_id": sid, "water_year": ann.index, "value": ann.values}))
+    ann_tot_df = pd.concat(ann_parts, ignore_index=True) if ann_parts else pd.DataFrame(
+        columns=["scenario_id", "water_year", "value"]
+    )
+
+    if not plot:  # ← added: early return when plot=False
+        return ann_tot_df
 
     plt.figure(figsize=(14, 8))
     for sid in scenarios:
@@ -1352,6 +1369,7 @@ def plot_annual_totals_ts_multi(df: pd.DataFrame, *, varname: str, units: str = 
         plt.savefig(os.path.join(fPath, f"{varname}_{fTitle}.png"), dpi=dpi, bbox_inches="tight")
 
     plt.close()
+    return ann_tot_df  # ← added: return DataFrame when plot=True
 
 
 def annualize_exceedance_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF", scenarios: list[int],
