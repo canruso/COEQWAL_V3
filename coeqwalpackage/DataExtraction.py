@@ -1557,13 +1557,25 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
        
         # --- D_ESB414_BRDNO_ALL ---
-        print("Calculating D_ESB414_BRDN_ALL")
+        print("Calculating D_ESB414_BRDNO_ALL")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
             target_col=('CALCULATED','D_ESB414_BRDNO_ALL','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
             add_cols=[
                 ('CALSIM', 'D_ESB414_BRDNO_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'D_ESB414_BRDNO_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+            ],
+            record_used_cols=None, # change to used_cols if we want to drop the terms after the aggregation
+        )
+
+        # --- D_ESB420_GRGNO_ALL ---
+        print("Calculating D_ESB420_GRGNO_ALL")
+        delivs_cfs_df = add_combined_column_if_exists(
+            delivs_cfs_df,
+            target_col=('CALCULATED','D_ESB420_GRGNO_ALL','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
+            add_cols=[
+                ('CALSIM', 'D_ESB420_GRGNO_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+                ('CALSIM', 'D_ESB420_GRGNO_PCO', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ],
             record_used_cols=None, # change to used_cols if we want to drop the terms after the aggregation
         )
