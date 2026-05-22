@@ -9,7 +9,7 @@ Groundwater CC50,"Whether agricultural water deliveries can sustain food protect
 Environment CC50,"Whether rivers, salmon, and the Delta estuary receive the flows they need to remain functional and resilient; CC50 Climate","47, 71, 84, 73, 72, 78"
 Delta CC50,"Whether the Delta is a place where communities, farms, and ecosystems coexist and thrive; CC50 Climate","47, 79, 78, 82, 83, 84, 85"
 Operations and impacts CC50,"How water management decisions affect trade-offs, equity and resilience; CC50 Climate","47, 48, 49, 50, 51"
-Drinking water CC95,"Whether people and communities can reliably access safe drinking water for daily life, health, and essential services; CC95 Climate","56, 95,  97"
+Drinking water CC95,"Whether people and communities can reliably access safe drinking water for daily life, health, and essential services; CC95 Climate","56, 95, 97"
 Groundwater CC95,"Whether agricultural water deliveries can sustain food protection, while preventing over-draft of groundwater basins; CC95 Climate","56, 87, 88, 89, 27, 93, 94"
 Environment CC95,"Whether rivers, salmon, and the Delta estuary receive the flows they need to remain functional and resilient; CC95 Climate","56, 91, 104, 93, 92, 98"
 Delta CC95,"Whether the Delta is a place where communities, farms, and ecosystems coexist and thrive; CC95 Climate","56, 99, 98, 102, 103, 104, 105"
@@ -19,3 +19,4 @@ Groundwater TAIESM1,"Whether agricultural water deliveries can sustain food prot
 Environment TAIESM1,"Whether rivers, salmon, and the Delta estuary receive the flows they need to remain functional and resilient; TAIESM1 Climate","108, 117, 130, 119, 118, 124"
 Delta TAIESM1,"Whether the Delta is a place where communities, farms, and ecosystems coexist and thrive; TAIESM1 Climate","108, 125, 124, 128, 129, 130, 131"
 Operations and impacts TAIESM1,"How water management decisions affect trade-offs, equity and resilience; TAIESM1 Climate","108, 107, 109, 110, 111"
+Test EC-Earth3-Veg,,"134, 141, 150, 156"
