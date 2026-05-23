@@ -227,7 +227,16 @@ def create_drive_folder(drive_service, name: str, parent_id: str) -> str:
 
 
 def delete_drive_item(drive_service, item_id: str) -> None:
-    drive_service.files().delete(fileId=item_id, supportsAllDrives=True).execute()
+    try:
+        drive_service.files().update(
+            fileId=item_id,
+            body={"trashed": True},
+            supportsAllDrives=True,
+        ).execute()
+        print(f"Successfully moved {item_id} to the trash.")
+    except Exception as exc:
+        print(f"An error occurred while trashing {item_id}: {exc}")
+        raise
 
 
 def upload_local_folder_to_drive(drive_service, local_folder: Path, parent_drive_id: str) -> None:
@@ -537,13 +546,15 @@ def main() -> None:
 
     # Post-processing: check local dirs and perform COPY/CLEAN actions
     base_dir = args.base_dir or Path(".")
-    summary = {"total": 0, "errors": [], "creates": 0, "updates": 0}
+    summary = {"total": 0, "errors": [], "creates": 0, "updates": 0, "cleans": 0}
 
     for row in results:
         summary["total"] += 1
         study = row.get("StudyName") or f"row_{row.get('row') }"
-        row_num = row.get("row", "?")
-        op_type = "UPDATE" if row.get("has_data_extraction") == "true" else "CREATE"
+        if args.run_type == "CLEAN":
+            op_type = "CLEAN"
+        else:
+            op_type = "UPDATE" if row.get("has_data_extraction") == "true" else "CREATE"
         print(f"[{summary['total']}] Processing {study} ({op_type})...")
 
         # Drive folder existence error
@@ -554,6 +565,29 @@ def main() -> None:
             continue
 
         parent_drive_id = row.get("folder_id")
+        if args.run_type == "CLEAN":
+            # CLEAN only needs the Drive folder and Data_Extraction_BU existence.
+            try:
+                if args.dry_run:
+                    print(f"  [DRY-RUN] Would remove Data_Extraction_BU from Drive folder {parent_drive_id} if present")
+                else:
+                    print(f"  ↳ CLEAN: removing Data_Extraction_BU backup if present...")
+                    bu_id = find_child_folder_by_name(drive_service, parent_drive_id, "Data_Extraction_BU")
+                    if bu_id:
+                        delete_drive_item(drive_service, bu_id)
+                        print(f"    ✓ deleted Data_Extraction_BU")
+                    else:
+                        print(f"    ℹ no Data_Extraction_BU found (nothing to clean)")
+            except Exception as exc:
+                print(f"  ✗ ERROR: {exc}")
+                summary["errors"].append({"study": study, "reason": f"Run-time error: {exc}"})
+                continue
+
+            print(f"  ✓ {study} complete\n")
+            summary.setdefault("cleans", 0)
+            summary["cleans"] += 1
+            continue
+
         is_update = row.get("has_data_extraction") == "true"
         if is_update:
             summary["updates"] += 1
@@ -627,18 +661,6 @@ def main() -> None:
                     print(f"  ↳ uploading local folder contents ({local_data_extraction})...")
                     upload_local_folder_to_drive(drive_service, local_data_extraction, new_de_id)
                     print(f"    ✓ upload complete")
-
-            elif args.run_type == "CLEAN":
-                if args.dry_run:
-                    print(f"  [DRY-RUN] Would remove Data_Extraction_BU from Drive folder {parent_drive_id} if present")
-                else:
-                    print(f"  ↳ CLEAN: removing Data_Extraction_BU backup if present...")
-                    bu_id = find_child_folder_by_name(drive_service, parent_drive_id, "Data_Extraction_BU")
-                    if bu_id:
-                        delete_drive_item(drive_service, bu_id)
-                        print(f"    ✓ deleted Data_Extraction_BU")
-                    else:
-                        print(f"    ℹ no Data_Extraction_BU found (nothing to clean)")
         except Exception as exc:
             print(f"  ✗ ERROR: {exc}")
             summary["errors"].append({"study": study, "reason": f"Run-time error: {exc}"})
@@ -649,7 +671,7 @@ def main() -> None:
     # Print final summary
     print("\n=== Summary ===")
     print(f"Total rows processed: {summary['total']}")
-    print(f"Creates: {summary['creates']}  Updates: {summary['updates']}")
+    print(f"Creates: {summary['creates']}  Updates: {summary['updates']}  Cleans: {summary['cleans']}")
     print(f"Errors: {len(summary['errors'])}")
     if summary["errors"]:
         print("Details:")
