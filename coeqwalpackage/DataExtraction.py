@@ -810,6 +810,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
     # create a dataframe suitable for use with coeqwal functions
     demand_var_dv_df = pd.DataFrame(data=dv_list, columns=['Part B:'])   
     demand_var_dv_df['Part C:'] = [""]*len(demand_var_dv_df)     
+    demand_var_dv_df = demand_var_dv_df.loc[:, ~demand_var_dv_df.columns.duplicated()]
 
     # print('demand_var_dv_df:')
     # print(demand_var_dv_df)
@@ -817,6 +818,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
     
     demand_var_sv_df = pd.DataFrame(data=sv_list, columns=['Part B:'])   
     demand_var_sv_df['Part C:'] = [""]*len(demand_var_sv_df)   
+    demand_var_sv_df = demand_var_sv_df.loc[:, ~demand_var_sv_df.columns.duplicated()]
 
     # print('demand_var_sv_df:')
     # print(demand_var_sv_df)
@@ -1421,26 +1423,26 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
     delivs_list = []
     for d in all_du.Delivery_Variable:
         # does the next line prevent the DN_EBMUD variable from being read?
-        if d not in ['DN_EBMUD', 'del_swp_mwd']:
-            if '+' in d:
-                lus = d.split('+')
-                for i in lus:
-                    delivs_list.append(i.strip(' '))
-            else:
-                lu1 = d.strip()
-                lu2 = lu1
-                delivs_list.append(lu2)
-    # add delivery for MWD
-    delivs_list.append('DEL_SWP_MWD')   
+        # if d not in ['DN_EBMUD', 'del_swp_mwd']:
+        if '+' in d:
+            lus = d.split('+')
+            for i in lus:
+                delivs_list.append(i.strip(' '))
+        else:
+            lu1 = d.strip()
+            lu2 = lu1
+            delivs_list.append(lu2)
+    # # add delivery for MWD
+    # delivs_list.append('DEL_SWP_MWD')   
 
-    # try apending DN_EBMUD
-    delivs_list.append('DN_EBMUD')   
+    # # try apending DN_EBMUD
+    # delivs_list.append('DN_EBMUD')   
     
-    # try apending D_CAA194_KERNA_PMI
-    delivs_list.append('D_CAA194_KERNA_PMI')   
+    # # try apending D_CAA194_KERNA_PMI
+    # delivs_list.append('D_CAA194_KERNA_PMI')   
 
-    # try apending D_SVRWD_CSTLN_PMI
-    delivs_list.append('D_SVRWD_CSTLN_PMI')   
+    # # try apending D_SVRWD_CSTLN_PMI
+    # delivs_list.append('D_SVRWD_CSTLN_PMI')   
 
     # # try apending D_MFM007_WSPNT_NU
     # delivs_list.append('D_MFM007_WSPNT_NU')
@@ -1453,7 +1455,8 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
 
     deliv_var_df = pd.DataFrame(data=delivs_list, columns=['Part B:'])
     deliv_var_df['Part C:'] = [""]*len(deliv_var_df)
-
+    deliv_var_df = deliv_var_df.loc[:, ~deliv_var_df.columns.duplicated()]
+    
     delivs_cfs_df = preprocess_study_dss(deliv_var_df, dv_fp, datetime_start_date, datetime_end_date,
                                         addsl=False, addres = False, addpump = False, adddelcvp = False, 
                                         adddelcvpag = False, addcvpscex = False, addcvpprf = False, 
@@ -1848,11 +1851,11 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
             record_used_cols=None,
         )
                 
-        # --- D_ACFC_PMI ---
-        print("Calculating D_ACFC_PMI")
+        # --- D_ACFC_ALL ---
+        print("Calculating D_ACFC_ALL")
         delivs_cfs_df = add_combined_column_if_exists(
             delivs_cfs_df,
-            target_col=('CALCULATED','D_ACFC_PMI','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
+            target_col=('CALCULATED','D_ACFC_ALL','FLOW-DELIVERY','1MON','L2020A','PER-CUM','CFS'),
             add_cols=[
                 ('CALSIM', 'D_SBA009_ACFC_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
                 ('CALSIM', 'D_SBA020_ACFC_PMI', 'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
