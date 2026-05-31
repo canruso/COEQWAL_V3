@@ -18,78 +18,221 @@ from sklearn.linear_model import LinearRegression
 from coeqwalpackage.cqwlutils import find_calsim_model_root
 
 """ INDELTA TIER CALCULATION FUNCTION """
-
-
-def calc_indelta_tier(df, scenID, stations, thresholds, tier_rules):
+    
+def calc_indelta_tiers(df, scenario_ids, stations, thresholds, tier_rules):
     """
-    Calculate in-delta tier designation for a given scenario.
+    Compute in-delta discrete and continuous salinity tiers.
 
-    Parameters
-    ----------
-    df : pd.DataFrame
-        Input dataframe with salinity variables.
-    scenID : str
-        Scenario identifier.
-    stations : list of str
-        Variables to include (old default: ["EM_EC_MONTH", "JP_EC_MONTH"]).
-    thresholds : dict
-        Thresholds for salinity (old default: {"Top": 2500, "Mid": 1600, "Low": 900}).
-    tier_rules : dict
-        Rules for assigning tiers. Each tier is an ordered dict with keys "LT_A", "LT_B", "GT_C".
-        Example (old default):
-        ([
-            (1, {"LT_A": 0.75, "LT_B": None, "GT_C": 0.05}),
-            (2, {"LT_A": 0.65, "LT_B": 0.75, "GT_C": 0.12}),
-            (3, {"LT_A": 0.55, "LT_B": 0.65, "GT_C": 0.20}),
-            (4, {"LT_A": None, "LT_B": None, "GT_C": 0.20}),
-        ])        
-    If no rule matches, returns tier = np.nan.
+    Continuous mapping:
+        Tier 1 -> [1,2)
+        Tier 2 -> [2,3)
+        Tier 3 -> [3,4)
+        Tier 4 -> [4,5)
+
+    Lower value:
+        stronger within tier
+
+    Higher value:
+        weaker within tier
     """
     idx = pd.IndexSlice
+    max_tier = max(tier_rules.keys())
 
-    # get the salinity threshold values
-    tA, tB, tC = thresholds["Low"], thresholds["Mid"], thresholds["Top"]
+    results = {}
 
-    # get the data for this scenario
-    selcols = [c for c in df.columns if scenID in c[1]]
-    if len(selcols) < len(stations):
-        raise ValueError(f"Didn't find the salinity columns for scenario {scenID}")
+    # ============================================================
+    # Direction metadata
+    # ============================================================
+    # LT metrics: higher is better
+    # GT metrics: lower is better
+    metric_direction = {
+        "LT_A": "high_good",
+        "LT_B": "high_good",
+        "GT_C": "low_good"
+    }
 
-    thisdat = df.loc[:, selcols]
+    # ============================================================
+    # Normalization helper
+    # ============================================================
+    def interpolate(obs, better, worse, direction, interior = True):
+        """
+        Returns position in [0,1] or (1,1)
 
-    # store fractions for each variable
-    fracs = {}
-    for var in stations:
-        col = idx[:, f"{var}_{scenID}"]
-        values = thisdat.loc[:, col].values
+        0 -> exactly at better boundary
+        1 -> exactly at worse boundary
+        """
+        if interior:
+            eps = 0.001
+        else:
+            eps = 0.000
+            
+        if better is None or worse is None:
+            return np.nan
 
-        fracs[var] = {
-            "LT_A": sum(values < tA) / len(values),  # fraction of values less than tA (low threshold)
-            "LT_B": sum(values < tB) / len(values),  # fraction of values less than tB (middle threshold)
-            "LT_C": sum(values < tC) / len(values),  # fraction of values less than tC (high threshold)
-            "GT_C": sum(values > tC) / len(values),  # fraction of values higher than tC
+        if better == worse:
+            return 0.0
+
+        if direction == "high_good":
+            # higher is better
+            p = (better - obs) / (better - worse)
+
+        else:
+            # lower is better
+            p = (obs - better) / (worse - better)
+
+        return np.clip(p, eps, 1 - eps)
+
+    # ============================================================
+    # Main loop
+    # ============================================================
+    for scenID in scenario_ids:
+
+        # --------------------------------------------------------
+        # Extract scenario columns
+        # --------------------------------------------------------
+        selcols = [c for c in df.columns if scenID in c[1]]
+
+        if len(selcols) < len(stations):
+            raise ValueError(f"Missing salinity columns for scenario {scenID}")
+
+        thisdat = df.loc[:, selcols]
+
+        # --------------------------------------------------------
+        # Compute fractions
+        # --------------------------------------------------------
+        fracs = {}
+
+        for var in stations:
+
+            col = idx[:, f"{var}_{scenID}"]
+
+            values = thisdat.loc[:, col].values.flatten()
+            values = values[~np.isnan(values)]
+
+            if len(values) == 0:
+                continue
+
+            fracs[var] = {
+                "LT_A": np.mean(values < thresholds["Low"]),
+                "LT_B": np.mean(values < thresholds["Mid"]),
+                "GT_C": np.mean(values > thresholds["Top"]),
+            }
+
+        if not fracs:
+            results[scenID] = {
+                "Salinity_Tier": np.nan,
+                "Salinity_Tier_continuous": np.nan
+            }
+            continue
+
+        metrics = {
+            "LT_A": min(v["LT_A"] for v in fracs.values()),
+            "LT_B": min(v["LT_B"] for v in fracs.values()),
+            "GT_C": max(v["GT_C"] for v in fracs.values())
         }
 
-    # aggregate across vars
-    max_GT_C = max(v["GT_C"] for v in fracs.values())  # maximum of the GT_C fraction above
-    min_LT_A = min(v["LT_A"] for v in fracs.values())  # minimum of the LT_A fraction above
-    min_LT_B = min(v["LT_B"] for v in fracs.values())  # minimum of the LT_B fraction above
+        # ========================================================
+        # DISCRETE ASSIGNMENT
+        # ========================================================
+        discrete_tier = np.nan
 
-    # apply tier rules in order
-    for tier, rule in tier_rules.items():  # go through rules for each tier
-        # cond_A is true if the min of LT_A is greater than or equal to rule for LT_A (if rule is not None)
-        cond_A = min_LT_A >= rule["LT_A"] if rule["LT_A"] is not None else True
-        # cond_B is true if the min of LT_B is greater than or equal to rule for LT_B
-        cond_B = min_LT_B >= rule["LT_B"] if rule["LT_B"] is not None else True
-        # cond_C is true if the max of GT_C is less than rule for GT_C
-        cond_C = max_GT_C < rule["GT_C"] if rule["GT_C"] is not None else True
+        for tier in sorted(tier_rules.keys()):
 
-        if cond_A and cond_B and cond_C:  # if all conditions match, assign to this tier
-            return tier
+            rule = tier_rules[tier]
 
-    # default if no rule matches
-    return np.nan
+            cond_A = rule["LT_A"] is None or metrics["LT_A"] >= rule["LT_A"]
+            cond_B = rule["LT_B"] is None or metrics["LT_B"] >= rule["LT_B"]
+            cond_C = rule["GT_C"] is None or metrics["GT_C"] < rule["GT_C"]
 
+            if cond_A and cond_B and cond_C:
+                discrete_tier = tier
+                break
+
+        if pd.isna(discrete_tier):
+            discrete_tier = max_tier
+
+        discrete_tier = int(discrete_tier)
+
+        # ========================================================
+        # CONTINUOUS
+        # ========================================================
+        
+        eps = 0.001
+
+        progresses = []
+
+        # -------------------------
+        # Tier 1
+        # -------------------------
+        if discrete_tier == 1:
+
+            better = {
+                "LT_A": 1.0,
+                "LT_B": 1.0,
+                "GT_C": 0.0
+            }
+
+            worse = tier_rules[1]
+
+        # -------------------------
+        # Tier 4
+        # -------------------------
+        elif discrete_tier == max_tier:
+
+            better = tier_rules[max_tier - 1]
+
+            worse = {
+                "LT_A": 0.0,
+                "LT_B": 0.0,
+                "GT_C": 1.0
+            }
+
+        # -------------------------
+        # Middle tiers
+        # -------------------------
+        else:
+
+            better = tier_rules[discrete_tier - 1]
+            worse = tier_rules[discrete_tier]
+
+        # --------------------------------------------------------
+        # Compute progress
+        # --------------------------------------------------------
+        for metric, obs in metrics.items():
+
+            p = interpolate(
+                obs=obs,
+                better=better[metric],
+                worse=worse[metric],
+                direction=metric_direction[metric]
+            )
+
+            if not np.isnan(p):
+                progresses.append(p)
+
+        progress = np.mean(progresses) if progresses else 0.0
+
+        continuous = discrete_tier + progress
+
+        # hard guarantee
+        continuous = min(
+            max(continuous, discrete_tier + eps),
+            discrete_tier + 1 - eps
+        )
+
+        # ========================================================
+        # Store
+        # ========================================================
+        results[scenID] = {
+            "Salinity_Tier": discrete_tier,
+            "Salinity_Tier_continuous": continuous
+        }
+
+    result_df = pd.DataFrame.from_dict(results, orient="index")
+    result_df.index.name = "ScenarioID"
+
+    return result_df
+    
 
 """ EXPORT TIER CALCULATION FUNCTION """
 
@@ -367,39 +510,161 @@ def build_export_quality_summary(detail_dict):
         summary = summary.set_index("Scenario")
     return summary
 
-
-def assign_export_tiers(summary_df, bounds_config):
+def assign_export_tiers(summary_df, detail_dict, bounds_config):
     """
-    Assign export tiers to each scenario based on total adjusted volume.
+    Assign export tiers.
 
-    Parameters
-    ----------
-    summary_df : pd.DataFrame
-        Output from build_export_quality_summary(). Must have columns
-        Total_AdjVolume_{label} for each station.
-    bounds_config : dict[str, list[float]]
-        Tier bounds per station label, descending. Example:
-        {"Banks": [30000, 20000, 10000], "Tracy": [20000, 15000, 10000]}
-        T1 if >= bounds[0], T2 if >= bounds[1], T3 if >= bounds[2], T4 otherwise.
+    Discrete:
+        Based on total adjusted export volume.
 
-    Returns
-    -------
-    pd.DataFrame
-        Copy of summary_df with added Export_Tier_{label} columns.
+    Continuous:
+        Interpolated strictly within assigned discrete tier.
+
+        Tier 1 -> [1, 2)
+        Tier 2 -> [2, 3)
+        Tier 3 -> [3, 4)
+        Tier 4 -> [4, 5)
+
+    Lower continuous value:
+        Closer to better tier boundary
+
+    Higher continuous value:
+        Closer to worse tier boundary
     """
+
     result = summary_df.copy()
+    eps = 0.001
+    
     for label, bounds in bounds_config.items():
-        col = f"Total_AdjVolume_{label}"
-        tier_col = f"Export_Tier_{label}"
-        result[tier_col] = result[col].apply(
-            lambda v: next(
-                (t for t, b in enumerate(bounds, 1) if v >= b),
-                len(bounds) + 1
+
+        # Ensure descending:
+        # b1 > b2 > b3
+        bounds = sorted(bounds, reverse=True)
+
+        if len(bounds) != 3:
+            raise ValueError(
+                f"{label}: bounds_config must contain exactly 3 bounds"
             )
-        )
+
+        b1, b2, b3 = bounds
+
+        total_col = f"Total_AdjVolume_{label}"
+        tier_col = f"Export_Tier_{label}"
+        cont_col = f"{tier_col}_continuous"
+
+        # ============================================================
+        # DISCRETE
+        # ============================================================
+        def discrete_assign(v):
+            if v >= b1:
+                return 1
+            elif v >= b2:
+                return 2
+            elif v >= b3:
+                return 3
+            else:
+                return 4
+
+        result[tier_col] = result[total_col].apply(discrete_assign)
+
+        # ============================================================
+        # CONTINUOUS
+        # ============================================================
+        continuous_vals = {}
+
+        for scen, df in detail_dict.items():
+
+            if scen not in result.index:
+                continuous_vals[scen] = np.nan
+                continue
+
+            df = df.copy()
+            df.index = pd.to_datetime(df.index)
+
+            # --------------------------------------------------------
+            # Select export series
+            # --------------------------------------------------------
+            if label == "Total":
+                series = (
+                    df["AdjVolume_Banks"].fillna(0)
+                    + df["AdjVolume_Tracy"].fillna(0)
+                )
+            else:
+                col = f"AdjVolume_{label}"
+
+                if col not in df.columns:
+                    continuous_vals[scen] = np.nan
+                    continue
+
+                series = df[col].fillna(0)
+
+            # Annual aggregation
+            annual = series.resample("YE").sum()
+
+            if annual.empty:
+                continuous_vals[scen] = np.nan
+                continue
+
+            total_export = annual.sum()
+
+            discrete_tier = int(result.loc[scen, tier_col])
+
+            # get max export from data
+            tier1_max = result.loc[result[tier_col] == 1, total_col].max()
+            
+            if discrete_tier == 1:
+            
+                denom = tier1_max - b1
+            
+                if denom <= 0:
+                    progress = 0
+                else:
+                    progress = (tier1_max - total_export) / denom
+            
+                continuous = 1 + np.clip(progress, eps, 1 - eps)
+            
+            # Tier 2: [2,3)
+            elif discrete_tier == 2:
+
+                denom = b1 - b2
+
+                if denom == 0:
+                    progress = 0
+                else:
+                    progress = (b1 - total_export) / denom
+
+                continuous = 2 + np.clip(progress, eps, 1 - eps)
+
+            # Tier 3: [3,4)
+            elif discrete_tier == 3:
+
+                denom = b2 - b3
+
+                if denom == 0:
+                    progress = 0
+                else:
+                    progress = (b2 - total_export) / denom
+
+                continuous = 3 + np.clip(progress, eps, 1 - eps)
+
+            # Tier 4: [4,5)
+            else:
+
+                if b3 == 0:
+                    progress = 0
+                else:
+                    progress = (b3 - total_export) / b3
+
+                continuous = 4 + np.clip(progress, eps, 1 - eps)
+
+            continuous_vals[scen] = continuous
+
+        result[cont_col] = pd.Series(continuous_vals)
+
     return result
+    
 
-
+    
 """ Storage """
 
 
@@ -409,7 +674,7 @@ def generate_storage_tier_assignment_matrix(
     tiers_output_dir, metrics_output_dir, tiers_output_filename, probabilities_output_filename,
     start_date="1921-10-01",
     percentiles=[0.25, 0.5, 0.9], tier_thresholds=(0.9, 0.5, 0.2),
-    saveprobs=False, verbose=False,
+    saveprobs=False, verbose=False, continuous = False
 ):
     """
     Generate tier assignment matrix for reservoir storage.
@@ -460,56 +725,149 @@ def generate_storage_tier_assignment_matrix(
              if variable in col and "_STORAGE_" in col and "LEVEL" not in col.upper()]
         ]
 
-    def assign_tiers_from_calsim(var_df, thresholds, date_series, var, tier_thresholds, saveprobs=saveprobs, verbose=verbose):
+    def assign_tiers_from_calsim(
+        var_df,
+        thresholds,
+        date_series,
+        var,
+        tier_thresholds,
+        saveprobs=None,
+        verbose=False,
+        continuous=False
+    ):
+        """
+        Assign storage tiers from CalSim output.
+    
+        Continuous interpretation:
+    
+            Tier 1 -> [1,2)
+            Tier 2 -> [2,3)
+            Tier 3 -> [3,4)
+            Tier 4 -> [4,5)
+    
+        Lower value = stronger within tier
+        Higher value = weaker within tier
+        """
+    
         tier_rows = []
-
+    
+        tt1, tt2, tt3 = tier_thresholds
+        eps = 1e-6
+    
         for col in var_df.columns:
+    
             match = re.search(r's\d{4}', col)
             if not match:
                 continue
+    
             sid = match.group(0)
-
+    
             series = var_df[col].copy()
+    
             if not pd.api.types.is_datetime64_any_dtype(series.index):
                 series.index = date_series
-
+    
             april_series = series[series.index.month == 4]
             april_by_year = april_series.groupby(april_series.index.year).last()
-
-            if verbose:
-                print(f"\n Scenario {sid} ({var})")
-                print("  April-end values:")
-                print(april_by_year.head())
-
+    
             if april_by_year.empty:
-                print(f" No April data found for {var} in scenario {sid}")
                 continue
-
+    
             low_thresh = thresholds[percentiles[0]]
             mid_thresh = thresholds[percentiles[1]]
             high_thresh = thresholds[percentiles[2]]
-
+    
             top = (april_by_year >= high_thresh).sum()
-            mid = ((april_by_year >= mid_thresh) & (april_by_year < high_thresh)).sum()
-            low = ((april_by_year >= low_thresh) & (april_by_year < mid_thresh)).sum()
+            mid = ((april_by_year >= mid_thresh) &
+                   (april_by_year < high_thresh)).sum()
+            low = ((april_by_year >= low_thresh) &
+                   (april_by_year < mid_thresh)).sum()
             bot = (april_by_year < low_thresh).sum()
+    
             total = len(april_by_year)
-
+    
             top_frac = top / total
             mid_frac = mid / total
             low_frac = low / total
             bot_frac = bot / total
-
-            tt1, tt2, tt3 = tier_thresholds
-            if top_frac >= tt1:
-                tier = 1
-            elif (top_frac + mid_frac) >= tt2:
-                tier = 2
-            elif (top_frac + mid_frac) >= tt3:
-                tier = 3
+    
+            cumulative_top = top_frac
+            cumulative_mid = top_frac + mid_frac
+            cumulative_low = top_frac + mid_frac + low_frac
+            
+            # print(f"\nScenario {sid} ({var}):")
+            # print("top_frac: " + str(top_frac) + ", mid_frac: " + str(mid_frac) + ", low_frac: " + str(low_frac) + "bot_frac: " + str(bot_frac))
+            # print("cumulative_top: " + str(cumulative_top) + ", cumulative_mid: " + str(cumulative_mid) + ", low_frac: " + str(cumulative_low))
+    
+            if verbose:
+                print(f"\nScenario {sid} ({var}):")
+                print(
+                    f"top_frac={top_frac:.3f}, "
+                    f"mid_frac={mid_frac:.3f}, "
+                    f"low_frac={low_frac:.3f}, "
+                    f"bot_frac={bot_frac:.3f}"
+                )
+                print(
+                    f"cum_top={cumulative_top:.3f}, "
+                    f"cum_mid={cumulative_mid:.3f}"
+                )
+    
+            # ============================================================
+            # DISCRETE
+            # ============================================================
+            if cumulative_top >= tt1:
+                discrete_tier = 1
+            elif cumulative_mid >= tt2:
+                discrete_tier = 2
+            # elif cumulative_mid >= tt3:
+            elif cumulative_low >= tt3:
+                discrete_tier = 3
             else:
-                tier = 4
-
+                discrete_tier = 4
+    
+            # ============================================================
+            # CONTINUOUS
+            # ============================================================
+            if continuous:
+    
+                if discrete_tier == 1:
+    
+                    denom = 1 - tt1
+                    progress = 0 if denom <= 0 else (1 - cumulative_top) / denom
+    
+                elif discrete_tier == 2:
+    
+                    denom = tt1 - tt2
+                    progress = 0 if denom <= 0 else (tt1 - cumulative_mid) / denom
+    
+                elif discrete_tier == 3:
+    
+                    denom = tt2 - tt3
+                    # progress = 0 if denom <= 0 else (tt2 - cumulative_mid) / denom
+                    progress = 0 if denom <= 0 else (tt2 - cumulative_low) / denom
+    
+                else:
+    
+                    # progress = 0 if tt3 <= 0 else (tt3 - cumulative_mid) / tt3
+                    progress = 0 if tt3 <= 0 else (tt3 - cumulative_low) / tt3
+    
+                # Strict interior clipping
+                progress = np.clip(progress, eps, 1 - eps)
+    
+                tier = discrete_tier + progress
+    
+                if verbose:
+                    print(
+                        f"discrete={discrete_tier}, "
+                        f"progress={progress:.6f}, "
+                        f"tier={tier:.6f}"
+                    )
+    
+            else:
+                tier = discrete_tier
+    
+            # print("progress: " + str(progress) + ", tier: " + str(tier))
+            
             tier_rows.append({
                 "Scenario": sid,
                 "Variable": var,
@@ -519,9 +877,11 @@ def generate_storage_tier_assignment_matrix(
                 "BotProb": round(bot_frac, 3),
                 "StorageTier": tier
             })
-
-        return pd.DataFrame(tier_rows).drop_duplicates(subset=["Scenario", "Variable"])
-
+    
+        return pd.DataFrame(tier_rows).drop_duplicates(
+            subset=["Scenario", "Variable"]
+        )
+    
     try:
         base_model_dir = find_calsim_model_root()
     except FileNotFoundError as e:
@@ -561,7 +921,7 @@ def generate_storage_tier_assignment_matrix(
                 print(f" No CalSim data found for variable {var}")
                 continue
 
-            tier_df = assign_tiers_from_calsim(var_df, thresholds, df["DATE"], var, tier_thresholds)
+            tier_df = assign_tiers_from_calsim(var_df, thresholds, df["DATE"], var, tier_thresholds, continuous = continuous)
 
             for _, r in tier_df.iterrows():
                 sid = r["Scenario"]
@@ -1333,7 +1693,7 @@ def compute_wba_trends(
 
 
 # Assign groundwater storage tiers based on trends
-def assign_tiers_from_trends(trend_matrix, baseline, output_dir, filename, severe_decline_threshold=-0.015):
+def assign_tiers_from_trends(trend_matrix, baseline, output_dir, filename, severe_decline_threshold=-0.015, continuous = False):
     if baseline not in trend_matrix.index:
         raise ValueError(f"Baseline scenario {baseline} not found in trend_matrix")
 
@@ -1344,19 +1704,43 @@ def assign_tiers_from_trends(trend_matrix, baseline, output_dir, filename, sever
 
         for scenario in trend_matrix.index:
             slope = trend_matrix.loc[scenario, wba_col]
+            # print("wba_col: " + str(wba_col) + ", scenario: " + str(scenario))
             # Determine tier category based on slope relative to baseline
             if pd.isna(slope) or pd.isna(baseline_slope):
                 tier = np.nan
             elif scenario == baseline:
                 tier = 0  # baseline tier
-            elif slope >= 0:
-                diff = slope - baseline_slope
-                tier = 1 if diff >= 0 else 2
-            elif slope >= severe_decline_threshold:
-                tier = 3
+            elif continuous:
+                if slope >= 0:
+                    if slope >= baseline_slope:
+                        print("slope positive, slope >= baseline (" + str(baseline_slope) + ")")
+                        if baseline_slope >= 0:
+                            tier = 1 + (baseline_slope / slope) # problem: what if baseline is negative                            
+                            print("baseline_slope / slope = " + str(baseline_slope / slope) + ", tier = " + str(tier))
+                        else:
+                            tier = 1 + (abs(baseline_slope)/(abs(baseline_slope)-baseline_slope)+slope)
+                    else:
+                        print("slope positive, slope < baseline")
+                        tier = 2 + (1 - (slope / baseline_slope)) # seems correct
+                        print("1 - (slope / baseline_slope) = " + str(1 - (slope / baseline_slope)) + ", tier = " + str(tier))
+                else:
+                    if slope > severe_decline_threshold:
+                        print("slope negative, slope >= threshold")
+                        tier = 3 + (slope / severe_decline_threshold) # seems correct
+                        print("slope / severe_decline_threshold = " + str(slope / severe_decline_threshold) + ", tier = " + str(tier))
+                    else:
+                        print("slope negative, slope < threshold")
+                        tier = max(4.999, 4 + (1 - (severe_decline_threshold / slope))) # seems correct
+                        print("1 - (severe_decline_threshold / slope) = " + str(1 - (severe_decline_threshold / slope)) + ", tier = " + str(tier))
             else:
-                tier = 4
-
+                if slope >= 0:
+                    diff = slope - baseline_slope
+                    tier = 1 if diff >= 0 else 2
+                elif slope >= severe_decline_threshold:
+                    tier = 3
+                else:
+                    tier = 4
+            
             tier_matrix.loc[scenario, wba_col] = tier
 
     out_path = os.path.join(output_dir, filename)

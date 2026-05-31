@@ -38,9 +38,11 @@ def enable_headless_mode() -> None:
     plt.show = _silent_show
 
 
-def plot_ts(df, varname, units='TAF', pTitle='Time Series', xLab='Date', lTitle='Studies', fTitle='mon_tot', pSave=True,
-            fPath='fPath', study_list=None, start_date=None, end_date=None, scenario_styles=None, dpi=300,
-            legend_position='bottom'):
+def plot_ts(df, varname, units='TAF', pTitle='Time Series', xLab='Date', lTitle='Studies',
+            fTitle='mon_tot', pSave=True, fPath='fPath', study_list=None,
+            start_date=None, end_date=None, scenario_styles=None, dpi=300,
+            legend_position='bottom', plot: bool = True):
+
     df_plot = create_subset_unit(df, varname, units)
 
     if start_date is not None:
@@ -58,7 +60,10 @@ def plot_ts(df, varname, units='TAF', pTitle='Time Series', xLab='Date', lTitle=
 
     if df_plot.empty:
         print("[plot_ts] WARNING: No data to plot after subsetting!")
-        return
+        return pd.DataFrame()
+
+    if not plot:
+        return df_plot
 
     var = '_'.join(df_plot.columns[0][1].split('_')[:-1])
     colormap = plt.cm.tab10
@@ -89,8 +94,8 @@ def plot_ts(df, varname, units='TAF', pTitle='Time Series', xLab='Date', lTitle=
             this_label = study if study not in scenario_labeled else None
             this_lw = scaled_line_width
 
-        sns.lineplot(data=df_plot, x=df_plot.index, y=col, label=this_label, color=this_color, linewidth=this_lw,
-                     linestyle=this_linestyle)
+        sns.lineplot(data=df_plot, x=df_plot.index, y=col, label=this_label,
+                     color=this_color, linewidth=this_lw, linestyle=this_linestyle)
 
         if this_label is not None:
             scenario_labeled.add(study)
@@ -102,24 +107,32 @@ def plot_ts(df, varname, units='TAF', pTitle='Time Series', xLab='Date', lTitle=
     plt.ylabel(var + "\nUnits: " + str(first_col_units), fontsize=scaled_font_size * 1.5)
 
     if legend_position == 'bottom':
-        plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5, fontsize=scaled_font_size * 1.25,
-                   loc='upper center', bbox_to_anchor=(0.5, -0.15), borderaxespad=0, ncol=3)
-    else:  # 'right' (default)
-        plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5, fontsize=scaled_font_size * 1.25,
+        plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5,
+                   fontsize=scaled_font_size * 1.25, loc='upper center',
+                   bbox_to_anchor=(0.5, -0.15), borderaxespad=0, ncol=3)
+    else:
+        plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5,
+                   fontsize=scaled_font_size * 1.25,
                    bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0)
+
     plt.xticks(rotation=45, fontsize=scaled_font_size)
     plt.yticks(fontsize=scaled_font_size)
     plt.tight_layout()
 
     if pSave:
-        plt.savefig(f'{fPath}/{var}_{fTitle}.png', format='png', bbox_inches='tight', dpi=dpi, transparent=False)
+        plt.savefig(f'{fPath}/{var}_{fTitle}.png', format='png',
+                    bbox_inches='tight', dpi=dpi, transparent=False)
 
     plt.show()
+    return df_plot
 
 
-def plot_annual_totals(df, varname, units='TAF', xLab='Date', pTitle='Annual Totals', lTitle='Studies',
-                       fTitle='ann_tot', pSave=True, fPath='fPath', study_list=None, start_date=None, end_date=None,
-                       scenario_styles=None, months=None, dpi=300, legend_position='bottom'):
+def plot_annual_totals(df, varname, units='TAF', xLab='Date', pTitle='Annual Totals',
+                       lTitle='Studies', fTitle='ann_tot', pSave=True, fPath='fPath',
+                       study_list=None, start_date=None, end_date=None,
+                       scenario_styles=None, months=None, dpi=300,
+                       legend_position='bottom', plot: bool = True):
+
     df_plot = create_subset_unit(df, varname, units)
 
     if start_date is not None:
@@ -142,6 +155,16 @@ def plot_annual_totals(df, varname, units='TAF', xLab='Date', pTitle='Annual Tot
         print("[plot_annual_totals] WARNING: No data after subsetting!")
         return pd.DataFrame()
 
+    annualized_df = pd.DataFrame()
+
+    for col in df_plot.columns:
+        single_col_df = df_plot[[col]]
+        df_ann = annualize_ts(single_col_df, freq='YS-OCT')
+        annualized_df = pd.concat([annualized_df, df_ann], axis=1)
+
+    if not plot:
+        return annualized_df
+
     var = '_'.join(df_plot.columns[0][1].split('_')[:-1])
     colormap = plt.cm.tab10
     colors = [colormap(i) for i in range(df_plot.shape[1])]
@@ -153,19 +176,18 @@ def plot_annual_totals(df, varname, units='TAF', xLab='Date', pTitle='Annual Tot
     scaled_font_size = 1.5 * default_font_size
     scaled_line_width = 1.5 * plt.rcParams['lines.linewidth']
 
-    annualized_df = pd.DataFrame()
-
     studies = [col[1].split('_')[-1] for col in df_plot.columns]
     scenario_labeled = set()
     count = 0
 
-    for col, study in zip(df_plot.columns, studies):
+    for col, study in zip(annualized_df.columns, studies):
         numeric_study = int(study.replace('s', ''))
+
         if scenario_styles and numeric_study in scenario_styles:
             style_dict = scenario_styles[numeric_study]
             this_color = style_dict.get('color', colors[count])
             this_linestyle = style_dict.get('linestyle', '-')
-            this_label = style_dict.get('label', study) if (study not in scenario_labeled) else None
+            this_label = style_dict.get('label', study) if study not in scenario_labeled else None
             this_lw = style_dict.get('linewidth', scaled_line_width)
         else:
             this_color = colors[count]
@@ -173,15 +195,10 @@ def plot_annual_totals(df, varname, units='TAF', xLab='Date', pTitle='Annual Tot
             this_label = study if study not in scenario_labeled else None
             this_lw = scaled_line_width
 
-        from contextlib import redirect_stdout
-        with redirect_stdout(open(os.devnull, 'w')):
-            single_col_df = df_plot[[col]]
-            df_ann = annualize_ts(single_col_df, freq='YS-OCT')
-
-        annualized_df = pd.concat([annualized_df, df_ann], axis=1)
-
-        sns.lineplot(data=df_ann, x=df_ann.index, y=df_ann.columns[0], label=this_label, color=this_color,
-                     linewidth=this_lw, linestyle=this_linestyle, drawstyle='steps-post')
+        sns.lineplot(data=annualized_df, x=annualized_df.index, y=col,
+                     label=this_label, color=this_color,
+                     linewidth=this_lw, linestyle=this_linestyle,
+                     drawstyle='steps-post')
 
         if this_label is not None:
             scenario_labeled.add(study)
@@ -193,25 +210,31 @@ def plot_annual_totals(df, varname, units='TAF', xLab='Date', pTitle='Annual Tot
     plt.ylabel(var + "\nUnits: " + str(first_col_units), fontsize=scaled_font_size * 1.5)
 
     if legend_position == 'bottom':
-        plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5, fontsize=scaled_font_size * 1.25,
-                   loc='upper center', bbox_to_anchor=(0.5, -0.15), borderaxespad=0, ncol=3)
-    else:  # 'right' (default)
-        plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5, fontsize=scaled_font_size * 1.25,
+        plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5,
+                   fontsize=scaled_font_size * 1.25, loc='upper center',
+                   bbox_to_anchor=(0.5, -0.15), borderaxespad=0, ncol=3)
+    else:
+        plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5,
+                   fontsize=scaled_font_size * 1.25,
                    bbox_to_anchor=(1.02, 1), loc='upper left', borderaxespad=0)
+
     plt.xticks(rotation=45, fontsize=scaled_font_size)
     plt.yticks(fontsize=scaled_font_size)
     plt.tight_layout()
 
     if pSave:
-        plt.savefig(f'{fPath}/{var}_{fTitle}.png', format='png', bbox_inches='tight', dpi=dpi, transparent=False)
+        plt.savefig(f'{fPath}/{var}_{fTitle}.png', format='png',
+                    bbox_inches='tight', dpi=dpi, transparent=False)
 
     plt.show()
     return annualized_df
 
+def plot_exceedance(df, varname, units='TAF', xLab='Probability',
+                    pTitle='Exceedance Probability', lTitle='Studies',
+                    fTitle='exceed', pSave=True, fPath='fPath',
+                    study_list=None, scenario_styles=None, months=None,
+                    dpi=300, legend_position='bottom', plot: bool = True):
 
-def plot_exceedance(df, varname, units='TAF', xLab='Probability', pTitle='Exceedance Probability', lTitle='Studies',
-                    fTitle='exceed', pSave=True, fPath='fPath', study_list=None, scenario_styles=None, months=None,
-                    dpi=300, legend_position='bottom'):
     df_plot = create_subset_unit(df, varname, units)
 
     if months is not None:
@@ -227,7 +250,16 @@ def plot_exceedance(df, varname, units='TAF', xLab='Probability', pTitle='Exceed
 
     if df_plot.empty:
         print("[plot_exceedance] WARNING: No data to plot after subsetting!")
-        return
+        return pd.DataFrame()
+
+    exceedance_df = pd.DataFrame()
+
+    for col in df_plot.columns:
+        df_ex = single_exceed_alternative(df_plot[col])
+        exceedance_df = pd.concat([exceedance_df, df_ex], axis=1)
+
+    if not plot:
+        return exceedance_df
 
     var = '_'.join(df_plot.columns[0][1].split('_')[:-1])
     studies = [col[1].split('_')[-1] for col in df_plot.columns]
@@ -244,13 +276,14 @@ def plot_exceedance(df, varname, units='TAF', xLab='Probability', pTitle='Exceed
 
     scenario_labeled = set()
 
-    for i, (col, study) in enumerate(zip(df_plot.columns, studies)):
+    for i, (col, study) in enumerate(zip(exceedance_df.columns, studies)):
         numeric_study = int(study.replace('s', ''))
+
         if scenario_styles and numeric_study in scenario_styles:
             style_dict = scenario_styles[numeric_study]
             this_color = style_dict.get('color', colors[i])
             this_linestyle = style_dict.get('linestyle', '-')
-            this_label = style_dict.get('label', study) if (study not in scenario_labeled) else None
+            this_label = style_dict.get('label', study) if study not in scenario_labeled else None
             this_lw = style_dict.get('linewidth', scaled_line_width)
         else:
             this_color = colors[i]
@@ -258,11 +291,9 @@ def plot_exceedance(df, varname, units='TAF', xLab='Probability', pTitle='Exceed
             this_label = study if study not in scenario_labeled else None
             this_lw = scaled_line_width
 
-        df_ex = single_exceed_alternative(df_plot[col])
-        ex_col_name = df_ex.columns[0]
-
-        sns.lineplot(data=df_ex, x=df_ex.index, y=ex_col_name, label=this_label, color=this_color, linewidth=this_lw,
-                     linestyle=this_linestyle)
+        sns.lineplot(data=exceedance_df, x=exceedance_df.index, y=col,
+                     label=this_label, color=this_color,
+                     linewidth=this_lw, linestyle=this_linestyle)
 
         if this_label:
             scenario_labeled.add(study)
@@ -273,20 +304,24 @@ def plot_exceedance(df, varname, units='TAF', xLab='Probability', pTitle='Exceed
     plt.ylabel(f"{var}\nUnits: {first_col_units}", fontsize=scaled_font_size * 1.5)
 
     if legend_position == 'bottom':
-        plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5, fontsize=scaled_font_size * 1.25,
-                   loc='upper center', bbox_to_anchor=(0.5, -0.15), borderaxespad=0, ncol=3)
-    else:  # 'right' (default)
-        plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5, fontsize=scaled_font_size * 1.25,
+        plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5,
+                   fontsize=scaled_font_size * 1.25, loc='upper center',
+                   bbox_to_anchor=(0.5, -0.15), borderaxespad=0, ncol=3)
+    else:
+        plt.legend(title=lTitle, title_fontsize=scaled_font_size * 1.5,
+                   fontsize=scaled_font_size * 1.25,
                    bbox_to_anchor=(1.02, 1), loc='upper left')
+
     plt.xticks(rotation=45, fontsize=scaled_font_size)
     plt.yticks(fontsize=scaled_font_size)
     plt.tight_layout()
 
     if pSave:
-        plt.savefig(f'{fPath}/{var}_{fTitle}.png', format='png', bbox_inches='tight', dpi=dpi, transparent=False)
+        plt.savefig(f'{fPath}/{var}_{fTitle}.png', format='png',
+                    bbox_inches='tight', dpi=dpi, transparent=False)
 
     plt.show()
-
+    return exceedance_df
 
 def single_exceed_alternative(series):
     s_clean = series.dropna()
@@ -1082,7 +1117,8 @@ def plot_ts_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF", scenari
                   months: list[int] | None = None,
                   start_date: str | None = None, end_date: str | None = None, pTitle: str = "Monthly Time Series",
                   xLab: str = "Date", lTitle: str = "Scenarios", fTitle: str = "ts_multi", fPath: str = "fPath",
-                  pSave: bool = True, dpi: int = 300, legend_position: str = "bottom"):
+                  pSave: bool = True, dpi: int = 300, legend_position: str = "bottom",
+                  plot: bool = True):
 
     series_map = cu.per_scenario_series(df, varname=varname, units=units, scenarios=scenarios, use_tucp=False,
                                         use_wyt=False, months=months)
@@ -1093,6 +1129,18 @@ def plot_ts_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF", scenari
         if end_date is not None:
             s = s.loc[s.index <= pd.to_datetime(end_date)]
         series_map[sid] = s
+
+    ts_df = pd.concat(
+        [
+            s.rename(f"s{sid:04d}")
+            for sid, s in series_map.items()
+            if sid in scenarios
+        ],
+        axis=1
+    )
+
+    if not plot:
+        return ts_df
 
     styles = get_scenario_styles_multi(scenarios, scenario_labels=scenario_labels, baseline_id=baseline_id,
                                        baseline_label_override=baseline_label_override, label_style=label_style)
@@ -1108,8 +1156,9 @@ def plot_ts_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF", scenari
     plt.xlabel(xLab, fontsize=14)
     plt.ylabel(f"{varname}\nUnits: {units}", fontsize=14)
     if legend_position == "bottom":
-        plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=3)
-    else:  # 'right' (default)
+        plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper center",
+                   bbox_to_anchor=(0.5, -0.15), ncol=3)
+    else:
         plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper left", bbox_to_anchor=(1.02, 1))
     plt.xticks(rotation=45)
     plt.tight_layout()
@@ -1119,6 +1168,7 @@ def plot_ts_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF", scenari
         plt.savefig(os.path.join(fPath, f"{varname}_{fTitle}.png"), dpi=dpi, bbox_inches="tight")
 
     plt.close()
+    return ts_df
 
 
 def plot_exceedance_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF", scenarios: list[int],
@@ -1130,33 +1180,58 @@ def plot_exceedance_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF",
                           wyt: list[int] | None = None, wyt_month: int | None = None, months: list[int] | None = None,
                           pTitle: str = "Exceedance Probability", xLab: str = "Probability", lTitle: str = "Scenarios",
                           fTitle: str = "exceed_multi", fPath: str = "fPath", pSave: bool = True, dpi: int = 300,
-                          legend_position: str = "bottom"):
+                          legend_position: str = "bottom", plot: bool = True):
 
     series_map = cu.per_scenario_series(df, varname=varname, units=units, scenarios=scenarios, use_tucp=use_tucp,
                                         tucp_var_base=tucp_var_base, tucp_wy_month_count=tucp_wy_month_count,
                                         tucp_years=tucp_years, use_wyt=use_wyt, wyt=wyt, wyt_month=wyt_month,
                                         months=months)
 
+    exceedance_parts = []
+
+    for sid in scenarios:
+        s = series_map[sid].dropna()
+        if s.empty:
+            continue
+
+        ex_df = single_exceed_alternative(s)
+        ycol = ex_df.columns[0]
+
+        temp = pd.DataFrame({
+            "scenario_id": sid,
+            "probability": ex_df.index,
+            "value": ex_df[ycol].values
+        })
+        exceedance_parts.append(temp)
+
+    exceedance_df = pd.concat(exceedance_parts, ignore_index=True) if exceedance_parts else pd.DataFrame(
+        columns=["scenario_id", "probability", "value"]
+    )
+
+    if not plot:
+        return exceedance_df
+
     styles = get_scenario_styles_multi(scenarios, scenario_labels=scenario_labels, baseline_id=baseline_id,
                                        baseline_label_override=baseline_label_override, label_style=label_style)
 
     plt.figure(figsize=(14, 8))
     for sid in scenarios:
-        s = series_map[sid].dropna()
-        if s.empty:
+        sub = exceedance_df[exceedance_df["scenario_id"] == sid]
+        if sub.empty:
             continue
-        ex_df = single_exceed_alternative(s)
-        ycol = ex_df.columns[0]
+
         st = styles.get(sid, {})
-        plt.plot(ex_df.index, ex_df[ycol].values, color=st.get("color", None), linestyle=st.get("linestyle", "-"),
-                 linewidth=st.get("linewidth", 1.8), label=st.get("label", f"s{sid:04d}"))
+        plt.plot(sub["probability"], sub["value"], color=st.get("color", None),
+                 linestyle=st.get("linestyle", "-"), linewidth=st.get("linewidth", 1.8),
+                 label=st.get("label", f"s{sid:04d}"))
 
     plt.title(f"{varname} {pTitle}", fontsize=18)
     plt.xlabel(xLab, fontsize=14)
     plt.ylabel(f"{varname}\nUnits: {units}", fontsize=14)
     if legend_position == "bottom":
-        plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=3)
-    else:  # 'right' (default)
+        plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper center",
+                   bbox_to_anchor=(0.5, -0.15), ncol=3)
+    else:
         plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper left", bbox_to_anchor=(1.02, 1))
     plt.xticks(rotation=45)
     plt.tight_layout()
@@ -1166,7 +1241,7 @@ def plot_exceedance_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF",
         plt.savefig(os.path.join(fPath, f"{varname}_{fTitle}.png"), dpi=dpi, bbox_inches="tight")
 
     plt.close()
-
+    return exceedance_df
 
 def plot_moy_averages_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF", scenarios: list[int],
                             scenario_labels: dict[int, str] | None = None, baseline_id: int | None = None,
@@ -1177,7 +1252,7 @@ def plot_moy_averages_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF
                             wyt: list[int] | None = None, wyt_month: int | None = None,
                             pTitle: str = "MOY Averages", xLab: str = "Month", lTitle: str = "Scenarios",
                             fTitle: str = "moy_multi", fPath: str = "fPath", pSave: bool = True, dpi: int = 300,
-                            legend_position: str = "bottom"):
+                            legend_position: str = "bottom", plot: bool = True):
 
     series_map = cu.per_scenario_series(df, varname=varname, units=units, scenarios=scenarios, use_tucp=use_tucp,
                                         tucp_var_base=tucp_var_base, tucp_wy_month_count=tucp_wy_month_count,
@@ -1187,8 +1262,8 @@ def plot_moy_averages_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF
     styles = get_scenario_styles_multi(scenarios, scenario_labels=scenario_labels, baseline_id=baseline_id,
                                        baseline_label_override=baseline_label_override, label_style=label_style)
 
-    plt.figure(figsize=(14, 8))
     month_numbers = np.arange(1, 13)
+    records = []
 
     for sid in scenarios:
         s = series_map[sid].dropna()
@@ -1197,7 +1272,27 @@ def plot_moy_averages_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF
         moy = s.groupby(s.index.month).mean()
         moy = moy.reindex(month_numbers)
         st = styles.get(sid, {})
-        plt.plot(month_numbers, moy.values, marker="o", color=st.get("color", None),
+        for month, value in zip(month_numbers, moy.values):
+            records.append({
+                "scenario_id": sid,
+                "label": st.get("label", f"s{sid:04d}"),
+                "month": month,
+                "value": value,
+            })
+
+    moy_df = pd.DataFrame(records)
+
+    if not plot:
+        return moy_df
+
+    plt.figure(figsize=(14, 8))
+
+    for sid in scenarios:
+        subset = moy_df[moy_df["scenario_id"] == sid]
+        if subset.empty:
+            continue
+        st = styles.get(sid, {})
+        plt.plot(subset["month"], subset["value"], marker="o", color=st.get("color", None),
                  linestyle=st.get("linestyle", "-"), linewidth=st.get("linewidth", 1.8),
                  label=st.get("label", f"s{sid:04d}"))
 
@@ -1207,7 +1302,7 @@ def plot_moy_averages_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF
     plt.ylabel(f"{varname}\nUnits: {units}", fontsize=14)
     if legend_position == "bottom":
         plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=3)
-    else:  # 'right' (default)
+    else:
         plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper left", bbox_to_anchor=(1.02, 1))
     plt.tight_layout()
 
@@ -1216,6 +1311,7 @@ def plot_moy_averages_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF
         plt.savefig(os.path.join(fPath, f"{varname}_{fTitle}.png"), dpi=dpi, bbox_inches="tight")
 
     plt.close()
+    return moy_df  # ← added: return DataFrame when plot=True
 
 def plot_annual_totals_ts_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF", scenarios: list[int],
                                 scenario_labels: dict[int, str] | None = None, baseline_id: int | None = None,
@@ -1223,13 +1319,29 @@ def plot_annual_totals_ts_multi(df: pd.DataFrame, *, varname: str, units: str = 
                                 months: list[int] | None = None,
                                 freq: str = "YS-OCT", pTitle: str = "Annual Totals", xLab: str = "Water Year",
                                 lTitle: str = "Scenarios", fTitle: str = "ann_tot_ts_multi", fPath: str = "fPath",
-                                pSave: bool = True, dpi: int = 300, legend_position: str = "bottom"):
+                                pSave: bool = True, dpi: int = 300, legend_position: str = "bottom",
+                                plot: bool = True):  # ← added: plot parameter
 
     series_map = cu.per_scenario_series(df, varname=varname, units=units, scenarios=scenarios, use_tucp=False,
                                         use_wyt=False, months=months)
 
     styles = get_scenario_styles_multi(scenarios, scenario_labels=scenario_labels, baseline_id=baseline_id,
                                        baseline_label_override=baseline_label_override, label_style=label_style)
+
+    # ← added: build DataFrame before plotting so it can be returned in both branches
+    ann_parts = []
+    for sid in scenarios:
+        s = series_map[sid].dropna()
+        if s.empty:
+            continue
+        ann = s.resample(freq).sum(min_count=1)
+        ann_parts.append(pd.DataFrame({"scenario_id": sid, "water_year": ann.index, "value": ann.values}))
+    ann_tot_df = pd.concat(ann_parts, ignore_index=True) if ann_parts else pd.DataFrame(
+        columns=["scenario_id", "water_year", "value"]
+    )
+
+    if not plot:  # ← added: early return when plot=False
+        return ann_tot_df
 
     plt.figure(figsize=(14, 8))
     for sid in scenarios:
@@ -1257,6 +1369,7 @@ def plot_annual_totals_ts_multi(df: pd.DataFrame, *, varname: str, units: str = 
         plt.savefig(os.path.join(fPath, f"{varname}_{fTitle}.png"), dpi=dpi, bbox_inches="tight")
 
     plt.close()
+    return ann_tot_df  # ← added: return DataFrame when plot=True
 
 
 def annualize_exceedance_multi(df: pd.DataFrame, *, varname: str, units: str = "TAF", scenarios: list[int],
@@ -1269,36 +1382,68 @@ def annualize_exceedance_multi(df: pd.DataFrame, *, varname: str, units: str = "
                                months: list[int] | None = None, freq: str = "YS-OCT", pTitle: str = "Annual Exceedance",
                                xLab: str = "Exceedance Probability", lTitle: str = "Scenarios",
                                fTitle: str = "ann_exceed_multi", fPath: str = "fPath", pSave: bool = True,
-                               dpi: int = 300, legend_position: str = "bottom"):
+                               dpi: int = 300, legend_position: str = "bottom", plot: bool = True):
 
     series_map = cu.per_scenario_series(df, varname=varname, units=units, scenarios=scenarios, use_tucp=use_tucp,
                                         tucp_var_base=tucp_var_base, tucp_wy_month_count=tucp_wy_month_count,
                                         tucp_years=tucp_years, use_wyt=use_wyt, wyt=wyt, wyt_month=wyt_month,
                                         months=months)
 
+    annual_parts = []
+    exceedance_parts = []
+
+    for sid in scenarios:
+        s = series_map[sid].dropna()
+        if s.empty:
+            continue
+
+        ann = s.resample(freq).sum(min_count=1).dropna()
+        if ann.empty:
+            continue
+
+        annual_parts.append(
+            ann.rename(f"s{sid:04d}")
+        )
+
+        ex_df = single_exceed_alternative(ann)
+        ycol = ex_df.columns[0]
+
+        temp = pd.DataFrame({
+            "scenario_id": sid,
+            "probability": ex_df.index,
+            "value": ex_df[ycol].values
+        })
+        exceedance_parts.append(temp)
+
+    annual_df = pd.concat(annual_parts, axis=1) if annual_parts else pd.DataFrame()
+    exceedance_df = pd.concat(exceedance_parts, ignore_index=True) if exceedance_parts else pd.DataFrame(
+        columns=["scenario_id", "probability", "value"]
+    )
+
+    if not plot:
+        return exceedance_df
+
     styles = get_scenario_styles_multi(scenarios, scenario_labels=scenario_labels, baseline_id=baseline_id,
                                        baseline_label_override=baseline_label_override, label_style=label_style)
 
     plt.figure(figsize=(14, 8))
     for sid in scenarios:
-        s = series_map[sid].dropna()
-        if s.empty:
+        sub = exceedance_df[exceedance_df["scenario_id"] == sid]
+        if sub.empty:
             continue
-        ann = s.resample(freq).sum(min_count=1).dropna()
-        if ann.empty:
-            continue
-        ex_df = single_exceed_alternative(ann)
-        ycol = ex_df.columns[0]
+
         st = styles.get(sid, {})
-        plt.plot(ex_df.index, ex_df[ycol].values, color=st.get("color", None), linestyle=st.get("linestyle", "-"),
-                 linewidth=st.get("linewidth", 1.8), label=st.get("label", f"s{sid:04d}"))
+        plt.plot(sub["probability"], sub["value"], color=st.get("color", None),
+                 linestyle=st.get("linestyle", "-"), linewidth=st.get("linewidth", 1.8),
+                 label=st.get("label", f"s{sid:04d}"))
 
     plt.title(f"{varname} {pTitle}", fontsize=18)
     plt.xlabel(xLab, fontsize=14)
     plt.ylabel(f"{varname}\nUnits: {units}", fontsize=14)
     if legend_position == "bottom":
-        plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper center", bbox_to_anchor=(0.5, -0.15), ncol=3)
-    else:  # 'right' (default)
+        plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper center",
+                   bbox_to_anchor=(0.5, -0.15), ncol=3)
+    else:
         plt.legend(title=lTitle, fontsize=12, title_fontsize=13, loc="upper left", bbox_to_anchor=(1.02, 1))
     plt.xticks(rotation=45)
     plt.tight_layout()
@@ -1306,8 +1451,9 @@ def annualize_exceedance_multi(df: pd.DataFrame, *, varname: str, units: str = "
     if pSave:
         os.makedirs(fPath, exist_ok=True)
         plt.savefig(os.path.join(fPath, f"{varname}_{fTitle}.png"), dpi=dpi, bbox_inches="tight")
-    plt.close()
 
+    plt.close()
+    return exceedance_df
 
 def _safe_set_ylim(ax, y_min, y_max, frac_margin=0.02, abs_margin=1.0):
 

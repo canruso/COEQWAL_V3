@@ -1,0 +1,7 @@
+python coeqwalpackage/copy_data_extraction_folders.py --oauth-client-secrets-file .\coeqwalpackage\client_secret.json --base-dir ../CalSim3_Model_Runs/Scenarios/ --run-type COPY --dry-run
+
+NOTE: remove --dry-run to actually do it
+NOTE: use CLEAN instead of COPY to remove the _BU directories
+NOTE: MUST PUT  secrets.json in.gitignore!
+NOTE: first install 
+pip install --upgrade google-api-python-client google-auth google-auth-httplib2 google-auth-oauthlib

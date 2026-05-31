@@ -379,6 +379,7 @@ For questions, issues, or collaboration inquiries:
     <td align="center"><strong>Dino Bellugi</strong></td>
     <td align="center"><strong>James Gilbert</strong></td>
     <td align="center"><strong>Rain Zou</strong></td>
+    <td align="center"><strong>Aryan Achuthan</strong></td>
     <td align="center"><strong>Isabelle Goebel</strong></td>
     <td align="center"><strong>Isabelle Wang</strong></td>
   </tr>

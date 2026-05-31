@@ -8,3 +8,5 @@ Exports (CFS),Export Pumping from Delta (CFS),"C_DMC000, C_DMC000_TD, C_CAA003_S
 Exports (TAF),Export Pumping from Delta (TAF),"C_DMC000, C_DMC000_TD, C_CAA003_SWP, C_CAA003"
 Salinity (Umhos/Cm),Delta Salinity (electrical conductivity) at principal locations,"JP_EC_MONTH, RS_EC_MONTH, EM_EC_MONTH, TRACYEC_MAX14DAY, BANKSEC_MAX14DAY"
 Salinity (Km),Delta Salinity (2 ppt distance in Km from Goldan Gate bridge),X2_PRV_KM
+ Groundwater Fluxes (CFS),Groundwater upmping and groundwater/stream interactions,"SG_SACAB, SG_SACBB, SG_SACFB, SG_SACAMR, SG_SACBASIN, GP_SACWBA, GP_WBATOTAL_7S, GP_WBATOTAL_8S, GP_WBATOTAL_8N"
+ Groundwater Fluxes (TAF),Groundwater upmping and groundwater/stream interactions,"SG_SACAB, SG_SACBB, SG_SACFB, SG_SACAMR, SG_SACBASIN, GP_SACWBA, GP_WBATOTAL_7S, GP_WBATOTAL_8S, GP_WBATOTAL_8N"
