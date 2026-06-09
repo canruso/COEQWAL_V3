@@ -13,6 +13,7 @@ import datetime as dt
 from coeqwalpackage.metrics import *
 from coeqwalpackage import cqwlutils as cu
 from coeqwalpackage import plotting as pu
+from coeqwalpackage import varmatch
 from collections import OrderedDict
 from sklearn.linear_model import LinearRegression
 from coeqwalpackage.cqwlutils import find_calsim_model_root
@@ -720,10 +721,14 @@ def generate_storage_tier_assignment_matrix(
         return thresholds / 1000  # Convert AF to TAF
 
     def extract_variable_by_scenario(df, variable):
-        return df[
-            [col for col in df.columns
-             if variable in col and "_STORAGE_" in col and "LEVEL" not in col.upper()]
-        ]
+        # Exact base match via varmatch (was `variable in col` substring, which would
+        # over-match S_SHSTALEVEL* for S_SHSTA). Structural guards kept defensively.
+        cols = [col for col in df.columns
+                if varmatch.base_of(col) == variable and "_STORAGE_" in col and "LEVEL" not in col.upper()]
+        if not cols:
+            print(f"WARNING [extract_variable_by_scenario]: no storage columns matched "
+                  f"variable='{variable}' - returning empty selection (pass the bare base name).")
+        return df[cols]
 
     def assign_tiers_from_calsim(
         var_df,

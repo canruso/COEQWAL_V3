@@ -18,6 +18,7 @@ import os
 import numpy as np
 import pandas as pd
 from coeqwalpackage import cqwlutils as cu
+from coeqwalpackage import varmatch
 
 # Default scenario color palette: black (baseline), orange, red, then tab10 colors
 _tab10 = plt.cm.tab10.colors
@@ -65,7 +66,7 @@ def plot_ts(df, varname, units='TAF', pTitle='Time Series', xLab='Date', lTitle=
     if not plot:
         return df_plot
 
-    var = '_'.join(df_plot.columns[0][1].split('_')[:-1])
+    var = varmatch.base_of(df_plot.columns[0])
     colormap = plt.cm.tab10
     colors = [colormap(i) for i in range(df_plot.shape[1])]
     if len(colors) > 0:
@@ -76,7 +77,7 @@ def plot_ts(df, varname, units='TAF', pTitle='Time Series', xLab='Date', lTitle=
     scaled_font_size = 1.5 * default_font_size
     scaled_line_width = 1.5 * plt.rcParams['lines.linewidth']
 
-    studies = [col[1].split('_')[-1] for col in df_plot.columns]
+    studies = [varmatch.scenario_of(col) for col in df_plot.columns]
     scenario_labeled = set()
     count = 0
 
@@ -165,7 +166,7 @@ def plot_annual_totals(df, varname, units='TAF', xLab='Date', pTitle='Annual Tot
     if not plot:
         return annualized_df
 
-    var = '_'.join(df_plot.columns[0][1].split('_')[:-1])
+    var = varmatch.base_of(df_plot.columns[0])
     colormap = plt.cm.tab10
     colors = [colormap(i) for i in range(df_plot.shape[1])]
     if len(colors) > 0:
@@ -176,7 +177,7 @@ def plot_annual_totals(df, varname, units='TAF', xLab='Date', pTitle='Annual Tot
     scaled_font_size = 1.5 * default_font_size
     scaled_line_width = 1.5 * plt.rcParams['lines.linewidth']
 
-    studies = [col[1].split('_')[-1] for col in df_plot.columns]
+    studies = [varmatch.scenario_of(col) for col in df_plot.columns]
     scenario_labeled = set()
     count = 0
 
@@ -261,8 +262,8 @@ def plot_exceedance(df, varname, units='TAF', xLab='Probability',
     if not plot:
         return exceedance_df
 
-    var = '_'.join(df_plot.columns[0][1].split('_')[:-1])
-    studies = [col[1].split('_')[-1] for col in df_plot.columns]
+    var = varmatch.base_of(df_plot.columns[0])
+    studies = [varmatch.scenario_of(col) for col in df_plot.columns]
 
     colormap = plt.cm.tab10
     colors = [colormap(i) for i in range(df_plot.shape[1])]

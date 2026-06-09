@@ -7,6 +7,7 @@ import numpy as np
 import datetime as dt
 
 from coeqwalpackage.metrics import create_subset_unit
+from coeqwalpackage import varmatch
 
 
 def find_calsim_model_root(start_dir=None, folder_name="CalSim3_Model_Runs"):
@@ -412,21 +413,14 @@ def selected_tucp_years(
     if not isinstance(df.index, pd.DatetimeIndex):
         raise TypeError("selected_tucp_years: df.index must be a DatetimeIndex")
 
-    suffix = f"s{int(scenario):04d}"
-    lvl1 = df.columns.get_level_values(1).astype(str)
-    mask = lvl1.str.contains(tucp_var_base, regex=False) & lvl1.str.endswith(suffix)
-
-    if mask.sum() == 0:
+    col = varmatch.col_for(df.columns, tucp_var_base, scenario)
+    if col is None:
         raise KeyError(
             f"selected_tucp_years: could not find trigger column for scenario={scenario} "
-            f"with base='{tucp_var_base}'. Expected something like '{tucp_var_base}_{suffix}' in level-1."
+            f"with base='{tucp_var_base}'. Expected '{tucp_var_base}_s{int(scenario):04d}' in level-1."
         )
-    if mask.sum() > 1:
-        # If there are multiple candidates, pick the first; force explicitness if needed later
-        # (keeps this helper simple/robust).
-        pass
 
-    trig = pd.to_numeric(df.loc[:, mask].iloc[:, 0], errors="coerce")
+    trig = pd.to_numeric(df[col], errors="coerce")
     triggered = (trig >= 1)
 
     wy = df.index.year + (df.index.month >= 10)
@@ -576,19 +570,13 @@ def years_triggered_by(
     - A month is considered triggered if value >= trigger_threshold (default 1.0).
     - Water Year = Oct (prev year) ... Sep (this year).
     """
-    # Find the trigger column for this scenario
-    suffix = f"s{scenario:04d}"
-    lvl1 = df.columns.get_level_values(1).astype(str)
-    mask = lvl1.str.contains(str(tucp_var), regex=False) & lvl1.str.endswith(suffix)
-
-    if not mask.any():
+    # Find the trigger column for this scenario (exact base match via varmatch)
+    trigger_col = varmatch.col_for(df.columns, tucp_var, scenario)
+    if trigger_col is None:
         # Let it error loudly if not found (your requested behavior)
         raise AttributeError(
             f"No TUCP trigger column found for scenario {scenario} with base '{tucp_var}'."
         )
-
-    # If multiple columns match, use the first
-    trigger_col = df.columns[mask][0]
     trigger_series = pd.to_numeric(df.loc[:, trigger_col], errors="coerce")
 
     # Boolean "triggered this month?"

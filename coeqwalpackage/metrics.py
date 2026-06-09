@@ -175,27 +175,36 @@ def _var_col_mask(columns, varname):
     return varmatch.mask_for(columns, varname)
 
 
+def _warn_no_match(fn, detail):
+    """Loud-but-non-breaking notice when an exact variable match finds nothing
+    (typo, stale name, or old trailing-underscore convention). Never raises."""
+    print(f"WARNING [{fn}]: no columns matched {detail} - returning empty selection. "
+          f"Pass the BARE base name (e.g. 'S_SHSTA', not 'S_SHSTA_').")
+
+
 def create_subset_var(df, varname, water_year_type=None, month=None):
     filtered_columns = _var_col_mask(df.columns, varname)
+    if not filtered_columns.any():
+        _warn_no_match("create_subset_var", f"varname='{varname}'")
 
     if water_year_type is not None:
         if month is None:
             raise ValueError("If 'water_year_type' is provided, 'month' must also be provided.")
 
-        wyt_filter = df.columns.get_level_values(1).str.contains('WYT_SAC_')
+        wyt_filter = varmatch.mask_for(df.columns, 'WYT_SAC_')
         wy_filter = df.columns.get_level_values(0).str.contains("WaterYear")
         combined_filter = filtered_columns | wyt_filter | wy_filter
         filtered_df = df.loc[:, combined_filter].copy()
-        df_wyt_filtered = df.loc[:, filtered_df.columns.get_level_values(1).str.contains('WYT_SAC_') | (
+        df_wyt_filtered = df.loc[:, varmatch.mask_for(filtered_df.columns, 'WYT_SAC_') | (
                 filtered_df.columns.get_level_values(0) == 'WaterYear')]
         month_values = df_wyt_filtered[df_wyt_filtered.index.month == month].groupby('WaterYear').first()
         df_wyt_filtered = df_wyt_filtered.merge(month_values, left_on='WaterYear', right_index=True, how='left',
                                                 suffixes=('_df', ''))
         filtered_df.update(df_wyt_filtered)
-        df_wyt = filtered_df.loc[:, filtered_df.columns.get_level_values(1).str.contains('WYT_SAC_')]
+        df_wyt = filtered_df.loc[:, varmatch.mask_for(filtered_df.columns, 'WYT_SAC_')]
         filtered_df.loc[:, df_wyt.columns] = df_wyt.map(lambda x: x if x in water_year_type else np.nan)
         df_var = filtered_df.loc[:, _var_col_mask(filtered_df.columns, varname)]
-        df_copy = filtered_df.loc[:, filtered_df.columns.get_level_values(1).str.contains('WYT_SAC_')]
+        df_copy = filtered_df.loc[:, varmatch.mask_for(filtered_df.columns, 'WYT_SAC_')]
         for i in range(len(df_var.columns)):
             na = df_copy[df_copy.columns[i]].isna()
             df_var.loc[na, df_var.columns[i]] = np.nan
@@ -207,32 +216,35 @@ def create_subset_unit(df, varname, units, water_year_type=None, month=None):
     var_filter = _var_col_mask(df.columns, varname)
     unit_filter = df.columns.get_level_values(6).str.contains(units)
     filtered_columns = var_filter & unit_filter
+    if not filtered_columns.any():
+        detail = f"varname='{varname}'" if not var_filter.any() else f"varname='{varname}' with units='{units}' (variable exists, unit mismatch)"
+        _warn_no_match("create_subset_unit", detail)
 
     if water_year_type is not None:
         if month is None:
             raise ValueError("If 'water_year_type' is provided, 'month' must also be provided.")
 
-        wyt_filter = df.columns.get_level_values(1).str.contains('WYT_SAC_')
+        wyt_filter = varmatch.mask_for(df.columns, 'WYT_SAC_')
         wy_filter = df.columns.get_level_values(0).str.contains("WaterYear")
 
         combined_filter = (var_filter & unit_filter) | wyt_filter | wy_filter
         filtered_columns = df.loc[:, combined_filter]
 
         df_wyt_filtered = filtered_columns.loc[:,
-                          filtered_columns.columns.get_level_values(1).str.contains('WYT_SAC_') | (
+                          varmatch.mask_for(filtered_columns.columns, 'WYT_SAC_') | (
                                   filtered_columns.columns.get_level_values(0) == 'WaterYear')]
         df_wyt_filtered = df_wyt_filtered.sort_index(axis=1)
         month_values = df_wyt_filtered[df_wyt_filtered.index.month == month].groupby('WaterYear').first()
         df_wyt_filtered = df_wyt_filtered.merge(month_values, left_on='WaterYear', right_index=True, how='left',
                                                 suffixes=('_df', ''))
         filtered_columns.update(df_wyt_filtered)
-        df_wyt = filtered_columns.loc[:, filtered_columns.columns.get_level_values(1).str.contains('WYT_SAC_')]
+        df_wyt = filtered_columns.loc[:, varmatch.mask_for(filtered_columns.columns, 'WYT_SAC_')]
         filtered_columns.loc[:, df_wyt.columns] = df_wyt.map(lambda x: x if x in water_year_type else np.nan)
         df_var = filtered_columns.loc[:, _var_col_mask(filtered_columns.columns, varname)]
         filtered_columns = filtered_columns.loc[:,
-                           filtered_columns.columns.get_level_values(1).str.contains('WYT_SAC_')]
+                           varmatch.mask_for(filtered_columns.columns, 'WYT_SAC_')]
         for var_col in df_var.columns:
-            scen_suffix = str(var_col[1]).split('_')[-1]
+            scen_suffix = varmatch.scenario_of(var_col)
             wyt_cols = [c for c in filtered_columns.columns if str(c[1]).endswith(scen_suffix)]
             if wyt_cols:
                 df_nan = filtered_columns[wyt_cols[0]].isna()
@@ -242,25 +254,31 @@ def create_subset_unit(df, varname, units, water_year_type=None, month=None):
 
 
 def create_subset_list(df, var_names, water_year_type=None, month=None):
-    filtered_columns = df.columns.get_level_values(1).str.contains('|'.join(var_names))
+    # Exact base match per variable via varmatch (no substring over-match). Callers must
+    # pass bare base names (e.g. "S_SHSTA", "BANKSEC_MAX14DAY", "C_CAA003"), not the old
+    # trailing-underscore/partial forms.
+    filtered_columns = varmatch.mask_for_many(df.columns, var_names)
+    unmatched = [v for v in var_names if not varmatch.mask_for(df.columns, v).any()]
+    if unmatched:
+        _warn_no_match("create_subset_list", f"var_names={unmatched}")
     if water_year_type is not None:
         if month is None:
             raise ValueError("If 'water_year_type' is provided, 'month' must also be provided.")
 
-        wyt_filter = df.columns.get_level_values(1).str.contains('WYT_SAC_')
+        wyt_filter = varmatch.mask_for(df.columns, 'WYT_SAC_')
         wy_filter = df.columns.get_level_values(0).str.contains("WaterYear")
         combined_filter = filtered_columns | wyt_filter | wy_filter
         filtered_df = df.loc[:, combined_filter].copy()
-        df_wyt_filtered = filtered_df.loc[:, filtered_df.columns.get_level_values(1).str.contains('WYT_SAC_') | (
+        df_wyt_filtered = filtered_df.loc[:, varmatch.mask_for(filtered_df.columns, 'WYT_SAC_') | (
                 filtered_df.columns.get_level_values(0) == 'WaterYear')]
         month_values = df_wyt_filtered[df_wyt_filtered.index.month == month].groupby('WaterYear').first()
         df_wyt_filtered = df_wyt_filtered.merge(month_values, left_on='WaterYear', right_index=True, how='left',
                                                 suffixes=('_df', ''))
         filtered_df.update(df_wyt_filtered)
-        df_wyt = filtered_df.loc[:, filtered_df.columns.get_level_values(1).str.contains('WYT_SAC_')]
+        df_wyt = filtered_df.loc[:, varmatch.mask_for(filtered_df.columns, 'WYT_SAC_')]
         filtered_df.loc[:, df_wyt.columns] = df_wyt.map(lambda x: x if x in water_year_type else np.nan)
-        df_var = filtered_df.loc[:, filtered_df.columns.get_level_values(1).str.contains('|'.join(var_names))]
-        df_copy = filtered_df.loc[:, filtered_df.columns.get_level_values(1).str.contains('WYT_SAC_')]
+        df_var = filtered_df.loc[:, varmatch.mask_for_many(filtered_df.columns, var_names)]
+        df_copy = filtered_df.loc[:, varmatch.mask_for(filtered_df.columns, 'WYT_SAC_')]
         for i in range(len(df_var.columns)):
             na = df_copy[df_copy.columns[i]].isna()
             df_var.loc[na, df_var.columns[i]] = np.nan
@@ -497,8 +515,8 @@ def mnth_percentile(df, dss_names, pct, var_name, mnth_num, units="TAF"):
 def annual_totals(df, var_name, units):
     df = create_subset_unit(df, var_name, units)
     annualized_df = pd.DataFrame()
-    var = '_'.join(df.columns[0][1].split('_')[:-1])
-    studies = [col[1].split('_')[-1] for col in df.columns]
+    var = varmatch.base_of(df.columns[0])
+    studies = [varmatch.scenario_of(col) for col in df.columns]
 
     i = 0
     for study in studies:
@@ -650,59 +668,6 @@ def compute_storage_thresholds(df: pd.DataFrame, dss_names: Sequence[str], varia
     return thresholds, threshold_fractions
 
 
-def compute_metrics_suite(df: pd.DataFrame, dss_names: Sequence[str],
-                          variables: Sequence[str]) -> Tuple[Dict[str, pd.DataFrame], List[pd.DataFrame]]:
-
-    metrics: Dict[str, pd.DataFrame] = {}
-    study_list = np.arange(0, len(dss_names))
-
-    for var in variables:
-        if var in ["C_SAC041_", "C_SJR070_", "C_SAC000_", "C_SJR070_", "C_DMC000_TD_", "C_CAA003_TD_", "NDO_",
-                   "D_TOTAL_"]:
-            units = "CFS"
-        elif var == "X2_PRV_KM_":
-            units = "KM"
-        elif var in ["EM_EC_MONTH_", "JP_EC_MONTH"]:
-            units = "UMHOS/CM"
-        else:
-            units = "TAF"
-
-        if var in ["S_RESTOT_NOD_", "S_RESTOT_s"]:
-            metrics[f"Apr_{var}mnth_avg"] = mnth_avg(df, dss_names, var, 4, units)
-            metrics[f"Sept_{var}mnth_avg"] = mnth_avg(df, dss_names, var, 9, units)
-            metrics[f"{var}ann_avg"] = ann_avg(df, dss_names, var, units)
-
-        if var in ["S_SHSTA_", "S_OROVL_", "S_TRNTY_", "S_FOLSM_", "S_MELON_", "S_MLRTN_", "S_SLUIS_SWP",
-                   "S_SLUIS_CVP"]:
-            metrics[f"Apr_{var}_mnth_avg"] = mnth_avg(df, dss_names, var, 4, units)
-            metrics[f"Sept_{var}_mnth_avg"] = mnth_avg(df, dss_names, var, 9, units)
-            metrics[f"Apr{var}_CV"] = compute_cv(df, var, f"Apr{var}_CV", [4], units)
-            metrics[f"Sept_{var}_CV"] = compute_cv(df, var, f"Sept{var}_CV", [9], units)
-
-        if var in ["DEL_SWP_TOTAL_", "DEL_SWP_PMI_", "DEL_SWP_PAG_", "DEL_CVP_TOTAL_", "DEL_CVP_PAG_TOTAL_",
-                   "DEL_CVP_PSCEX_TOTAL_", "DEL_CVP_PRF_TOTAL_", "D_TOTAL_", "NDO_"]:
-            metrics[f"{var}_ann_avg"] = ann_avg(df, dss_names, var, units)
-
-        if var == "X2_PRV_KM_":
-            metrics[f"Fall_{var}_ann_avg"] = ann_avg(df, dss_names, var, units, months=[9, 10, 11]).rename(
-                columns={f"Ann_Avg_{var}{units}": f"Fall_Ann_Avg_{var}{units}"})
-            metrics[f"Spring_{var}_ann_avg"] = ann_avg(df, dss_names, var, units, months=[3, 4, 5]).rename(
-                columns={f"Ann_Avg_{var}{units}": f"Spring_Ann_Avg_{var}{units}"})
-            metrics[f"Fall_{var}_CV"] = compute_cv(df, var, f"Fall_{var}_CV", [9, 10, 11], units)
-            metrics[f"Spring_{var}_CV"] = compute_cv(df, var, f"Spring_{var}_CV", [3, 4, 5], units)
-
-        if var in ["EM_EC_MONTH_", "JP_EC_MONTH"]:
-            metrics[f"Fall_{var}_ann_avg"] = ann_avg(df, dss_names, var, units, months=[9, 10, 11]).rename(
-                columns={f"Ann_Avg_{var}{units}": f"Fall_Ann_Avg_{var}{units}"})
-            metrics[f"Spring_{var}_ann_avg"] = ann_avg(df, dss_names, var, units, months=[3, 4, 5]).rename(
-                columns={f"Ann_Avg_{var}{units}": f"Spring_Ann_Avg_{var}{units}"})
-            metrics[f"Fall_{var}_CV"] = compute_cv(df, var, f"Fall_{var}_CV", [9, 10, 11], units)
-            metrics[f"Spring_{var}_CV"] = compute_cv(df, var, f"Spring_{var}_CV", [3, 4, 5], units)
-
-    metric_frames = list(metrics.values())
-    return metrics, metric_frames
-
-
 def probability_var1_lt_var2_for_scenario(df, var1_name, var2_name, units="CFS", tolerance=1e-6):
 
     df_var1 = create_subset_unit(df, var1_name, units)
@@ -785,17 +750,13 @@ def probability_var1_gte_const_for_scenario(df, var1_name, const, units="CFS"):
 
 
 def create_subset_tucp(df: pd.DataFrame, scenario: int, tucp_var: str, tucp_wy_month_count: int = 1) -> pd.DataFrame:
-    suffix = f"s{int(scenario):04d}"
-    lvl1 = df.columns.get_level_values(1).astype(str)
-
-    name_mask = lvl1.str.contains(tucp_var, regex=False)
-    scen_mask = lvl1.str.endswith(suffix)
-    mask = name_mask & scen_mask
-
-    if mask.sum() == 0:
-        mask = name_mask
-
-    trigger_df = df.loc[:, mask]
+    # Exact base match via varmatch; fall back to any-scenario match of the base
+    # (preserves the original behavior) instead of substring matching.
+    col = varmatch.col_for(df.columns, tucp_var, scenario)
+    if col is not None:
+        trigger_df = df.loc[:, [col]]
+    else:
+        trigger_df = df.loc[:, varmatch.mask_for(df.columns, tucp_var)]
     trigger_series = pd.to_numeric(trigger_df.iloc[:, 0], errors="coerce")
     triggered = trigger_series >= 1
     wy_index = trigger_series.index.year + (trigger_series.index.month >= 10)
