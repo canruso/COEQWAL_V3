@@ -546,7 +546,10 @@ def per_scenario_series(
                 f"(var='{varname}', units='{units}')."
             )
 
-        series = var_df[keep_cols].sum(axis=1)  # Sum subcomponents if there are multiple
+        # min_count=1: an all-NaN row (a period masked out by the WYT/TUCP/month filter)
+        # stays NaN instead of collapsing to 0.0, which corrupted filtered exceedances
+        # (e.g. storage P50/P75/P90 -> 0). Genuine zeros are preserved.
+        series = var_df[keep_cols].sum(axis=1, min_count=1)
         if months is not None:
             series = series[series.index.month.isin(months)]
 
