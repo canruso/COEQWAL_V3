@@ -286,18 +286,18 @@ def create_subset_list(df, var_names, water_year_type=None, month=None):
     return df.loc[:, filtered_columns]
 
 
-def set_index(df, dss_names):
-    scenario_names = []
-    for i in range(len(dss_names)):
-        scenario_names.append(dss_names[i][:5])
-    df.index = scenario_names
-    return df
-
-
 def normalize_index(df: pd.DataFrame) -> pd.DataFrame:
     if df.index.duplicated().any():
         df = df[~df.index.duplicated(keep='first')]
     return df
+
+
+def _scenario_labels(columns):
+    """Row labels derived from the data columns themselves (via varmatch), in the
+    SAME order as the values were computed. Replaces positional ``set_index(dss_names)``
+    labeling, which silently mislabels every row when the dss_names listing order
+    differs from the data's column order (e.g. listing starts at s0154, data at s0002)."""
+    return [varmatch.scenario_of(c) for c in columns]
 
 
 def compute_annual_means(df, var, study_lst=None, units="TAF", months=None):
@@ -455,33 +455,36 @@ def exceedance_metric(df, var, exceedance_percent, vartitle, unit):
 
 
 def ann_avg(df, dss_names, var_name, units="TAF", months=None):
+    subset_cols = create_subset_unit(df, var_name, units).columns
     metrics = []
-    for study_index in np.arange(0, len(dss_names)):
+    for study_index in np.arange(0, len(subset_cols)):
         metric_value = compute_mean(df, var_name, [study_index], units, months=months)
         metrics.append(metric_value)
 
     ann_avg_delta_df = pd.DataFrame(metrics, columns=['Ann_Avg_' + var_name + units])
-    ann_avg_delta_df = set_index(ann_avg_delta_df, dss_names)
+    ann_avg_delta_df.index = _scenario_labels(subset_cols)
     return ann_avg_delta_df
 
 
 def ann_percentile(df, dss_names, pct, var_name, units="TAF"):
-    study_list = np.arange(0, len(dss_names))
+    subset_cols = create_subset_unit(df, var_name, units).columns
+    study_list = np.arange(0, len(subset_cols))
     df_title = 'Percentile_' + var_name + units
     iqr_df = compute_iqr_value(df, pct, var_name, units, df_title, study_list, months=None, annual=True)
-    iqr_df = set_index(iqr_df, dss_names)
+    iqr_df.index = _scenario_labels(subset_cols)
     return iqr_df
 
 
 def mnth_avg(df, dss_names, var_name, mnth_num, units="TAF"):
+    subset_cols = create_subset_unit(df, var_name, units).columns
     metrics = []
-    for study_index in np.arange(0, len(dss_names)):
+    for study_index in np.arange(0, len(subset_cols)):
         metric_value = compute_mean(df, var_name, [study_index], units, months=[mnth_num])
         metrics.append(metric_value)
 
     mnth_str = calendar.month_abbr[mnth_num]
     mnth_avg_df = pd.DataFrame(metrics, columns=[mnth_str + '_Avg_' + var_name + units])
-    mnth_avg_df = set_index(mnth_avg_df, dss_names)
+    mnth_avg_df.index = _scenario_labels(subset_cols)
     return mnth_avg_df
 
 
@@ -504,11 +507,12 @@ def moy_avgs(df, var_name, dss_names, units="TAF"):
 
 
 def mnth_percentile(df, dss_names, pct, var_name, mnth_num, units="TAF"):
-    study_list = np.arange(0, len(dss_names))
+    subset_cols = create_subset_unit(df, var_name, units).columns
+    study_list = np.arange(0, len(subset_cols))
     mnth_str = calendar.month_abbr[mnth_num]
     df_title = mnth_str + '_Percentile_' + var_name + units
     iqr_df = compute_iqr_value(df, pct, var_name, units, df_title, study_list, months=[mnth_num], annual=True)
-    iqr_df = set_index(iqr_df, dss_names)
+    iqr_df.index = _scenario_labels(subset_cols)
     return iqr_df
 
 
@@ -574,10 +578,10 @@ def frequency_hitting_var_const_level(df, dss_names, var_res, var_fldzn, units, 
         exceedance_days = 100 - exceedance_days
 
     exceedance_days = exceedance_days.melt(value_name=vartitle).reset_index(drop=True)[[vartitle]]
-    exceedance_days = set_index(exceedance_days, dss_names)
+    exceedance_days.index = _scenario_labels(multiindex_columns)
 
     exceedance_days_fraction = exceedance_days_fraction.melt(value_name=vartitle).reset_index(drop=True)[[vartitle]]
-    exceedance_days_fraction = set_index(exceedance_days_fraction, dss_names)
+    exceedance_days_fraction.index = _scenario_labels(multiindex_columns)
 
     if threshold is not None:
         return exceedance_days, exceedance_days_fraction, days_within_threshold

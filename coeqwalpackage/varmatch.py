@@ -107,19 +107,24 @@ def _unit_eq(a, b):
 
 def mask_for(columns, var, unit=None):
     """Boolean mask selecting every column belonging to base ``var`` (any scenario),
-    optionally filtered by ``unit``. Exact base match."""
+    optionally filtered by ``unit``. Exact base match. Also accepts an exact full
+    instance name (``"S_SHSTA_s0154"``) to select that single scenario's column --
+    still exact equality, never substring."""
     var = str(var).strip()
     return np.array([
-        (r := parse_column(c)) is not None and r["base"] == var and _unit_eq(r["unit"], unit)
+        (r := parse_column(c)) is not None and _unit_eq(r["unit"], unit)
+        and (r["base"] == var or f"{r['base']}_{r['scenario']}" == var)
         for c in columns
     ])
 
 
 def mask_for_many(columns, vars_, unit=None):
-    """Union mask over several bases (exact). Replaces ``str.contains('|'.join(...))``."""
+    """Union mask over several bases and/or full instance names (exact).
+    Replaces ``str.contains('|'.join(...))``."""
     want = {str(v).strip() for v in vars_}
     return np.array([
-        (r := parse_column(c)) is not None and r["base"] in want and _unit_eq(r["unit"], unit)
+        (r := parse_column(c)) is not None and _unit_eq(r["unit"], unit)
+        and (r["base"] in want or f"{r['base']}_{r['scenario']}" in want)
         for c in columns
     ])
 
