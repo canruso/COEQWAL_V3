@@ -673,7 +673,7 @@ def generate_storage_tier_assignment_matrix(
     df, cdec_df, 
     tiers_output_dir, metrics_output_dir, tiers_output_filename, probabilities_output_filename,
     start_date="1921-10-01",
-    percentiles=[0.25, 0.5, 0.9], tier_thresholds=(0.9, 0.5, 0.2),
+    percentiles=[0.5, 0.33, 0.25], tier_thresholds=(0.75, 0.67, 0.33),
     saveprobs=False, verbose=False, continuous = False
 ):
     """
@@ -773,9 +773,14 @@ def generate_storage_tier_assignment_matrix(
             if april_by_year.empty:
                 continue
     
-            low_thresh = thresholds[percentiles[0]]
+            # This is reversed!
+            # low_thresh = thresholds[percentiles[0]]
+            # mid_thresh = thresholds[percentiles[1]]
+            # high_thresh = thresholds[percentiles[2]]
+            # Should be:
+            high_thresh = thresholds[percentiles[0]]
             mid_thresh = thresholds[percentiles[1]]
-            high_thresh = thresholds[percentiles[2]]
+            low_thresh = thresholds[percentiles[2]]
     
             top = (april_by_year >= high_thresh).sum()
             mid = ((april_by_year >= mid_thresh) &
@@ -830,27 +835,44 @@ def generate_storage_tier_assignment_matrix(
             # ============================================================
             if continuous:
     
+                # if discrete_tier == 1:
+    
+                #     denom = 1 - tt1
+                #     progress = 0 if denom <= 0 else (1 - cumulative_top) / denom
+    
+                # elif discrete_tier == 2:
+    
+                #     denom = tt1 - tt2
+                #     progress = 0 if denom <= 0 else (tt1 - cumulative_mid) / denom
+    
+                # elif discrete_tier == 3:
+    
+                #     denom = tt2 - tt3
+                #     # progress = 0 if denom <= 0 else (tt2 - cumulative_mid) / denom
+                #     progress = 0 if denom <= 0 else (tt2 - cumulative_low) / denom
+    
+                # else:
+    
+                #     # progress = 0 if tt3 <= 0 else (tt3 - cumulative_mid) / tt3
+                #     progress = 0 if tt3 <= 0 else (tt3 - cumulative_low) / tt3
+
                 if discrete_tier == 1:
-    
-                    denom = 1 - tt1
-                    progress = 0 if denom <= 0 else (1 - cumulative_top) / denom
-    
+                    deficit = 1 - cumulative_top
+                    surplus = cumulative_top - tt1
+                    progress = deficit / (deficit + surplus)
                 elif discrete_tier == 2:
-    
-                    denom = tt1 - tt2
-                    progress = 0 if denom <= 0 else (tt1 - cumulative_mid) / denom
-    
-                elif discrete_tier == 3:
-    
-                    denom = tt2 - tt3
-                    # progress = 0 if denom <= 0 else (tt2 - cumulative_mid) / denom
-                    progress = 0 if denom <= 0 else (tt2 - cumulative_low) / denom
-    
+                    deficit = tt1 - cumulative_top
+                    surplus = cumulative_mid - tt2
+                    progress = deficit / (deficit + surplus)
+               	elif discrete_tier == 3:
+                    deficit = tt2 - cumulative_mid
+                    surplus = cumulative_low - tt3
+                    progress = deficit / (deficit + surplus)
                 else:
-    
-                    # progress = 0 if tt3 <= 0 else (tt3 - cumulative_mid) / tt3
-                    progress = 0 if tt3 <= 0 else (tt3 - cumulative_low) / tt3
-    
+                    deficit = tt3 - cumulative_low
+                    surplus = cumulative_low 
+                    progress = deficit / (deficit + surplus)
+
                 # Strict interior clipping
                 progress = np.clip(progress, eps, 1 - eps)
     
@@ -1713,25 +1735,25 @@ def assign_tiers_from_trends(trend_matrix, baseline, output_dir, filename, sever
             elif continuous:
                 if slope >= 0:
                     if slope >= baseline_slope:
-                        print("slope positive, slope >= baseline (" + str(baseline_slope) + ")")
+                        # print("slope positive, slope >= baseline (" + str(baseline_slope) + ")")
                         if baseline_slope >= 0:
                             tier = 1 + (baseline_slope / slope) # problem: what if baseline is negative                            
-                            print("baseline_slope / slope = " + str(baseline_slope / slope) + ", tier = " + str(tier))
+                            # print("baseline_slope / slope = " + str(baseline_slope / slope) + ", tier = " + str(tier))
                         else:
                             tier = 1 + (abs(baseline_slope)/(abs(baseline_slope)-baseline_slope)+slope)
                     else:
-                        print("slope positive, slope < baseline")
+                        # print("slope positive, slope < baseline")
                         tier = 2 + (1 - (slope / baseline_slope)) # seems correct
-                        print("1 - (slope / baseline_slope) = " + str(1 - (slope / baseline_slope)) + ", tier = " + str(tier))
+                        # print("1 - (slope / baseline_slope) = " + str(1 - (slope / baseline_slope)) + ", tier = " + str(tier))
                 else:
                     if slope > severe_decline_threshold:
-                        print("slope negative, slope >= threshold")
+                        # print("slope negative, slope >= threshold")
                         tier = 3 + (slope / severe_decline_threshold) # seems correct
-                        print("slope / severe_decline_threshold = " + str(slope / severe_decline_threshold) + ", tier = " + str(tier))
+                        # print("slope / severe_decline_threshold = " + str(slope / severe_decline_threshold) + ", tier = " + str(tier))
                     else:
-                        print("slope negative, slope < threshold")
+                        # print("slope negative, slope < threshold")
                         tier = max(4.999, 4 + (1 - (severe_decline_threshold / slope))) # seems correct
-                        print("1 - (severe_decline_threshold / slope) = " + str(1 - (severe_decline_threshold / slope)) + ", tier = " + str(tier))
+                        # print("1 - (severe_decline_threshold / slope) = " + str(1 - (severe_decline_threshold / slope)) + ", tier = " + str(tier))
             else:
                 if slope >= 0:
                     diff = slope - baseline_slope
