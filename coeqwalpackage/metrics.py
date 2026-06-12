@@ -930,6 +930,12 @@ def compute_percent_of_capacity(
         raise TypeError("storage_df must have MultiIndex columns")
     if not isinstance(capacity_df.columns, pd.MultiIndex):
         raise TypeError("capacity_df must have MultiIndex columns")
+    if storage_df.shape[1] == 0 or capacity_df.shape[1] == 0:
+        raise ValueError(
+            "compute_percent_of_capacity: empty input "
+            f"(storage {storage_df.shape[1]} cols, capacity {capacity_df.shape[1]} cols) "
+            "- upstream selection matched nothing (check variable names vs exact matcher)."
+        )
 
     lvl = storage_df.columns._get_level_number(var_level)
 
@@ -1012,6 +1018,8 @@ def compute_annual_means_list(
 
     for var in vars:
         subset_df = create_subset_unit(df, var, units)
+        if subset_df.shape[1] == 0:
+            continue  # create_subset_unit already emitted a loud zero-match warning
         subset_df = add_water_year_column(subset_df)
 
         if months is not None:
@@ -1020,6 +1028,12 @@ def compute_annual_means_list(
         ann_mean = subset_df.groupby("WaterYear").mean()
         annual_means.append(ann_mean)
 
+    if not annual_means:
+        raise ValueError(
+            f"compute_annual_means_list: no columns matched any of {list(vars)} "
+            f"with units={units!r}. Variable names must be exact bare bases "
+            f"(e.g. 'S_SHSTA', not 'S_SHSTA_') - check against varmatch."
+        )
     result = pd.concat(annual_means, axis=1)
     return result
 
@@ -1072,6 +1086,12 @@ def compute_cv_scenario_variable(df, var_level="B"):
             "CV": cv
         })
 
+    if not records:
+        raise ValueError(
+            "compute_cv_scenario_variable: input has no '<base>_s####' scenario "
+            "columns - the upstream selection matched nothing (check variable "
+            "names against the exact matcher / zero-match warnings above)."
+        )
     cv_df = (
         pd.DataFrame(records)
         .pivot(index="Scenario", columns="Variable", values="CV")
@@ -1109,6 +1129,12 @@ def freq_and_prob_storage_ge_flood(
         raise TypeError("storage_df must have MultiIndex columns")
     if not isinstance(flood_df.columns, pd.MultiIndex):
         raise TypeError("flood_df must have MultiIndex columns")
+    if storage_df.shape[1] == 0 or flood_df.shape[1] == 0:
+        raise ValueError(
+            "freq_and_prob_storage_ge_flood: empty input "
+            f"(storage {storage_df.shape[1]} cols, flood {flood_df.shape[1]} cols) "
+            "- upstream selection matched nothing (check variable names vs exact matcher)."
+        )
 
     lvl = storage_df.columns._get_level_number(var_level)
     n_records = storage_df.shape[0]
