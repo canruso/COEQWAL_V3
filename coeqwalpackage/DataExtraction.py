@@ -1961,11 +1961,11 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
     
     #%%  Delivery data - convert from CFS to TAF and write out to csvs
     delivs_taf_df = cu.convert_all_cfs_to_taf(delivs_cfs_df)
-
+    
     # preserve MultiIndex column names (auto-match level count)
     if isinstance(delivs_taf_df.columns, pd.MultiIndex):
         delivs_taf_df.columns = delivs_taf_df.columns.set_names(expected_names[:delivs_taf_df.columns.nlevels])
-    
+   
     annual_del_data = []
     for c in delivs_cfs_df.columns:
         # print('Annualizing delivs_cfs_df column')
@@ -1975,15 +1975,11 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         
     annual_del_df = pd.concat(annual_del_data, axis=1)
     annual_del_df.index = annual_del_df.index.year
+    # print("annual_del_df:")
+    # print(annual_del_df.head(1))
 
-    # print("Annual deliveries:")
-    # print(annual_del_df.head(5))
-    
     # mean_annual_del = annual_del_df.mean(axis=0) # caclualte the mean across all years
     mean_annual_del = annual_del_df.mean(axis=0).to_frame().T
-
-    # print("Mean annual deliveries:")
-    # print(mean_annual_del.head(5))
     
     # preserve MultiIndex column names (auto-match level count)
     if isinstance(demands_taf_df.columns, pd.MultiIndex):
@@ -1999,15 +1995,31 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
     annual_dem_df = pd.concat(annual_dem_data, axis=1)
     annual_dem_df.index = annual_dem_df.index.year
     # print("Annual demands:")
-    # print(annual_dem_df.head(5))
+    # print(annual_dem_df.head(1))
 
     # mean_annual_dem = annual_dem_df.mean(axis=0) # caclualte the mean across all years
     mean_annual_dem = annual_dem_df.mean(axis=0).to_frame().T
     # print("Mean annual demands:")
-    # print(mean_annual_dem.head(5))
+    # print(mean_annual_dem.head(1))
 
+    # COMPUTE PERCENTILES
+    # Percentiles 1-100
+    percentiles = np.arange(1, 101)
+    
+    # Convert to quantiles (0.01-1.00)
+    quantiles = percentiles / 100.0
+    
+    # Compute percentiles for each column
+    percentile_dem_df = annual_dem_df.quantile(quantiles)
+    percentile_del_df = annual_del_df.quantile(quantiles)
+    
+    # Replace index with percentile numbers 1-100
+    percentile_dem_df.index = percentiles
+    percentile_dem_df.index.name = "Percentile"   
+    percentile_del_df.index = percentiles
+    percentile_del_df.index.name = "Percentile"   
 
-    return demands_taf_df, delivs_taf_df, annual_dem_df, annual_del_df, mean_annual_dem, mean_annual_del
+    return demands_taf_df, delivs_taf_df, annual_dem_df, annual_del_df, mean_annual_dem, mean_annual_del, percentile_dem_df, percentile_del_df
 
 def fix_sr_leading_zero(col_tuple):
     # col_tuple is like ('IWFM', 'SR1:L1', ...)
