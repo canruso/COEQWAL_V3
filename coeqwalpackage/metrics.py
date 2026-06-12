@@ -1,5 +1,6 @@
 """IMPORTS"""
 import os
+import re
 import sys
 import importlib
 import datetime as dt
@@ -12,6 +13,8 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
+
+from coeqwalpackage import varmatch
 
 # I replace the original read_in_df, read_in_parquet_df, load_metadata_df, and load_metadata_parquet_df to make it shorter.
 def read_in_df(df_path, names_path):
@@ -160,8 +163,20 @@ def add_water_year_column(df):
     return out
 
 
+def _var_col_mask(columns, varname):
+    """Boolean mask selecting ONLY the variable's own total column ``<varname>_s####``
+    per scenario. Excludes longer names that merely start with ``varname`` (e.g.
+    ``S_SHSTALEVEL1DV`` vs ``S_SHSTA``) and the CVP/SWP/N/S breakdown columns, whose
+    base total already equals their sum -- summing them double-counts. Replaces the
+    old substring ``.str.contains(varname)`` match, which inflated storage/flows.
+
+    Delegates to :mod:`coeqwalpackage.varmatch` (the single source of truth for
+    column-name matching); kept as a thin wrapper for existing call sites."""
+    return varmatch.mask_for(columns, varname)
+
+
 def create_subset_var(df, varname, water_year_type=None, month=None):
-    filtered_columns = df.columns.get_level_values(1).str.contains(varname)
+    filtered_columns = _var_col_mask(df.columns, varname)
 
     if water_year_type is not None:
         if month is None:
@@ -179,7 +194,7 @@ def create_subset_var(df, varname, water_year_type=None, month=None):
         filtered_df.update(df_wyt_filtered)
         df_wyt = filtered_df.loc[:, filtered_df.columns.get_level_values(1).str.contains('WYT_SAC_')]
         filtered_df.loc[:, df_wyt.columns] = df_wyt.map(lambda x: x if x in water_year_type else np.nan)
-        df_var = filtered_df.loc[:, filtered_df.columns.get_level_values(1).str.contains(varname)]
+        df_var = filtered_df.loc[:, _var_col_mask(filtered_df.columns, varname)]
         df_copy = filtered_df.loc[:, filtered_df.columns.get_level_values(1).str.contains('WYT_SAC_')]
         for i in range(len(df_var.columns)):
             na = df_copy[df_copy.columns[i]].isna()
@@ -189,7 +204,7 @@ def create_subset_var(df, varname, water_year_type=None, month=None):
 
 
 def create_subset_unit(df, varname, units, water_year_type=None, month=None):
-    var_filter = df.columns.get_level_values(1).str.contains(varname)
+    var_filter = _var_col_mask(df.columns, varname)
     unit_filter = df.columns.get_level_values(6).str.contains(units)
     filtered_columns = var_filter & unit_filter
 
@@ -213,7 +228,7 @@ def create_subset_unit(df, varname, units, water_year_type=None, month=None):
         filtered_columns.update(df_wyt_filtered)
         df_wyt = filtered_columns.loc[:, filtered_columns.columns.get_level_values(1).str.contains('WYT_SAC_')]
         filtered_columns.loc[:, df_wyt.columns] = df_wyt.map(lambda x: x if x in water_year_type else np.nan)
-        df_var = filtered_columns.loc[:, filtered_columns.columns.get_level_values(1).str.contains(varname)]
+        df_var = filtered_columns.loc[:, _var_col_mask(filtered_columns.columns, varname)]
         filtered_columns = filtered_columns.loc[:,
                            filtered_columns.columns.get_level_values(1).str.contains('WYT_SAC_')]
         for var_col in df_var.columns:

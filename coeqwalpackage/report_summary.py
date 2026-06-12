@@ -115,6 +115,7 @@ def _build_summary_prompt(
     scenario_labels: dict[int, str],
     baseline: int,
     scenario_description: str | None = None,
+    set_context: dict | None = None,
 ) -> str:
     """Build the full executive summary prompt."""
 
@@ -127,13 +128,51 @@ def _build_summary_prompt(
     if scenario_description:
         desc_block = f"\nScenario set context (provided by the analyst):\n{scenario_description}\n"
 
+    # Inject rich set context (expectations + questions) if provided
+    context_block = ""
+    schema_extra = ""
+    rules_extra = ""
+    if set_context:
+        from coeqwalpackage.prompts import format_set_context
+        ctx_text = format_set_context(set_context)
+        if ctx_text:
+            context_block = f"\n--- BEGIN COMPARISON CONTEXT ---\n{ctx_text}\n--- END COMPARISON CONTEXT ---\n"
+
+        expectations = set_context.get("expectations", [])
+        questions = set_context.get("questions", [])
+
+        if expectations:
+            schema_extra += """,
+  "expectations_assessment": [
+    {
+      "expectation": "<verbatim from the expectations list above>",
+      "status": "<confirmed | contradicted | mixed | unclear | not_addressed>",
+      "evidence": "<1-2 sentences citing specific findings and scenarios>"
+    }
+  ]"""
+            rules_extra += (
+                '\n- "expectations_assessment" must contain one entry for EACH expectation listed in the comparison context, in order, using the exact expectation text verbatim.'
+            )
+
+        if questions:
+            schema_extra += """,
+  "questions_answered": [
+    {
+      "question": "<verbatim from the questions list above>",
+      "answer": "<direct answer grounded in the findings; cite specific scenarios and numbers>"
+    }
+  ]"""
+            rules_extra += (
+                '\n- "questions_answered" must contain one entry for EACH question listed in the comparison context, in order, using the exact question text verbatim.'
+            )
+
     return f"""You are a senior water resources analyst synthesizing a comprehensive scenario comparison report for the COEQWAL project (California water system modeling with CalSim3).
 
 Below are the complete findings from an automated review of {findings_text.count('**')} plot analyses across multiple variables and sections. Each finding includes an LLM-generated narrative and scenario ranking for a specific variable and plot type.
 
 Scenarios being compared:
 {scenario_table}
-{desc_block}
+{desc_block}{context_block}
 --- BEGIN FINDINGS ---
 {findings_text}
 --- END FINDINGS ---
@@ -153,7 +192,7 @@ Write a structured executive summary as a JSON object with the following schema:
   }},
   "scenario_rankings": {{
     "<scenario_id>": "<1-2 sentence overall assessment of this scenario's performance across all metrics. Include where it excels and where it falls short.>"
-  }}
+  }}{schema_extra}
 }}
 
 Rules:
@@ -161,7 +200,7 @@ Rules:
 - Cite specific numbers and percentages from the findings
 - Flag any contradictions or inconsistencies you notice
 - "unexpected_results" should include genuinely surprising findings, not just normal variation
-- "scenario_rankings" must include ALL non-baseline scenarios
+- "scenario_rankings" must include ALL non-baseline scenarios{rules_extra}
 - Respond with ONLY the JSON object, no markdown fences or surrounding text"""
 
 
@@ -176,6 +215,7 @@ def generate_executive_summary(
     baseline: int,
     *,
     scenario_description: str | None = None,
+    set_context: dict | None = None,
     model: str = "claude-sonnet-4-20250514",
     max_tokens: int = 8192,
     api_key: str | None = None,
@@ -195,6 +235,11 @@ def generate_executive_summary(
         Baseline scenario ID.
     scenario_description : str, optional
         Analyst-provided description of what this scenario set is testing.
+    set_context : dict, optional
+        Rich comparison context from ``review_config.load_set_context()``.
+        When provided, the summary prompt is augmented with domain expert
+        expectations and targeted questions, and the resulting JSON includes
+        ``expectations_assessment`` and ``questions_answered`` fields.
     model : str
         Claude model to use.
     max_tokens : int
@@ -231,6 +276,7 @@ def generate_executive_summary(
     # Build prompt
     prompt = _build_summary_prompt(
         findings_text, scenario_labels, baseline, scenario_description,
+        set_context=set_context,
     )
 
     # Call LLM

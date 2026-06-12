@@ -104,6 +104,14 @@ table.ranking td.rank-num { text-align: center; width: 50px; }
 .exec-section-highlights dt { font-weight: bold; margin-top: 8px; }
 .exec-section-highlights dd { margin: 2px 0 8px 20px; }
 .exec-scenario-assessment td:first-child { font-weight: bold; white-space: nowrap; width: 80px; }
+.exec-expectations td { vertical-align: top; }
+.exec-expectations td:first-child { width: 40%; }
+.exec-expectations td.status-confirmed { color: #1e7e34; font-weight: bold; text-transform: capitalize; }
+.exec-expectations td.status-contradicted { color: #c82333; font-weight: bold; text-transform: capitalize; }
+.exec-expectations td.status-mixed { color: #e0a800; font-weight: bold; text-transform: capitalize; }
+.exec-expectations td.status-unclear, .exec-expectations td.status-not_addressed { color: #6c757d; font-weight: bold; text-transform: capitalize; }
+.exec-questions dt { font-weight: bold; margin-top: 10px; color: #1a5276; }
+.exec-questions dd { margin: 4px 0 10px 20px; }
 
 /* Print */
 @media print {
@@ -176,6 +184,30 @@ table.ranking td.rank-num { text-align: center; width: 50px; }
         {% for sec_name, highlight in executive_summary.section_highlights.items() %}
         <dt>{{ sec_name }}</dt>
         <dd>{{ highlight }}</dd>
+        {% endfor %}
+    </dl>
+    {% endif %}
+
+    {% if executive_summary.expectations_assessment %}
+    <h3>Expectations Assessment</h3>
+    <table class="exec-expectations">
+        <tr><th>Expectation</th><th>Status</th><th>Evidence</th></tr>
+        {% for item in executive_summary.expectations_assessment %}
+        <tr>
+            <td>{{ item.expectation }}</td>
+            <td class="status-{{ item.status }}">{{ item.status }}</td>
+            <td>{{ item.evidence }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% endif %}
+
+    {% if executive_summary.questions_answered %}
+    <h3>Targeted Questions</h3>
+    <dl class="exec-questions">
+        {% for item in executive_summary.questions_answered %}
+        <dt>{{ item.question }}</dt>
+        <dd>{{ item.answer }}</dd>
         {% endfor %}
     </dl>
     {% endif %}

@@ -3,8 +3,8 @@ from __future__ import annotations
 import os
 from collections import defaultdict
 
-from docx import Document
-from docx.shared import Inches
+# python-docx is only needed by the legacy generate_scenario_review_doc()
+# function below. Imported lazily to avoid forcing it as a dependency.
 
 from coeqwalpackage.review_config import (
     build_doc_spec_with_labels,
@@ -39,7 +39,8 @@ def _get_section(varname: str) -> str:
     return "Other"
 
 
-def _add_picture_safe(doc: Document, path: str, width_inches: float, required: bool = True) -> bool:
+def _add_picture_safe(doc, path: str, width_inches: float, required: bool = True) -> bool:
+    from docx.shared import Inches
     if os.path.isfile(path):
         doc.add_picture(path, width=Inches(width_inches))
         return True
@@ -67,6 +68,9 @@ def generate_scenario_review_doc(
         "and anything unexpected.}}"
     ),
 ):
+    from docx import Document
+    from docx.shared import Inches
+
     if not os.path.isdir(plots_base):
         raise FileNotFoundError(f"Plots folder not found: {plots_base}")
 
@@ -204,6 +208,7 @@ def run_batch_review(
     *,
     doc_spec=None,
     scenario_context=None,
+    set_context=None,
     tucp_years=None,
     wyt_wet=None,
     wyt_dry=None,
@@ -243,7 +248,11 @@ def run_batch_review(
         Pre-built doc spec from build_doc_spec_with_labels(). If None, it is
         built dynamically from the plots folder.
     scenario_context : dict or None
-        Optional scenario descriptions passed to build_prompt().
+        Legacy simple {sid: description} mapping passed to build_prompt().
+    set_context : dict or None
+        Rich scenario set context from load_set_context(). Takes precedence
+        over scenario_context. Has keys: description, scenarios, expectations,
+        questions. Injected into every per-plot prompt.
     tucp_years : dict or None
         Mapping of scenario ID -> list of TUCP water years.
     wyt_wet, wyt_dry : list or None
@@ -347,6 +356,7 @@ def run_batch_review(
             baseline=baseline_name,
             scenario_context=scenario_context,
             stats_text=stats_text if stats_text else None,
+            set_context=set_context,
         )
 
         # Call LLM
