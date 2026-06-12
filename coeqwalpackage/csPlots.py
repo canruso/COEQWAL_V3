@@ -1394,7 +1394,14 @@ def annualize(df, on='A-Sep', how='auto-sum', **kwargs):
         # print(f'Column: {c}')
         tmpdict[c] = df.loc[:,c].resample(on).apply(howdict) #[c] #[c] #[c for c in cols]
     
-    df_ann = pnd.concat(tmpdict, axis=1, names=('A','B','C','E','F', 'Type','Units')) #, names=[k for k in tmpdict.keys()])
+    # the next line seems to duplicate the index:
+    # df_ann = pnd.concat(tmpdict, axis=1, names=('A','B','C','E','F', 'Type','Units')) #, names=[k for k in tmpdict.keys()])
+    # print("df_ann:")
+    # print(df_ann.head(1))
+    # try this as a fix:
+    df_ann = pnd.concat(tmpdict.values(), axis=1, names=('A','B','C','E','F', 'Type','Units')) #, names=[k for k in tmpdict.keys()])
+    # print("df_ann after fix:")
+    # print(df_ann.head(1))
     #df_ann = df[cols].resample(on).apply(howdict) #[c for c in cols]
 
     return(df_ann)
