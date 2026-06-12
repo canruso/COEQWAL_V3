@@ -1740,7 +1740,7 @@ def assign_tiers_from_trends(trend_matrix, baseline, output_dir, filename, sever
                             tier = 1 + (baseline_slope / slope) # problem: what if baseline is negative                            
                             # print("baseline_slope / slope = " + str(baseline_slope / slope) + ", tier = " + str(tier))
                         else:
-                            tier = 1 + (abs(baseline_slope)/(abs(baseline_slope)-baseline_slope)+slope)
+                            tier = 1 + (abs(baseline_slope)/(abs(baseline_slope)-baseline_slope)+slope) # Problem: is this not 1 + 0.5 + slope????
                     else:
                         # print("slope positive, slope < baseline")
                         tier = 2 + (1 - (slope / baseline_slope)) # seems correct
@@ -1752,7 +1752,8 @@ def assign_tiers_from_trends(trend_matrix, baseline, output_dir, filename, sever
                         # print("slope / severe_decline_threshold = " + str(slope / severe_decline_threshold) + ", tier = " + str(tier))
                     else:
                         # print("slope negative, slope < threshold")
-                        tier = max(4.999, 4 + (1 - (severe_decline_threshold / slope))) # seems correct
+                        # tier = max(4.999, 4 + (1 - (severe_decline_threshold / slope))) # Problem: tier 4s will always be 4.999
+                        tier = min(4.999, 4 + (1 - (severe_decline_threshold / slope))) # seems correct
                         # print("1 - (severe_decline_threshold / slope) = " + str(1 - (severe_decline_threshold / slope)) + ", tier = " + str(tier))
             else:
                 if slope >= 0:
