@@ -741,174 +741,170 @@ def generate_storage_tier_assignment_matrix(
         continuous=False
     ):
         """
-        Assign storage tiers from CalSim output.
-    
+        Assign storage tiers - v3 two-threshold combined distance (JG 2026-06-12).
+
+        D = (1 - frac_top) + frac_bot is the combined distance from the ideal
+        corner (every April at/above the high bar, never at/below the low bar).
+        Tier cutpoints on the D axis are derived from ``tier_thresholds`` =
+        3 (min_frac_above_high, max_frac_below_low) pairs, best tier first;
+        tier 4 runs from the last cutpoint to the worst feasible corner.
+
         Continuous interpretation:
-    
+
             Tier 1 -> [1,2)
             Tier 2 -> [2,3)
             Tier 3 -> [3,4)
             Tier 4 -> [4,5)
-    
-        Lower value = stronger within tier
-        Higher value = weaker within tier
+
+        Lower value = stronger within tier. The retired v2 logic (three-bar
+        ladder + deficit/surplus continuous) is archived in comments at the
+        bottom of this function.
         """
-    
+
         tier_rows = []
-    
-        tt1, tt2, tt3 = tier_thresholds
         eps = 1e-6
-    
+
+        # with the default standards ((0.50, 0.20), (0.33, 0.25), (0.25, 0.33)):
+        (top1, bot1), (top2, bot2), (top3, bot3) = tier_thresholds
+
+        tier1_cutoff = (1.0 - top1) + bot1 # (1 - 0.50) + 0.20 = 0.70
+        tier2_cutoff = (1.0 - top2) + bot2 # (1 - 0.33) + 0.25 = 0.92
+        tier3_cutoff = (1.0 - top3) + bot3 # (1 - 0.25) + 0.33 = 1.08
+
+        worst_frac_top = 0.0
+        worst_frac_bot = 1.0
+        d_worst = (1.0 - worst_frac_top) + worst_frac_bot   # (1 - 0) + 1 = 2.0  worst feasible D
+
+        tier1_width = tier1_cutoff - 0.0 # 0.70
+        tier2_width = tier2_cutoff - tier1_cutoff # 0.92 - 0.70 = 0.22
+        tier3_width = tier3_cutoff - tier2_cutoff # 1.08 - 0.92 = 0.16
+        tier4_width = d_worst - tier3_cutoff # 2.0 - 1.08 = 0.92
+
+        if min(tier1_width, tier2_width, tier3_width, tier4_width) <= 0:
+            raise ValueError(
+                f"assign_tiers_from_calsim: tier standards {tier_thresholds} yield "
+                f"non-increasing cutoffs ({tier1_cutoff}, {tier2_cutoff}, {tier3_cutoff}).")
+
+        high_thresh = thresholds[percentiles[0]]
+        low_thresh = thresholds[percentiles[-1]]
+
         for col in var_df.columns:
-    
+
             match = re.search(r's\d{4}', col)
             if not match:
                 continue
-    
             sid = match.group(0)
-    
+
             series = var_df[col].copy()
-    
             if not pd.api.types.is_datetime64_any_dtype(series.index):
                 series.index = date_series
-    
+
             april_series = series[series.index.month == 4]
-            april_by_year = april_series.groupby(april_series.index.year).last()
-    
+            april_by_year = april_series.groupby(april_series.index.year).last().dropna()
             if april_by_year.empty:
+                print(f"WARNING [assign_tiers_from_calsim]: {var} {sid}: no April values after dropna - skipped.")
                 continue
-    
-            # This is reversed!
-            # low_thresh = thresholds[percentiles[0]]
-            # mid_thresh = thresholds[percentiles[1]]
-            # high_thresh = thresholds[percentiles[2]]
-            # Should be:
-            high_thresh = thresholds[percentiles[0]]
-            mid_thresh = thresholds[percentiles[1]]
-            low_thresh = thresholds[percentiles[2]]
-    
-            top = (april_by_year >= high_thresh).sum()
-            mid = ((april_by_year >= mid_thresh) &
-                   (april_by_year < high_thresh)).sum()
-            low = ((april_by_year >= low_thresh) &
-                   (april_by_year < mid_thresh)).sum()
-            bot = (april_by_year < low_thresh).sum()
-    
-            total = len(april_by_year)
-    
-            top_frac = top / total
-            mid_frac = mid / total
-            low_frac = low / total
-            bot_frac = bot / total
-    
-            cumulative_top = top_frac
-            cumulative_mid = top_frac + mid_frac
-            cumulative_low = top_frac + mid_frac + low_frac
-            
-            # print(f"\nScenario {sid} ({var}):")
-            # print("top_frac: " + str(top_frac) + ", mid_frac: " + str(mid_frac) + ", low_frac: " + str(low_frac) + "bot_frac: " + str(bot_frac))
-            # print("cumulative_top: " + str(cumulative_top) + ", cumulative_mid: " + str(cumulative_mid) + ", low_frac: " + str(cumulative_low))
-    
+
+            frac_top = (april_by_year >= high_thresh).mean()
+            frac_bot = (april_by_year <= low_thresh).mean()
+            frac_mid = 1.0 - frac_top - frac_bot
+
+            # combined distance from the best corner (frac_top = 1, frac_bot = 0)
+            # combined penalty: shortfall from always-above-high + excess below low
+            # (JG's dist1 = 1 - frac_top + frac_bot)
+            d_combined = (1.0 - frac_top) + frac_bot
+
+            # distance past each tier boundary (negative = boundary not reached)
+            dist1 = d_combined # 1 - frac_top + frac_bot
+            dist2 = d_combined - tier1_cutoff # (0.5 - frac_top) + (frac_bot - 0.20)
+            dist3 = d_combined - tier2_cutoff  # (0.33 - frac_top) + (frac_bot - 0.25)
+            dist4 = d_combined - tier3_cutoff  #(0.25 - frac_top) + (frac_bot - 0.33)
+
+            # first segment that contains D wins; progress = position within that
+            # segment as a fraction of its width (0 = good edge, 1 = bad edge)
+            if dist1 <= tier1_width: # dist1 <= 0.70: at least as good as the T1 standard
+                discrete_tier = 1
+                progress = dist1 / tier1_width
+            elif dist2 <= tier2_width: # dist2 <= 0.22
+                discrete_tier = 2
+                progress = dist2 / tier2_width
+            elif dist3 <= tier3_width: # dist3 <= 0.16
+                discrete_tier = 3
+                progress = dist3 / tier3_width
+            else:
+                discrete_tier = 4
+                progress = dist4 / tier4_width
+
+            if continuous:
+                progress = np.clip(progress, eps, 1 - eps)
+                tier = discrete_tier + progress
+            else:
+                tier = discrete_tier
+
             if verbose:
                 print(f"\nScenario {sid} ({var}):")
                 print(
-                    f"top_frac={top_frac:.3f}, "
-                    f"mid_frac={mid_frac:.3f}, "
-                    f"low_frac={low_frac:.3f}, "
-                    f"bot_frac={bot_frac:.3f}"
+                    f"frac_top={frac_top:.3f}, "
+                    f"frac_bot={frac_bot:.3f}, "
+                    f"frac_mid={frac_mid:.3f}, "
+                    f"D={d_combined:.3f}, "
+                    f"tier={tier:.6f}" if continuous else f"tier={tier}"
                 )
-                print(
-                    f"cum_top={cumulative_top:.3f}, "
-                    f"cum_mid={cumulative_mid:.3f}"
-                )
-    
-            # ============================================================
-            # DISCRETE
-            # ============================================================
-            if cumulative_top >= tt1:
-                discrete_tier = 1
-            elif cumulative_mid >= tt2:
-                discrete_tier = 2
-            # elif cumulative_mid >= tt3:
-            elif cumulative_low >= tt3:
-                discrete_tier = 3
-            else:
-                discrete_tier = 4
-    
-            # ============================================================
-            # CONTINUOUS
-            # ============================================================
-            if continuous:
-    
-                # if discrete_tier == 1:
-    
-                #     denom = 1 - tt1
-                #     progress = 0 if denom <= 0 else (1 - cumulative_top) / denom
-    
-                # elif discrete_tier == 2:
-    
-                #     denom = tt1 - tt2
-                #     progress = 0 if denom <= 0 else (tt1 - cumulative_mid) / denom
-    
-                # elif discrete_tier == 3:
-    
-                #     denom = tt2 - tt3
-                #     # progress = 0 if denom <= 0 else (tt2 - cumulative_mid) / denom
-                #     progress = 0 if denom <= 0 else (tt2 - cumulative_low) / denom
-    
-                # else:
-    
-                #     # progress = 0 if tt3 <= 0 else (tt3 - cumulative_mid) / tt3
-                #     progress = 0 if tt3 <= 0 else (tt3 - cumulative_low) / tt3
 
-                if discrete_tier == 1:
-                    deficit = 1 - cumulative_top
-                    surplus = cumulative_top - tt1
-                    progress = deficit / (deficit + surplus)
-                elif discrete_tier == 2:
-                    deficit = tt1 - cumulative_top
-                    surplus = cumulative_mid - tt2
-                    progress = deficit / (deficit + surplus)
-               	elif discrete_tier == 3:
-                    deficit = tt2 - cumulative_mid
-                    surplus = cumulative_low - tt3
-                    progress = deficit / (deficit + surplus)
-                else:
-                    deficit = tt3 - cumulative_low
-                    surplus = cumulative_low 
-                    progress = deficit / (deficit + surplus)
-
-                # Strict interior clipping
-                progress = np.clip(progress, eps, 1 - eps)
-    
-                tier = discrete_tier + progress
-    
-                if verbose:
-                    print(
-                        f"discrete={discrete_tier}, "
-                        f"progress={progress:.6f}, "
-                        f"tier={tier:.6f}"
-                    )
-    
-            else:
-                tier = discrete_tier
-    
-            # print("progress: " + str(progress) + ", tier: " + str(tier))
-            
             tier_rows.append({
                 "Scenario": sid,
                 "Variable": var,
-                "TopProb": round(top_frac, 3),
-                "MidProb": round(mid_frac, 3),
-                "LowProb": round(low_frac, 3),
-                "BotProb": round(bot_frac, 3),
+                "FracTop": frac_top,
+                "FracBot": frac_bot,
+                "FracMid": frac_mid,
                 "StorageTier": tier
             })
-    
+
         return pd.DataFrame(tier_rows).drop_duplicates(
             subset=["Scenario", "Variable"]
         )
-    
+
+        # ================================================================
+        # v2 reference (retired 2026-06-13): three-bar ladder + deficit/surplus
+        # ================================================================
+        # tt1, tt2, tt3 = tier_thresholds            # were 3 singles (0.75, 0.67, 0.33)
+        # high_thresh = thresholds[percentiles[0]]
+        # mid_thresh = thresholds[percentiles[1]]
+        # low_thresh = thresholds[percentiles[2]]
+        #
+        # top = (april_by_year >= high_thresh).sum()
+        # mid = ((april_by_year >= mid_thresh) & (april_by_year < high_thresh)).sum()
+        # low = ((april_by_year >= low_thresh) & (april_by_year < mid_thresh)).sum()
+        # bot = (april_by_year < low_thresh).sum()
+        # total = len(april_by_year)
+        # top_frac, mid_frac, low_frac, bot_frac = top/total, mid/total, low/total, bot/total
+        # cumulative_top = top_frac
+        # cumulative_mid = top_frac + mid_frac
+        # cumulative_low = top_frac + mid_frac + low_frac
+        #
+        # DISCRETE:
+        # if cumulative_top >= tt1:      discrete_tier = 1
+        # elif cumulative_mid >= tt2:    discrete_tier = 2
+        # elif cumulative_low >= tt3:    discrete_tier = 3
+        # else:                          discrete_tier = 4
+        #
+        # CONTINUOUS (deficit/surplus, supervisor-approved 2026-06-11):
+        # if discrete_tier == 1:
+        #     deficit = 1 - cumulative_top
+        #     surplus = cumulative_top - tt1
+        # elif discrete_tier == 2:
+        #     deficit = tt1 - cumulative_top
+        #     surplus = cumulative_mid - tt2
+        # elif discrete_tier == 3:
+        #     deficit = tt2 - cumulative_mid
+        #     surplus = cumulative_low - tt3
+        # else:
+        #     deficit = tt3 - cumulative_low
+        #     surplus = cumulative_low
+        # progress = deficit / (deficit + surplus)
+        # progress = np.clip(progress, eps, 1 - eps)
+        # tier = discrete_tier + progress
+
     try:
         base_model_dir = find_calsim_model_root()
     except FileNotFoundError as e:
@@ -952,10 +948,9 @@ def generate_storage_tier_assignment_matrix(
 
             for _, r in tier_df.iterrows():
                 sid = r["Scenario"]
-                prob_matrix.loc[sid, f"{label}_TopProb"] = r["TopProb"]
-                prob_matrix.loc[sid, f"{label}_MidProb"] = r["MidProb"]
-                prob_matrix.loc[sid, f"{label}_LowProb"] = r["LowProb"]
-                prob_matrix.loc[sid, f"{label}_BotProb"] = r["BotProb"]
+                prob_matrix.loc[sid, f"{label}_FracTop"] = r["FracTop"]
+                prob_matrix.loc[sid, f"{label}_FracBot"] = r["FracBot"]
+                prob_matrix.loc[sid, f"{label}_FracMid"] = r["FracMid"]
                 tier_matrix.loc[sid, f"{label}_Tier"] = r["StorageTier"]
 
         except Exception as e:
