@@ -1882,10 +1882,10 @@ def assign_tiers_from_trends(trend_matrix, baseline, output_dir, filename, sever
                         if baseline_slope >= 0:
                             tier = 1 + (baseline_slope / slope) # problem: what if baseline is negative
                             # Example to comare with below
-                            slope = 1.5, baseline slope = 0.5
-                            1 + 0.5 / 1.5 = 1.33
-                            slope = 2, baseline slope = 0.5
-                            1 + 0.5 / 2 = 1.25
+                            # slope = 1.5, baseline slope = 0.5
+                            # 1 + 0.5 / 1.5 = 1.33
+                            # slope = 2, baseline slope = 0.5
+                            # 1 + 0.5 / 2 = 1.25
                             # print("baseline_slope / slope = " + str(baseline_slope / slope) + ", tier = " + str(tier))
                         else:
                             # tier = 1 + (abs(baseline_slope)/(abs(baseline_slope)-baseline_slope)+slope) # Problem: is this not 1 + 0.5 + slope????
