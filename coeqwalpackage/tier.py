@@ -712,13 +712,22 @@ def generate_storage_tier_assignment_matrix(
         df_data["STORAGE"] = pd.to_numeric(df_data[storage_col], errors="coerce")
         df_data = df_data.dropna(subset=["STORAGE"])
         return df_data[["DATE", "STORAGE"]]
-
-    def extract_historical_thresholds(df, percentiles):
-        may = df[df["DATE"].dt.month == 5]
-        may_1 = may.groupby(may["DATE"].dt.year).first()
-        thresholds = may_1["STORAGE"].quantile(percentiles)
-        return thresholds / 1000  # Convert AF to TAF
-
+    # RETIRED 061726
+    # def extract_historical_thresholds(df, percentiles):
+    #     may = df[df["DATE"].dt.month == 5]
+    #     may_1 = may.groupby(may["DATE"].dt.year).first()
+    #     thresholds = may_1["STORAGE"].quantile(percentiles)
+    #     return thresholds / 1000  # Convert AF to TAF
+        
+    def extract_historical_thresholds(df, percentiles, start_year=None, end_year=None):
+        apr = df[df["DATE"].dt.month == 4]
+        if start_year is not None:
+            apr = apr[apr["DATE"].dt.year >= start_year]
+        if end_year is not None:
+            apr = apr[apr["DATE"].dt.year <= end_year]
+        apr_by_year = apr.groupby(apr["DATE"].dt.year).first()
+        return apr_by_year["STORAGE"].quantile(percentiles) / 1000 # AF to TAF
+        
     def extract_variable_by_scenario(df, variable):
         return df[
             [col for col in df.columns
@@ -998,13 +1007,13 @@ def generate_storage_tier_assignment_matrix(
     
             # first segment that contains D wins; progress = position within that
             # segment as a fraction of its width (0 = good edge, 1 = bad edge)
-            if dist1 <= tier1_width: # dist1 <= 0.70: at least as good as the T1 standard
+            if dist1 <= tier1_width + eps: # dist1 <= 0.70: at least as good as the T1 standard
                 discrete_tier = 1
                 progress = dist1 / tier1_width
-            elif dist2 <= tier2_width: # dist2 <= 0.22
+            elif dist2 <= tier2_width + eps: # dist2 <= 0.22
                 discrete_tier = 2
                 progress = dist2 / tier2_width
-            elif dist3 <= tier3_width: # dist3 <= 0.16
+            elif dist3 <= tier3_width + eps: # dist3 <= 0.16
                 discrete_tier = 3
                 progress = dist3 / tier3_width
             else:
@@ -1067,7 +1076,10 @@ def generate_storage_tier_assignment_matrix(
         try:
             hist_path = os.path.join(hist_data_dir, file)
             hist_df = load_historical_storage_csv(hist_path)
-            thresholds = extract_historical_thresholds(hist_df, percentiles)
+            # Entire record:
+            # thresholds = extract_historical_thresholds(hist_df, percentiles)
+            # Alternative:
+            thresholds = extract_historical_thresholds(hist_df, percentiles, start_year = 1990, end_year = 2024)
             if verbose:
                 print(f"  ↳ Historical thresholds: {thresholds.to_dict()}")
 
