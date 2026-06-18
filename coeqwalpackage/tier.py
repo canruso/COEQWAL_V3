@@ -674,7 +674,7 @@ def generate_storage_tier_assignment_matrix(
     tiers_output_dir, metrics_output_dir, tiers_output_filename, probabilities_output_filename,
     start_date="1921-10-01",
     percentiles=[0.5, 0.33, 0.25], tier_thresholds=(0.75, 0.67, 0.33),
-    saveprobs=False, verbose=False, continuous = False
+    saveprobs=False, verbose=False, continuous = False, DropScenarios = []
 ):
     """
     Generate tier assignment matrix for reservoir storage.
@@ -1113,6 +1113,12 @@ def generate_storage_tier_assignment_matrix(
 
     tier_matrix.index.name = "Scenario"
     prob_matrix.index.name = "Scenario"
+
+    # DROP UNWANTED SCENARIOS            
+    # Only drop if the list contains items
+    if DropScenarios:
+        tier_matrix = tier_matrix.drop(DropScenarios, errors='ignore')
+        prob_matrix = prob_matrix.drop(DropScenarios, errors='ignore')
 
     if verbose:
         print("tier_matrix:")
@@ -1869,7 +1875,7 @@ def compute_wba_trends(
 
 
 # Assign groundwater storage tiers based on trends
-def assign_tiers_from_trends(trend_matrix, baseline, output_dir, filename, severe_decline_threshold=-0.015, continuous = False):
+def assign_tiers_from_trends(trend_matrix, baseline, output_dir, filename, severe_decline_threshold=-0.015, continuous = False, DropScenarios = []):
     if baseline not in trend_matrix.index:
         raise ValueError(f"Baseline scenario {baseline} not found in trend_matrix")
 
@@ -2018,6 +2024,11 @@ def assign_tiers_from_trends(trend_matrix, baseline, output_dir, filename, sever
                     tier = 4
             
             tier_matrix.loc[scenario, wba_col] = tier
+            
+    # DROP UNWANTED SCENARIOS            
+    # Only drop if the list contains items
+    if DropScenarios:
+        tier_matrix = tier_matrix.drop(DropScenarios, errors='ignore')
 
     out_path = os.path.join(output_dir, filename)
     tier_matrix.to_csv(out_path)
