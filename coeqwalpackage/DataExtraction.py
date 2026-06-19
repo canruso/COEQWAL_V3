@@ -238,7 +238,18 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         df[('MANUAL-ADD','S_OROVLLEVEL6DV','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_OROVLLEVEL6DV_monthly_taf_values
         S_MELONLEVEL5DV_monthly_taf_values = 2420
         df[('MANUAL-ADD','S_MELONLEVEL5DV','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_MELONLEVEL5DV_monthly_taf_values
-    
+        # New adds
+        S_NBLDBLEVEL6_monthly_taf_values = 966
+        df[('MANUAL-ADD','S_NBLDBLEVEL6','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_FOLSMLEVEL6_monthly_taf_values
+        S_HNSLYLEVEL5_monthly_taf_values = 90
+        df[('MANUAL-ADD','S_HNSLYLEVEL5','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_FOLSMLEVEL6_monthly_taf_values
+        S_MCLRELEVEL5_monthly_taf_values = 1024
+        df[('MANUAL-ADD','S_MCLRELEVEL5','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_FOLSMLEVEL6_monthly_taf_values
+        S_NHGANLEVEL5_monthly_taf_values = 325
+        df[('MANUAL-ADD','S_NHGANLEVEL5','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_FOLSMLEVEL6_monthly_taf_values
+        S_PEDROLEVEL5_monthly_taf_values = 2030
+        df[('MANUAL-ADD','S_PEDROLEVEL5','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_FOLSMLEVEL6_monthly_taf_values
+        
     # create aggregate variables using add_combined_column_if_exists
 
     if add_nod_storage:
@@ -451,7 +462,7 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
     return df
 
 
-def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_datetime, max_datetime, addsl=True, addres = True, addpump = True, adddelcvp = True, adddelcvpag = True, addcvpscex = True, addcvpprf = True, adddelcvpswp = True, add_nod_storage = True, add_sod_storage = True, add_del_nod_ag = True, add_del_nod_mi = True, add_del_sod_mi = True, add_del_sod_ag = True, add_total_exports = True, add_del_swp_total = True, add_awoann_xa = True):
+def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_datetime, max_datetime, addsl=True, addres = True, addpump = True, adddelcvp = True, adddelcvpag = True, addcvpscex = True, addcvpprf = True, adddelcvpswp = True, add_nod_storage = True, add_sod_storage = True, add_del_nod_ag = True, add_del_nod_mi = True, add_del_sod_mi = True, add_del_sod_ag = True, add_total_exports = True, add_del_swp_total = True, add_awoann_xa = True, manual_add = True):
     dvar_list = []
     combined_df = pd.DataFrame()
     
@@ -486,15 +497,27 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
 
         df = thiscs3.DVdata.DVtsDF.copy(deep=True)
 
-        # create manual add column for missing constant top levels
-        S_FOLSMLEVEL6_monthly_taf_values = 967
-        df[('MANUAL-ADD','S_FOLSMLEVEL6DV','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_FOLSMLEVEL6_monthly_taf_values
-        S_MLRTNLEVEL5_monthly_taf_values = 524
-        df[('MANUAL-ADD','S_MLRTNLEVEL5DV','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_MLRTNLEVEL5_monthly_taf_values
-        S_OROVLLEVEL6DV_monthly_taf_values = 3424.8
-        df[('MANUAL-ADD','S_OROVLLEVEL6DV ','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_OROVLLEVEL6DV_monthly_taf_values
-        S_MELONLEVEL5DV_monthly_taf_values = 2420
-        df[('MANUAL-ADD','S_MELONLEVEL5DV ','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_MELONLEVEL5DV_monthly_taf_values
+        if manual_add:
+            # create manual add column for missing constant top levels
+            S_FOLSMLEVEL6_monthly_taf_values = 967
+            df[('MANUAL-ADD','S_FOLSMLEVEL6DV','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_FOLSMLEVEL6_monthly_taf_values
+            S_MLRTNLEVEL5_monthly_taf_values = 524
+            df[('MANUAL-ADD','S_MLRTNLEVEL5DV','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_MLRTNLEVEL5_monthly_taf_values
+            S_OROVLLEVEL6DV_monthly_taf_values = 3424.8
+            df[('MANUAL-ADD','S_OROVLLEVEL6DV ','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_OROVLLEVEL6DV_monthly_taf_values
+            S_MELONLEVEL5DV_monthly_taf_values = 2420
+            df[('MANUAL-ADD','S_MELONLEVEL5DV ','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_MELONLEVEL5DV_monthly_taf_values
+            # New adds
+            S_NBLDBLEVEL6_monthly_taf_values = 966
+            df[('MANUAL-ADD','S_NBLDBLEVEL6','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_FOLSMLEVEL6_monthly_taf_values
+            S_HNSLYLEVEL5_monthly_taf_values = 90
+            df[('MANUAL-ADD','S_HNSLYLEVEL5','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_FOLSMLEVEL6_monthly_taf_values
+            S_MCLRELEVEL5_monthly_taf_values = 1024
+            df[('MANUAL-ADD','S_MCLRELEVEL5','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_FOLSMLEVEL6_monthly_taf_values
+            S_NHGANLEVEL5_monthly_taf_values = 325
+            df[('MANUAL-ADD','S_NHGANLEVEL5','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_FOLSMLEVEL6_monthly_taf_values
+            S_PEDROLEVEL5_monthly_taf_values = 2030
+            df[('MANUAL-ADD','S_PEDROLEVEL5','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_FOLSMLEVEL6_monthly_taf_values
         
         # create aggregate variables using add_combined_column_if_exists
 
