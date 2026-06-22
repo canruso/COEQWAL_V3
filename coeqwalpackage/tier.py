@@ -1496,6 +1496,7 @@ def build_gw_timeseries(
     start_year: int,
     detaw_area_acres: Optional[float] = None,
     use_total_wba_acres_for_detaw: bool = True,
+    use_cv2sim = False
 ) -> tuple:
     """
     Build FT and AF timeseries from GW data.
@@ -1635,35 +1636,36 @@ def build_gw_timeseries(
             ft_map[col_name] = summed / detaw_area
 
     # Add s0000 baseline from storage file
-    storage_df = pd.read_csv(wba_storage_csv_path, index_col=0, parse_dates=True)
-    wba_df["WBA_ID_norm"] = wba_df["WBA_ID"].apply(normalize_id)
-    acres_map = (
-        wba_df[["WBA_ID_norm", "GIS_Acres"]]
-        .dropna()
-        .drop_duplicates(subset=["WBA_ID_norm"])
-        .set_index("WBA_ID_norm")["GIS_Acres"]
-        .astype("float64")
-        .to_dict()
-    )
+    if use_cv2sim:
+        storage_df = pd.read_csv(wba_storage_csv_path, index_col=0, parse_dates=True)
+        wba_df["WBA_ID_norm"] = wba_df["WBA_ID"].apply(normalize_id)
+        acres_map = (
+            wba_df[["WBA_ID_norm", "GIS_Acres"]]
+            .dropna()
+            .drop_duplicates(subset=["WBA_ID_norm"])
+            .set_index("WBA_ID_norm")["GIS_Acres"]
+            .astype("float64")
+            .to_dict()
+        )
 
-    for raw_col in storage_df.columns:
-        norm = normalize_storage_col(raw_col)
-        if norm is None:
-            continue
-
-        af_series = pd.to_numeric(storage_df[raw_col], errors="coerce")
-
-        if norm == "DETAW":
-            ft_map["DETAW_s0000"] = af_series / detaw_area
-            af_map["DETAW_s0000"] = af_series
-        else:
-            if norm not in acres_map:
+        for raw_col in storage_df.columns:
+            norm = normalize_storage_col(raw_col)
+            if norm is None:
                 continue
-            acres = float(acres_map[norm])
-            if acres <= 0.0:
-                continue
-            ft_map[f"WBA{norm}_s0000"] = af_series / acres
-            af_map[f"WBA{norm}_s0000"] = af_series
+    
+            af_series = pd.to_numeric(storage_df[raw_col], errors="coerce")
+    
+            if norm == "DETAW":
+                ft_map["DETAW_s0000"] = af_series / detaw_area
+                af_map["DETAW_s0000"] = af_series
+            else:
+                if norm not in acres_map:
+                    continue
+                acres = float(acres_map[norm])
+                if acres <= 0.0:
+                    continue
+                ft_map[f"WBA{norm}_s0000"] = af_series / acres
+                af_map[f"WBA{norm}_s0000"] = af_series
 
     # Combine into DataFrames
     ft_monthly = pd.concat(ft_map, axis=1).loc[window_start:window_end].sort_index(axis=1)
