@@ -194,7 +194,7 @@ CREATE DATASETS ACROSS STUDIES
 (Aux functions to read and process studies (for single and multiple studies). Note: contain options to create hard-coded additional compound variables (if more are needed, add to these codes))
 """
 
-def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, addsl=True, addres = True, addpump = True, adddelcvp = True, adddelcvpag = True, addcvpscex = True, addcvpprf = True, adddelcvpswp = True, add_nod_storage = True, add_sod_storage = True, add_del_nod_ag = True, add_del_nod_mi = True, add_del_sod_mi = True, add_del_sod_ag = True, add_total_exports = True, add_del_swp_total = True, add_awoann_xa = True, manual_add = True):
+def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, adddelcvp = True, adddelcvpag = True, addcvpscex = True, addcvpprf = True, adddelcvpswp = True, add_total_storage = True, add_nod_storage = True, add_sod_storage = True, add_del_nod_ag = True, add_del_nod_mi = True, add_del_sod_mi = True, add_del_sod_ag = True, add_total_exports = True, add_del_swp_total = True, manual_add = True):
     dvar_list = []
     combined_df = pd.DataFrame()
     
@@ -252,6 +252,27 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         
     # create aggregate variables using add_combined_column_if_exists
 
+    if add_total_storage:
+        add_combined_column_if_exists(
+            df,
+            target_col=('CALCULATED', 'TOTAL_STORAGE', 'STORAGE-CALC', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+            add_cols=[
+                ('CALSIM', 'S_TRNTY', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                ('CALSIM', 'S_SHSTA', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                ('CALSIM', 'S_OROVL', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                ('CALSIM', 'S_FOLSM', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                ('CALSIM', 'S_NBLDB', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                ('CALSIM', 'S_SLUIS_CVP', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                ('CALSIM', 'S_SLUIS_SWP', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                ('CALSIM', 'S_MELON', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                ('CALSIM', 'S_NHGAN', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                ('CALSIM', 'S_MLRTN', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                ('CALSIM', 'S_PEDRO', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                ('CALSIM', 'S_MCLRE', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                ('CALSIM', 'S_HNSLY', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF')
+            ]
+        )
+        
     if add_nod_storage:
         add_combined_column_if_exists(
             df,
@@ -344,49 +365,49 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
             ]
         )
     
-    if addsl:
-        add_combined_column_if_exists(
-            df,
-            target_col=('CALCULATED', 'S_SLTOT', 'STORAGE-CALC', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
-            add_cols=[
-                ('CALSIM', 'S_SLUIS_CVP', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
-                ('CALSIM', 'S_SLUIS_SWP', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF')
-            ]
-        )
+    # if addsl:
+    #     add_combined_column_if_exists(
+    #         df,
+    #         target_col=('CALCULATED', 'S_SLTOT', 'STORAGE-CALC', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+    #         add_cols=[
+    #             ('CALSIM', 'S_SLUIS_CVP', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+    #             ('CALSIM', 'S_SLUIS_SWP', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF')
+    #         ]
+    #     )
     
-    if addpump:
-        add_combined_column_if_exists(
-            df,
-            target_col=('CALCULATED', 'D_TOTAL', 'CHANNEL-CALC', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-            add_cols=[
-                ('CALSIM', 'C_DMC000', 'CHANNEL', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-                ('CALSIM', 'C_CAA003', 'CHANNEL', '1MON', 'L2020A', 'PER-AVER', 'CFS')
-            ]
-        )
+    # if addpump:
+    #     add_combined_column_if_exists(
+    #         df,
+    #         target_col=('CALCULATED', 'D_TOTAL', 'CHANNEL-CALC', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+    #         add_cols=[
+    #             ('CALSIM', 'C_DMC000', 'CHANNEL', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+    #             ('CALSIM', 'C_CAA003', 'CHANNEL', '1MON', 'L2020A', 'PER-AVER', 'CFS')
+    #         ]
+    #     )
     
-    if addres:
-        add_combined_column_if_exists(
-            df,
-            target_col=('CALCULATED', 'S_RESTOT', 'STORAGE-CALC', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
-            add_cols=[
-                ('CALSIM', 'S_OROVL', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
-                ('CALSIM', 'S_MELON', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
-                ('CALSIM', 'S_SHSTA', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
-                ('CALSIM', 'S_MLRTN', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
-                ('CALSIM', 'S_FOLSM', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
-                ('CALSIM', 'S_TRNTY', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF')
-            ]
-        )
-        add_combined_column_if_exists(
-            df,
-            target_col=('CALCULATED', 'S_RESTOT_NOD', 'STORAGE-CALC', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
-            add_cols=[
-                ('CALSIM', 'S_OROVL', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
-                ('CALSIM', 'S_SHSTA', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
-                ('CALSIM', 'S_TRNTY', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
-                ('CALSIM', 'S_FOLSM', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF')
-            ]
-        )
+    # if addres:
+    #     add_combined_column_if_exists(
+    #         df,
+    #         target_col=('CALCULATED', 'S_RESTOT', 'STORAGE-CALC', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+    #         add_cols=[
+    #             ('CALSIM', 'S_OROVL', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+    #             ('CALSIM', 'S_MELON', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+    #             ('CALSIM', 'S_SHSTA', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+    #             ('CALSIM', 'S_MLRTN', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+    #             ('CALSIM', 'S_FOLSM', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+    #             ('CALSIM', 'S_TRNTY', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF')
+    #         ]
+    #     )
+    #     add_combined_column_if_exists(
+    #         df,
+    #         target_col=('CALCULATED', 'S_RESTOT_NOD', 'STORAGE-CALC', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+    #         add_cols=[
+    #             ('CALSIM', 'S_OROVL', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+    #             ('CALSIM', 'S_SHSTA', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+    #             ('CALSIM', 'S_TRNTY', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+    #             ('CALSIM', 'S_FOLSM', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF')
+    #         ]
+    #     )
     
     if adddelcvp:
         add_combined_column_if_exists(
@@ -440,18 +461,18 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
             ]
         )
     
-    if add_awoann_xa:
-        add_combined_column_if_exists(
-            df,
-            target_col=('CALCULATED', 'AWOANN_ALL_DV', 'ANNUAL-APPLIED-WATER-CALC', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
-            add_cols=[
-                ('CALSIM', 'AWOANN_64_XADV', 'ANNUAL-APPLIED-WATER', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
-                ('CALSIM', 'AWOANN_72_XA1DV', 'ANNUAL-APPLIED-WATER', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
-                ('CALSIM', 'AWOANN_72_XA2DV', 'ANNUAL-APPLIED-WATER', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
-                ('CALSIM', 'AWOANN_72_XA3DV', 'ANNUAL-APPLIED-WATER', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
-                ('CALSIM', 'AWOANN_73_XADV', 'ANNUAL-APPLIED-WATER', '1MON', 'L2020A', 'PER-AVER', 'TAF')
-            ]
-        )
+    # if add_awoann_xa:
+    #     add_combined_column_if_exists(
+    #         df,
+    #         target_col=('CALCULATED', 'AWOANN_ALL_DV', 'ANNUAL-APPLIED-WATER-CALC', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+    #         add_cols=[
+    #             ('CALSIM', 'AWOANN_64_XADV', 'ANNUAL-APPLIED-WATER', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+    #             ('CALSIM', 'AWOANN_72_XA1DV', 'ANNUAL-APPLIED-WATER', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+    #             ('CALSIM', 'AWOANN_72_XA2DV', 'ANNUAL-APPLIED-WATER', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+    #             ('CALSIM', 'AWOANN_72_XA3DV', 'ANNUAL-APPLIED-WATER', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+    #             ('CALSIM', 'AWOANN_73_XADV', 'ANNUAL-APPLIED-WATER', '1MON', 'L2020A', 'PER-AVER', 'TAF')
+    #         ]
+    #     )
 
     
     new_columns = [(col[0], col[1], *col[2:]) if len(col) > 1 else (col[0], '') for col in df.columns]
@@ -462,7 +483,7 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
     return df
 
 
-def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_datetime, max_datetime, addsl=True, addres = True, addpump = True, adddelcvp = True, adddelcvpag = True, addcvpscex = True, addcvpprf = True, adddelcvpswp = True, add_nod_storage = True, add_sod_storage = True, add_del_nod_ag = True, add_del_nod_mi = True, add_del_sod_mi = True, add_del_sod_ag = True, add_total_exports = True, add_del_swp_total = True, add_awoann_xa = True, manual_add = True):
+def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_datetime, max_datetime, adddelcvp = True, adddelcvpag = True, addcvpscex = True, addcvpprf = True, adddelcvpswp = True, add_total_storage = True, add_nod_storage = True, add_sod_storage = True, add_del_nod_ag = True, add_del_nod_mi = True, add_del_sod_mi = True, add_del_sod_ag = True, add_total_exports = True, add_del_swp_total = True, add_awoann_xa = True, manual_add = True):
     dvar_list = []
     combined_df = pd.DataFrame()
     
@@ -520,6 +541,28 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             df[('MANUAL-ADD','S_PEDROLEVEL5','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_FOLSMLEVEL6_monthly_taf_values
         
         # create aggregate variables using add_combined_column_if_exists
+
+        if add_total_storage:
+            add_combined_column_if_exists(
+                df,
+                target_col=('CALCULATED', 'TOTAL_STORAGE', 'STORAGE-CALC', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                add_cols=[
+                    ('CALSIM', 'S_TRNTY', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                    ('CALSIM', 'S_SHSTA', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                    ('CALSIM', 'S_OROVL', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                    ('CALSIM', 'S_FOLSM', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                    ('CALSIM', 'S_NBLDB', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                    ('CALSIM', 'S_SLUIS_CVP', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                    ('CALSIM', 'S_SLUIS_SWP', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                    ('CALSIM', 'S_MELON', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                    ('CALSIM', 'S_NHGAN', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                    ('CALSIM', 'S_MLRTN', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                    ('CALSIM', 'S_PEDRO', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                    ('CALSIM', 'S_MCLRE', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF'),
+                    ('CALSIM', 'S_HNSLY', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF')
+                ]
+            )
+        
 
         # --- NOD Storage ---
         if add_nod_storage:
@@ -621,53 +664,53 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
                 ]
             )
         
-        # --- SL Total ---
-        if addsl:
-            add_combined_column_if_exists(
-                df,
-                ('CALCULATED','S_SLTOT','STORAGE-CALC','1MON','L2020A','PER-AVER','TAF'),
-                add_cols=[
-                    ('CALSIM','S_SLUIS_CVP','STORAGE','1MON','L2020A','PER-AVER','TAF'),
-                    ('CALSIM','S_SLUIS_SWP','STORAGE','1MON','L2020A','PER-AVER','TAF'),
-                ]
-            )
+        # # --- SL Total ---
+        # if addsl:
+        #     add_combined_column_if_exists(
+        #         df,
+        #         ('CALCULATED','S_SLTOT','STORAGE-CALC','1MON','L2020A','PER-AVER','TAF'),
+        #         add_cols=[
+        #             ('CALSIM','S_SLUIS_CVP','STORAGE','1MON','L2020A','PER-AVER','TAF'),
+        #             ('CALSIM','S_SLUIS_SWP','STORAGE','1MON','L2020A','PER-AVER','TAF'),
+        #         ]
+        #     )
         
-        # --- Pumping Total ---
-        if addpump:
-            add_combined_column_if_exists(
-                df,
-                ('CALCULATED','D_TOTAL','CHANNEL-CALC','1MON','L2020A','PER-AVER','CFS'),
-                add_cols=[
-                    ('CALSIM','C_DMC000','CHANNEL','1MON','L2020A','PER-AVER','CFS'),
-                    ('CALSIM','C_CAA003','CHANNEL','1MON','L2020A','PER-AVER','CFS'),
-                ]
-            )
+        # # --- Pumping Total ---
+        # if addpump:
+        #     add_combined_column_if_exists(
+        #         df,
+        #         ('CALCULATED','D_TOTAL','CHANNEL-CALC','1MON','L2020A','PER-AVER','CFS'),
+        #         add_cols=[
+        #             ('CALSIM','C_DMC000','CHANNEL','1MON','L2020A','PER-AVER','CFS'),
+        #             ('CALSIM','C_CAA003','CHANNEL','1MON','L2020A','PER-AVER','CFS'),
+        #         ]
+        #     )
         
-        # --- Reservoir Totals ---
-        if addres:
-            add_combined_column_if_exists(
-                df,
-                ('CALCULATED','S_RESTOT','STORAGE-CALC','1MON','L2020A','PER-AVER','TAF'),
-                add_cols=[
-                    ('CALSIM','S_OROVL','STORAGE','1MON','L2020A','PER-AVER','TAF'),
-                    ('CALSIM','S_MELON','STORAGE','1MON','L2020A','PER-AVER','TAF'),
-                    ('CALSIM','S_SHSTA','STORAGE','1MON','L2020A','PER-AVER','TAF'),
-                    ('CALSIM','S_MLRTN','STORAGE','1MON','L2020A','PER-AVER','TAF'),
-                    ('CALSIM','S_FOLSM','STORAGE','1MON','L2020A','PER-AVER','TAF'),
-                    ('CALSIM','S_TRNTY','STORAGE','1MON','L2020A','PER-AVER','TAF'),
-                ]
-            )
+        # # --- Reservoir Totals ---
+        # if addres:
+        #     add_combined_column_if_exists(
+        #         df,
+        #         ('CALCULATED','S_RESTOT','STORAGE-CALC','1MON','L2020A','PER-AVER','TAF'),
+        #         add_cols=[
+        #             ('CALSIM','S_OROVL','STORAGE','1MON','L2020A','PER-AVER','TAF'),
+        #             ('CALSIM','S_MELON','STORAGE','1MON','L2020A','PER-AVER','TAF'),
+        #             ('CALSIM','S_SHSTA','STORAGE','1MON','L2020A','PER-AVER','TAF'),
+        #             ('CALSIM','S_MLRTN','STORAGE','1MON','L2020A','PER-AVER','TAF'),
+        #             ('CALSIM','S_FOLSM','STORAGE','1MON','L2020A','PER-AVER','TAF'),
+        #             ('CALSIM','S_TRNTY','STORAGE','1MON','L2020A','PER-AVER','TAF'),
+        #         ]
+        #     )
         
-            add_combined_column_if_exists(
-                df,
-                ('CALCULATED','S_RESTOT_NOD','STORAGE-CALC','1MON','L2020A','PER-AVER','TAF'),
-                add_cols=[
-                    ('CALSIM','S_OROVL','STORAGE','1MON','L2020A','PER-AVER','TAF'),
-                    ('CALSIM','S_SHSTA','STORAGE','1MON','L2020A','PER-AVER','TAF'),
-                    ('CALSIM','S_TRNTY','STORAGE','1MON','L2020A','PER-AVER','TAF'),
-                    ('CALSIM','S_FOLSM','STORAGE','1MON','L2020A','PER-AVER','TAF'),
-                ]
-            )
+        #     add_combined_column_if_exists(
+        #         df,
+        #         ('CALCULATED','S_RESTOT_NOD','STORAGE-CALC','1MON','L2020A','PER-AVER','TAF'),
+        #         add_cols=[
+        #             ('CALSIM','S_OROVL','STORAGE','1MON','L2020A','PER-AVER','TAF'),
+        #             ('CALSIM','S_SHSTA','STORAGE','1MON','L2020A','PER-AVER','TAF'),
+        #             ('CALSIM','S_TRNTY','STORAGE','1MON','L2020A','PER-AVER','TAF'),
+        #             ('CALSIM','S_FOLSM','STORAGE','1MON','L2020A','PER-AVER','TAF'),
+        #         ]
+        #     )
         
         # --- CVP TOTAL ---
         if adddelcvp:
@@ -726,19 +769,19 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
                 ]
             )
         
-        # --- AWOANN XA ---
-        if add_awoann_xa:
-            add_combined_column_if_exists(
-                df,
-                ('CALCULATED','AWOANN_ALL_DV','ANNUAL-APPLIED-WATER-CALC','1MON','L2020A','PER-AVER','TAF'),
-                add_cols=[
-                    ('CALSIM','AWOANN_64_XADV','ANNUAL-APPLIED-WATER','1MON','L2020A','PER-AVER','TAF'),
-                    ('CALSIM','AWOANN_72_XA1DV','ANNUAL-APPLIED-WATER','1MON','L2020A','PER-AVER','TAF'),
-                    ('CALSIM','AWOANN_72_XA2DV','ANNUAL-APPLIED-WATER','1MON','L2020A','PER-AVER','TAF'),
-                    ('CALSIM','AWOANN_72_XA3DV','ANNUAL-APPLIED-WATER','1MON','L2020A','PER-AVER','TAF'),
-                    ('CALSIM','AWOANN_73_XADV','ANNUAL-APPLIED-WATER','1MON','L2020A','PER-AVER','TAF'),
-                ]
-            )
+        # # --- AWOANN XA ---
+        # if add_awoann_xa:
+        #     add_combined_column_if_exists(
+        #         df,
+        #         ('CALCULATED','AWOANN_ALL_DV','ANNUAL-APPLIED-WATER-CALC','1MON','L2020A','PER-AVER','TAF'),
+        #         add_cols=[
+        #             ('CALSIM','AWOANN_64_XADV','ANNUAL-APPLIED-WATER','1MON','L2020A','PER-AVER','TAF'),
+        #             ('CALSIM','AWOANN_72_XA1DV','ANNUAL-APPLIED-WATER','1MON','L2020A','PER-AVER','TAF'),
+        #             ('CALSIM','AWOANN_72_XA2DV','ANNUAL-APPLIED-WATER','1MON','L2020A','PER-AVER','TAF'),
+        #             ('CALSIM','AWOANN_72_XA3DV','ANNUAL-APPLIED-WATER','1MON','L2020A','PER-AVER','TAF'),
+        #             ('CALSIM','AWOANN_73_XADV','ANNUAL-APPLIED-WATER','1MON','L2020A','PER-AVER','TAF'),
+        #         ]
+        #     )
 
         new_columns = [(col[0], f'{col[1]}_{index_name[:]}', *col[2:]) if len(col) > 1 else (col[0], '') for col in df.columns]
         df.columns = pd.MultiIndex.from_tuples(new_columns)
@@ -851,20 +894,22 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
     # the dex.preprocess_study_dss function was modified to deal with a variable listing
     # that just has a "B-part" - consider adapting 
     demands_sv_df = preprocess_study_dss(demand_var_sv_df, sv_fp, datetime_start_date, datetime_end_date,
-                                        addsl=False, addres = False, addpump = False, adddelcvp = False, 
+                                        adddelcvp = False, 
                                         adddelcvpag = False, addcvpscex = False, addcvpprf = False, 
-                                        adddelcvpswp = False, add_nod_storage = False, add_sod_storage = False, 
+                                        adddelcvpswp = False, add_total_storage = False, 
+                                        add_nod_storage = False, add_sod_storage = False, 
                                         add_del_nod_ag = False, add_del_nod_mi = False, add_del_sod_mi = False, 
                                         add_del_sod_ag = False, add_total_exports = False, 
-                                        add_del_swp_total = False, add_awoann_xa = False, manual_add = False)
+                                        add_del_swp_total = False, manual_add = False)
     # we can get the demands from the DV file too
     demands_dv_df = preprocess_study_dss(demand_var_dv_df, dv_fp, datetime_start_date, datetime_end_date,
-                                        addsl=False, addres = False, addpump = False, adddelcvp = False, 
+                                        adddelcvp = False, 
                                         adddelcvpag = False, addcvpscex = False, addcvpprf = False, 
-                                        adddelcvpswp = False, add_nod_storage = False, add_sod_storage = False, 
+                                        adddelcvpswp = False, add_total_storage = False, 
+                                        add_nod_storage = False, add_sod_storage = False, 
                                         add_del_nod_ag = False, add_del_nod_mi = False, add_del_sod_mi = False, 
                                         add_del_sod_ag = False, add_total_exports = False, 
-                                        add_del_swp_total = False, add_awoann_xa = False, manual_add = False)
+                                        add_del_swp_total = False, manual_add = False)
 
     # combine the two demands files together
     demands_df = pd.concat([demands_sv_df, demands_dv_df], axis=1)
@@ -1482,12 +1527,13 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
     deliv_var_df = deliv_var_df.loc[:, ~deliv_var_df.columns.duplicated()]
     
     delivs_cfs_df = preprocess_study_dss(deliv_var_df, dv_fp, datetime_start_date, datetime_end_date,
-                                        addsl=False, addres = False, addpump = False, adddelcvp = False, 
+                                        adddelcvp = False, 
                                         adddelcvpag = False, addcvpscex = False, addcvpprf = False, 
-                                        adddelcvpswp = False, add_nod_storage = False, add_sod_storage = False, 
+                                        adddelcvpswp = False, add_total_storage = False, 
+                                        add_nod_storage = False, add_sod_storage = False, 
                                         add_del_nod_ag = False, add_del_nod_mi = False, add_del_sod_mi = False, 
                                         add_del_sod_ag = False, add_total_exports = False, 
-                                        add_del_swp_total = False, add_awoann_xa = False, manual_add = False)
+                                        add_del_swp_total = False, manual_add = False)
 
     #%% check for missing data
 
@@ -1992,7 +2038,8 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
     annual_del_data = []
     for c in delivs_cfs_df.columns:
         # print('Annualizing delivs_cfs_df column')
-        dd =csplt.annualize(delivs_cfs_df.loc[:, [c]], on='YE-FEB', how='auto-sum') #contract years are Mar-Feb; the 'auto-sum' argument handles the CFS->TAF conversion
+        # dd =csplt.annualize(delivs_cfs_df.loc[:, [c]], on='YE-FEB', how='auto-sum') #contract years are Mar-Feb; the 'auto-sum' argument handles the CFS->TAF conversion
+        dd =csplt.annualize(delivs_taf_df.loc[:, [c]], on='YE-FEB', how='auto-sum') #contract years are Mar-Feb; the 'auto-sum' argument handles the CFS->TAF conversion
         # print('Appending annualized column')
         annual_del_data.append(dd)
         
