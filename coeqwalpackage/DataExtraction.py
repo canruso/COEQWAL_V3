@@ -1199,14 +1199,15 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
         )
 
         # --- CSB038 ---
-        # DEM_D_CSB038_OBISPO_PMI = (short_D_CSB038_OBISPO_PMI + D_CSB038_OBISPO_PMI)/perdv_swp_35  
+        # DEM_D_CSB038_OBISPO_PMI = (short_D_CSB038_OBISPO_PMI + D_CSB038_OBISPO_PMI)/perdv_swp_33  
+        # Note: typo in the instructions, perdv_swp_35 changed to perdv_swp_33
         print("Calculating DEM_D_CSB038_OBISPO_PMI")
         cols_ud_csb038 = [
             ('CALSIM', 'SHORT_D_CSB038_OBISPO_PMI', 'DELIVERY-SHORTAGE', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
             ('CALSIM', 'D_CSB038_OBISPO_PMI',  'FLOW-DELIVERY', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
         ]  
         div_col_ud_csb038 = [
-            ('CALSIM', 'PERDV_SWP_35', 'SWP-OUTPUT', '1MON', 'L2020A', 'PER-AVER', 'PERCENT'),
+            ('CALSIM', 'PERDV_SWP_33', 'SWP-OUTPUT', '1MON', 'L2020A', 'PER-AVER', 'PERCENT'),
         ]  
 
         demands_df = add_combined_column_if_exists(
