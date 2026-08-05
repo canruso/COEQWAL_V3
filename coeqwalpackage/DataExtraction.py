@@ -348,14 +348,19 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         )    
         # Convert monthly CFS to monthly TAF
         # 1 CFS sustained for 1 day = 0.00198347 TAF
-        cfs_series = df[cfs_total_col].squeeze()    
-        df[taf_total_col] = (
-            cfs_series
-            * days_in_month
-            * 0.00198347
-        )    
-        print("ADDED: DEL_CVP_TOT_N_WAMER (CFS and TAF)")
+        if cfs_total_col in df.columns:
+            cfs_series = df[cfs_total_col].squeeze()
         
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )
+        
+            print("ADDED: DEL_CVP_TOTAL_N_WAMER (CFS and TAF)")
+        else:
+            print(f"SKIPPED: {cfs_total_col} not found.")
+            
         # Calculate:
         # DEL_CVP_TOT_S_WLOSS =
         #     DEL_CVP_PAG_S
@@ -434,14 +439,19 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         )    
         # Convert monthly CFS to monthly TAF
         # 1 CFS sustained for 1 day = 0.00198347 TAF
-        cfs_series = df[cfs_total_col].squeeze()    
-        df[taf_total_col] = (
-            cfs_series
-            * days_in_month
-            * 0.00198347
-        )    
-        print("ADDED: DEL_CVP_TOT_S_WLOSS (CFS and TAF)")
+        if cfs_total_col in df.columns:
+            cfs_series = df[cfs_total_col].squeeze()
         
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )
+        
+            print("ADDED: DEL_CVP_TOT_S_WLOSS (CFS and TAF)")
+        else:
+            print(f"SKIPPED: {cfs_total_col} not found.")
+            
         # Calculate:
         # DEL_CVP_TOTAL =
         #     DEL_CVP_TOT_N_WAMER
@@ -490,14 +500,19 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         )    
         # Convert monthly CFS to monthly TAF
         # 1 CFS sustained for 1 day = 0.00198347 TAF
-        cfs_series = df[cfs_total_col].squeeze()    
-        df[taf_total_col] = (
-            cfs_series
-            * days_in_month
-            * 0.00198347
-        )    
-        print("ADDED: DEL_CVP_TOTAL (CFS and TAF)")
+        if cfs_total_col in df.columns:
+            cfs_series = df[cfs_total_col].squeeze()
         
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )
+        
+            print("ADDED: DEL_CVP_TOTAL (CFS and TAF)")
+        else:
+            print(f"SKIPPED: {cfs_total_col} not found.")
+            
         # Calculate:
         # DEL_CVP_PAG_NOD =
         #     DEL_CVP_PAG_N
@@ -546,13 +561,18 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         )    
         # Convert monthly CFS to monthly TAF
         # 1 CFS sustained for 1 day = 0.00198347 TAF
-        cfs_series = df[cfs_total_col].squeeze()    
-        df[taf_total_col] = (
-            cfs_series
-            * days_in_month
-            * 0.00198347
-        )    
-        print("ADDED: DEL_CVP_PAG_NOD (CFS and TAF)")
+        if cfs_total_col in df.columns:
+            cfs_series = df[cfs_total_col].squeeze()
+        
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )
+        
+            print("ADDED: DEL_CVP_PAG_NOD (CFS and TAF)")
+        else:
+            print(f"SKIPPED: {cfs_total_col} not found.")
         
         # Calculate:
         # DEL_CVP_PAG_SOD =
@@ -602,13 +622,18 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         )    
         # Convert monthly CFS to monthly TAF
         # 1 CFS sustained for 1 day = 0.00198347 TAF
-        cfs_series = df[cfs_total_col].squeeze()    
-        df[taf_total_col] = (
-            cfs_series
-            * days_in_month
-            * 0.00198347
-        )    
-        print("ADDED: DEL_CVP_PAG_SOD (CFS and TAF)")
+        if cfs_total_col in df.columns:
+            cfs_series = df[cfs_total_col].squeeze()
+        
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )
+        
+            print("ADDED: DEL_CVP_PAG_SOD (CFS and TAF)")
+        else:
+            print(f"SKIPPED: {cfs_total_col} not found.")
         
         # Calculate:
         # DEL_CVP_PAG_TOTAL =
@@ -658,14 +683,19 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         )    
         # Convert monthly CFS to monthly TAF
         # 1 CFS sustained for 1 day = 0.00198347 TAF
-        cfs_series = df[cfs_total_col].squeeze()    
-        df[taf_total_col] = (
-            cfs_series
-            * days_in_month
-            * 0.00198347
-        )    
-        print("ADDED: DEL_CVP_PAG_TOTAL (CFS and TAF)")
+        if cfs_total_col in df.columns:
+            cfs_series = df[cfs_total_col].squeeze()
         
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )
+        
+            print("ADDED: DEL_CVP_PAG_TOTAL (CFS and TAF)")
+        else:
+            print(f"SKIPPED: {cfs_total_col} not found.")
+            
         # Calculate:
         # DEL_CVP_PMI_TOTAL =
         #     DEL_CVP_PMI_N_WAMER
@@ -714,14 +744,19 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         )    
         # Convert monthly CFS to monthly TAF
         # 1 CFS sustained for 1 day = 0.00198347 TAF
-        cfs_series = df[cfs_total_col].squeeze()    
-        df[taf_total_col] = (
-            cfs_series
-            * days_in_month
-            * 0.00198347
-        )    
-        print("ADDED: DEL_CVP_PMI_TOTAL (CFS and TAF)")
+        if cfs_total_col in df.columns:
+            cfs_series = df[cfs_total_col].squeeze()
         
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )
+        
+            print("ADDED: DEL_CVP_PMI_TOTAL (CFS and TAF)")
+        else:
+            print(f"SKIPPED: {cfs_total_col} not found.")
+            
         # Calculate:
         # DEL_CVP_PMI_TOTAL =
         #     DEL_CVP_PMI_N_WAMER
@@ -770,14 +805,19 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         )    
         # Convert monthly CFS to monthly TAF
         # 1 CFS sustained for 1 day = 0.00198347 TAF
-        cfs_series = df[cfs_total_col].squeeze()    
-        df[taf_total_col] = (
-            cfs_series
-            * days_in_month
-            * 0.00198347
-        )    
-        print("ADDED: DEL_CVP_PMI_TOTAL (CFS and TAF)")
+        if cfs_total_col in df.columns:
+            cfs_series = df[cfs_total_col].squeeze()
         
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )
+        
+            print("ADDED: DEL_CVP_PMI_TOTAL (CFS and TAF)")
+        else:
+            print(f"SKIPPED: {cfs_total_col} not found.")
+            
         # Calculate:
         # DEL_CVP_PRF_TOTAL =
         #     DEL_CVP_PRF_N
@@ -826,14 +866,19 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         )    
         # Convert monthly CFS to monthly TAF
         # 1 CFS sustained for 1 day = 0.00198347 TAF
-        cfs_series = df[cfs_total_col].squeeze()    
-        df[taf_total_col] = (
-            cfs_series
-            * days_in_month
-            * 0.00198347
-        )    
-        print("ADDED: DEL_CVP_PRF_TOTAL (CFS and TAF)")
+        if cfs_total_col in df.columns:
+            cfs_series = df[cfs_total_col].squeeze()
         
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )
+        
+            print("ADDED: DEL_CVP_PRF_TOTAL (CFS and TAF)")
+        else:
+            print(f"SKIPPED: {cfs_total_col} not found.")
+            
         # Calculate:
         # C_CVP_TOTAL_EXPORTS =
         #     C_DMC000 
@@ -882,14 +927,19 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         )    
         # Convert monthly CFS to monthly TAF
         # 1 CFS sustained for 1 day = 0.00198347 TAF
-        cfs_series = df[cfs_total_col].squeeze()    
-        df[taf_total_col] = (
-            cfs_series
-            * days_in_month
-            * 0.00198347
-        )    
-        print("ADDED: C_CVP_TOTAL_EXPORTS (CFS and TAF)")
+        if cfs_total_col in df.columns:
+            cfs_series = df[cfs_total_col].squeeze()
         
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )
+        
+            print("ADDED: C_CVP_TOTAL_EXPORTS (CFS and TAF)")
+        else:
+            print(f"SKIPPED: {cfs_total_col} not found.")
+            
         # Calculate:
         # C_CVPSWP_TOTAL_EXPORTS =
         #     C_DMC000 
@@ -938,14 +988,19 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         )    
         # Convert monthly CFS to monthly TAF
         # 1 CFS sustained for 1 day = 0.00198347 TAF
-        cfs_series = df[cfs_total_col].squeeze()    
-        df[taf_total_col] = (
-            cfs_series
-            * days_in_month
-            * 0.00198347
-        )    
-        print("ADDED: C_CVPSWP_TOTAL_EXPORTS (CFS and TAF)")
+        if cfs_total_col in df.columns:
+            cfs_series = df[cfs_total_col].squeeze()
         
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )
+        
+            print("ADDED: C_CVPSWP_TOTAL_EXPORTS (CFS and TAF)")
+        else:
+            print(f"SKIPPED: {cfs_total_col} not found.")
+            
         # Calculate:
         # DEL_SWP_TOT_N =
         #     DEL_SWP_PAG_N
@@ -1004,14 +1059,19 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         )    
         # Convert monthly CFS to monthly TAF
         # 1 CFS sustained for 1 day = 0.00198347 TAF
-        # cfs_series = df[cfs_total_col].squeeze()    
-        # df[taf_total_col] = (
-        #     cfs_series
-        #     * days_in_month
-        #     * 0.00198347
-        # )    
-        # print("ADDED: DEL_SWP_TOT_N (CFS and TAF)")
+        if cfs_total_col in df.columns:
+            cfs_series = df[cfs_total_col].squeeze()
         
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )
+        
+            print("ADDED: DEL_SWP_TOT_N (CFS and TAF)")
+        else:
+            print(f"SKIPPED: {cfs_total_col} not found.")
+            
         # Calculate:
         # DEL_SWP_TOTAL =
         #     DEL_SWP_TOT_N
@@ -1060,13 +1120,18 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         )    
         # Convert monthly CFS to monthly TAF
         # 1 CFS sustained for 1 day = 0.00198347 TAF
-        # cfs_series = df[cfs_total_col].squeeze()    
-        # df[taf_total_col] = (
-        #     cfs_series
-        #     * days_in_month
-        #     * 0.00198347
-        # )    
-        # print("ADDED: DEL_SWP_TOTAL (CFS and TAF)")
+        if cfs_total_col in df.columns:
+            cfs_series = df[cfs_total_col].squeeze()
+        
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )
+        
+            print("ADDED: DEL_SWP_TOTAL (CFS and TAF)")
+        else:
+            print(f"SKIPPED: {cfs_total_col} not found.")
         
         # Calculate:
         # DEL_SWP_PAG_NOD =
@@ -1116,14 +1181,19 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         )    
         # Convert monthly CFS to monthly TAF
         # 1 CFS sustained for 1 day = 0.00198347 TAF
-        # cfs_series = df[cfs_total_col].squeeze()    
-        # df[taf_total_col] = (
-        #     cfs_series
-        #     * days_in_month
-        #     * 0.00198347
-        # )    
-        # print("ADDED: DEL_SWP_PAG_NOD (CFS and TAF)")
+        if cfs_total_col in df.columns:
+            cfs_series = df[cfs_total_col].squeeze()
         
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )
+        
+            print("ADDED: DEL_SWP_PAG_NOD (CFS and TAF)")
+        else:
+            print(f"SKIPPED: {cfs_total_col} not found.")
+                    
         # Calculate:
         # DEL_SWP_PAG_TOTAL =
         #     DEL_SWP_PAG_NOD
@@ -1172,13 +1242,18 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         )    
         # Convert monthly CFS to monthly TAF
         # 1 CFS sustained for 1 day = 0.00198347 TAF
-        # cfs_series = df[cfs_total_col].squeeze()    
-        # df[taf_total_col] = (
-        #     cfs_series
-        #     * days_in_month
-        #     * 0.00198347
-        # )    
-        # print("ADDED: DEL_SWP_PAG_TOTAL (CFS and TAF)")
+        if cfs_total_col in df.columns:
+            cfs_series = df[cfs_total_col].squeeze()
+        
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )
+        
+            print("ADDED: DEL_SWP_PAG_TOTAL (CFS and TAF)")
+        else:
+            print(f"SKIPPED: {cfs_total_col} not found.")
         
     ##################################################################
     # End new aggregations for data in depth system deliveries section
@@ -1552,14 +1627,19 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             )    
             # Convert monthly CFS to monthly TAF
             # 1 CFS sustained for 1 day = 0.00198347 TAF
-            cfs_series = df[cfs_total_col].squeeze()    
-            df[taf_total_col] = (
-                cfs_series
-                * days_in_month
-                * 0.00198347
-            )    
-            print("ADDED: DEL_CVP_TOT_N_WAMER (CFS and TAF)")
+            if cfs_total_col in df.columns:
+                cfs_series = df[cfs_total_col].squeeze()
             
+                df[taf_total_col] = (
+                    cfs_series
+                    * days_in_month
+                    * 0.00198347
+                )
+            
+                print("ADDED: DEL_CVP_TOTAL_N_WAMER (CFS and TAF)")
+            else:
+                print(f"SKIPPED: {cfs_total_col} not found.")
+                
             # Calculate:
             # DEL_CVP_TOT_S_WLOSS =
             #     DEL_CVP_PAG_S
@@ -1638,14 +1718,19 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             )    
             # Convert monthly CFS to monthly TAF
             # 1 CFS sustained for 1 day = 0.00198347 TAF
-            cfs_series = df[cfs_total_col].squeeze()    
-            df[taf_total_col] = (
-                cfs_series
-                * days_in_month
-                * 0.00198347
-            )    
-            print("ADDED: DEL_CVP_TOT_S_WLOSS (CFS and TAF)")
+            if cfs_total_col in df.columns:
+                cfs_series = df[cfs_total_col].squeeze()
             
+                df[taf_total_col] = (
+                    cfs_series
+                    * days_in_month
+                    * 0.00198347
+                )
+            
+                print("ADDED: DEL_CVP_TOT_S_WLOSS (CFS and TAF)")
+            else:
+                print(f"SKIPPED: {cfs_total_col} not found.")
+                
             # Calculate:
             # DEL_CVP_TOTAL =
             #     DEL_CVP_TOT_N_WAMER
@@ -1694,14 +1779,19 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             )    
             # Convert monthly CFS to monthly TAF
             # 1 CFS sustained for 1 day = 0.00198347 TAF
-            cfs_series = df[cfs_total_col].squeeze()    
-            df[taf_total_col] = (
-                cfs_series
-                * days_in_month
-                * 0.00198347
-            )    
-            print("ADDED: DEL_CVP_TOTAL (CFS and TAF)")
+            if cfs_total_col in df.columns:
+                cfs_series = df[cfs_total_col].squeeze()
             
+                df[taf_total_col] = (
+                    cfs_series
+                    * days_in_month
+                    * 0.00198347
+                )
+            
+                print("ADDED: DEL_CVP_TOTAL (CFS and TAF)")
+            else:
+                print(f"SKIPPED: {cfs_total_col} not found.")
+                
             # Calculate:
             # DEL_CVP_PAG_NOD =
             #     DEL_CVP_PAG_N
@@ -1750,13 +1840,18 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             )    
             # Convert monthly CFS to monthly TAF
             # 1 CFS sustained for 1 day = 0.00198347 TAF
-            cfs_series = df[cfs_total_col].squeeze()    
-            df[taf_total_col] = (
-                cfs_series
-                * days_in_month
-                * 0.00198347
-            )    
-            print("ADDED: DEL_CVP_PAG_NOD (CFS and TAF)")
+            if cfs_total_col in df.columns:
+                cfs_series = df[cfs_total_col].squeeze()
+            
+                df[taf_total_col] = (
+                    cfs_series
+                    * days_in_month
+                    * 0.00198347
+                )
+            
+                print("ADDED: DEL_CVP_PAG_NOD (CFS and TAF)")
+            else:
+                print(f"SKIPPED: {cfs_total_col} not found.")
             
             # Calculate:
             # DEL_CVP_PAG_SOD =
@@ -1806,13 +1901,18 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             )    
             # Convert monthly CFS to monthly TAF
             # 1 CFS sustained for 1 day = 0.00198347 TAF
-            cfs_series = df[cfs_total_col].squeeze()    
-            df[taf_total_col] = (
-                cfs_series
-                * days_in_month
-                * 0.00198347
-            )    
-            print("ADDED: DEL_CVP_PAG_SOD (CFS and TAF)")
+            if cfs_total_col in df.columns:
+                cfs_series = df[cfs_total_col].squeeze()
+            
+                df[taf_total_col] = (
+                    cfs_series
+                    * days_in_month
+                    * 0.00198347
+                )
+            
+                print("ADDED: DEL_CVP_PAG_SOD (CFS and TAF)")
+            else:
+                print(f"SKIPPED: {cfs_total_col} not found.")
             
             # Calculate:
             # DEL_CVP_PAG_TOTAL =
@@ -1862,14 +1962,19 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             )    
             # Convert monthly CFS to monthly TAF
             # 1 CFS sustained for 1 day = 0.00198347 TAF
-            cfs_series = df[cfs_total_col].squeeze()    
-            df[taf_total_col] = (
-                cfs_series
-                * days_in_month
-                * 0.00198347
-            )    
-            print("ADDED: DEL_CVP_PAG_TOTAL (CFS and TAF)")
+            if cfs_total_col in df.columns:
+                cfs_series = df[cfs_total_col].squeeze()
             
+                df[taf_total_col] = (
+                    cfs_series
+                    * days_in_month
+                    * 0.00198347
+                )
+            
+                print("ADDED: DEL_CVP_PAG_TOTAL (CFS and TAF)")
+            else:
+                print(f"SKIPPED: {cfs_total_col} not found.")
+                
             # Calculate:
             # DEL_CVP_PMI_TOTAL =
             #     DEL_CVP_PMI_N_WAMER
@@ -1918,14 +2023,19 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             )    
             # Convert monthly CFS to monthly TAF
             # 1 CFS sustained for 1 day = 0.00198347 TAF
-            cfs_series = df[cfs_total_col].squeeze()    
-            df[taf_total_col] = (
-                cfs_series
-                * days_in_month
-                * 0.00198347
-            )    
-            print("ADDED: DEL_CVP_PMI_TOTAL (CFS and TAF)")
+            if cfs_total_col in df.columns:
+                cfs_series = df[cfs_total_col].squeeze()
             
+                df[taf_total_col] = (
+                    cfs_series
+                    * days_in_month
+                    * 0.00198347
+                )
+            
+                print("ADDED: DEL_CVP_PMI_TOTAL (CFS and TAF)")
+            else:
+                print(f"SKIPPED: {cfs_total_col} not found.")
+                
             # Calculate:
             # DEL_CVP_PMI_TOTAL =
             #     DEL_CVP_PMI_N_WAMER
@@ -1974,14 +2084,19 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             )    
             # Convert monthly CFS to monthly TAF
             # 1 CFS sustained for 1 day = 0.00198347 TAF
-            cfs_series = df[cfs_total_col].squeeze()    
-            df[taf_total_col] = (
-                cfs_series
-                * days_in_month
-                * 0.00198347
-            )    
-            print("ADDED: DEL_CVP_PMI_TOTAL (CFS and TAF)")
+            if cfs_total_col in df.columns:
+                cfs_series = df[cfs_total_col].squeeze()
             
+                df[taf_total_col] = (
+                    cfs_series
+                    * days_in_month
+                    * 0.00198347
+                )
+            
+                print("ADDED: DEL_CVP_PMI_TOTAL (CFS and TAF)")
+            else:
+                print(f"SKIPPED: {cfs_total_col} not found.")
+                
             # Calculate:
             # DEL_CVP_PRF_TOTAL =
             #     DEL_CVP_PRF_N
@@ -2030,14 +2145,19 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             )    
             # Convert monthly CFS to monthly TAF
             # 1 CFS sustained for 1 day = 0.00198347 TAF
-            cfs_series = df[cfs_total_col].squeeze()    
-            df[taf_total_col] = (
-                cfs_series
-                * days_in_month
-                * 0.00198347
-            )    
-            print("ADDED: DEL_CVP_PRF_TOTAL (CFS and TAF)")
+            if cfs_total_col in df.columns:
+                cfs_series = df[cfs_total_col].squeeze()
             
+                df[taf_total_col] = (
+                    cfs_series
+                    * days_in_month
+                    * 0.00198347
+                )
+            
+                print("ADDED: DEL_CVP_PRF_TOTAL (CFS and TAF)")
+            else:
+                print(f"SKIPPED: {cfs_total_col} not found.")
+                
             # Calculate:
             # C_CVP_TOTAL_EXPORTS =
             #     C_DMC000 
@@ -2086,14 +2206,19 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             )    
             # Convert monthly CFS to monthly TAF
             # 1 CFS sustained for 1 day = 0.00198347 TAF
-            cfs_series = df[cfs_total_col].squeeze()    
-            df[taf_total_col] = (
-                cfs_series
-                * days_in_month
-                * 0.00198347
-            )    
-            print("ADDED: C_CVP_TOTAL_EXPORTS (CFS and TAF)")
+            if cfs_total_col in df.columns:
+                cfs_series = df[cfs_total_col].squeeze()
             
+                df[taf_total_col] = (
+                    cfs_series
+                    * days_in_month
+                    * 0.00198347
+                )
+            
+                print("ADDED: C_CVP_TOTAL_EXPORTS (CFS and TAF)")
+            else:
+                print(f"SKIPPED: {cfs_total_col} not found.")
+                
             # Calculate:
             # C_CVPSWP_TOTAL_EXPORTS =
             #     C_DMC000 
@@ -2142,14 +2267,19 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             )    
             # Convert monthly CFS to monthly TAF
             # 1 CFS sustained for 1 day = 0.00198347 TAF
-            cfs_series = df[cfs_total_col].squeeze()    
-            df[taf_total_col] = (
-                cfs_series
-                * days_in_month
-                * 0.00198347
-            )    
-            print("ADDED: C_CVPSWP_TOTAL_EXPORTS (CFS and TAF)")
+            if cfs_total_col in df.columns:
+                cfs_series = df[cfs_total_col].squeeze()
             
+                df[taf_total_col] = (
+                    cfs_series
+                    * days_in_month
+                    * 0.00198347
+                )
+            
+                print("ADDED: C_CVPSWP_TOTAL_EXPORTS (CFS and TAF)")
+            else:
+                print(f"SKIPPED: {cfs_total_col} not found.")
+                
             # Calculate:
             # DEL_SWP_TOT_N =
             #     DEL_SWP_PAG_N
@@ -2208,14 +2338,19 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             )    
             # Convert monthly CFS to monthly TAF
             # 1 CFS sustained for 1 day = 0.00198347 TAF
-            # cfs_series = df[cfs_total_col].squeeze()    
-            # df[taf_total_col] = (
-            #     cfs_series
-            #     * days_in_month
-            #     * 0.00198347
-            # )    
-            # print("ADDED: DEL_SWP_TOT_N (CFS and TAF)")
+            if cfs_total_col in df.columns:
+                cfs_series = df[cfs_total_col].squeeze()
             
+                df[taf_total_col] = (
+                    cfs_series
+                    * days_in_month
+                    * 0.00198347
+                )
+            
+                print("ADDED: DEL_SWP_TOT_N (CFS and TAF)")
+            else:
+                print(f"SKIPPED: {cfs_total_col} not found.")
+                
             # Calculate:
             # DEL_SWP_TOTAL =
             #     DEL_SWP_TOT_N
@@ -2264,13 +2399,18 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             )    
             # Convert monthly CFS to monthly TAF
             # 1 CFS sustained for 1 day = 0.00198347 TAF
-            # cfs_series = df[cfs_total_col].squeeze()    
-            # df[taf_total_col] = (
-            #     cfs_series
-            #     * days_in_month
-            #     * 0.00198347
-            # )    
-            # print("ADDED: DEL_SWP_TOTAL (CFS and TAF)")
+            if cfs_total_col in df.columns:
+                cfs_series = df[cfs_total_col].squeeze()
+            
+                df[taf_total_col] = (
+                    cfs_series
+                    * days_in_month
+                    * 0.00198347
+                )
+            
+                print("ADDED: DEL_SWP_TOTAL (CFS and TAF)")
+            else:
+                print(f"SKIPPED: {cfs_total_col} not found.")
             
             # Calculate:
             # DEL_SWP_PAG_NOD =
@@ -2320,14 +2460,19 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             )    
             # Convert monthly CFS to monthly TAF
             # 1 CFS sustained for 1 day = 0.00198347 TAF
-            # cfs_series = df[cfs_total_col].squeeze()    
-            # df[taf_total_col] = (
-            #     cfs_series
-            #     * days_in_month
-            #     * 0.00198347
-            # )    
-            # print("ADDED: DEL_SWP_PAG_NOD (CFS and TAF)")
+            if cfs_total_col in df.columns:
+                cfs_series = df[cfs_total_col].squeeze()
             
+                df[taf_total_col] = (
+                    cfs_series
+                    * days_in_month
+                    * 0.00198347
+                )
+            
+                print("ADDED: DEL_SWP_PAG_NOD (CFS and TAF)")
+            else:
+                print(f"SKIPPED: {cfs_total_col} not found.")
+                        
             # Calculate:
             # DEL_SWP_PAG_TOTAL =
             #     DEL_SWP_PAG_NOD
@@ -2376,13 +2521,18 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             )    
             # Convert monthly CFS to monthly TAF
             # 1 CFS sustained for 1 day = 0.00198347 TAF
-            # cfs_series = df[cfs_total_col].squeeze()    
-            # df[taf_total_col] = (
-            #     cfs_series
-            #     * days_in_month
-            #     * 0.00198347
-            # )    
-            # print("ADDED: DEL_SWP_PAG_TOTAL (CFS and TAF)")
+            if cfs_total_col in df.columns:
+                cfs_series = df[cfs_total_col].squeeze()
+            
+                df[taf_total_col] = (
+                    cfs_series
+                    * days_in_month
+                    * 0.00198347
+                )
+            
+                print("ADDED: DEL_SWP_PAG_TOTAL (CFS and TAF)")
+            else:
+                print(f"SKIPPED: {cfs_total_col} not found.")
             
         ##################################################################
         # End new aggregations for data in depth system deliveries section
