@@ -194,7 +194,7 @@ CREATE DATASETS ACROSS STUDIES
 (Aux functions to read and process studies (for single and multiple studies). Note: contain options to create hard-coded additional compound variables (if more are needed, add to these codes))
 """
 
-def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, adddelcvp = True, adddelcvpag = True, addcvpscex = True, addcvpprf = True, adddelcvpswp = True, add_total_storage = True, add_nod_storage = True, add_sod_storage = True, add_del_nod_ag = True, add_del_nod_mi = True, add_del_sod_mi = True, add_del_sod_ag = True, add_total_exports = True, add_del_swp_total = True, manual_add = True):
+def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, adddelcvp = True, adddelcvpag = True, addcvpscex = True, addcvpprf = True, adddelcvpswp = True, add_total_storage = True, add_nod_storage = True, add_sod_storage = True, add_del_nod_ag = True, add_del_nod_mi = True, add_del_sod_mi = True, add_del_sod_ag = True, add_total_exports = True, add_del_swp_total = True, manual_add = True, add_deliveries = True):
     dvar_list = []
     combined_df = pd.DataFrame()
     
@@ -251,6 +251,938 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         df[('MANUAL-ADD','S_PEDROLEVEL5','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_FOLSMLEVEL6_monthly_taf_values
         
     # create aggregate variables using add_combined_column_if_exists
+
+    # # new aggregagtions    
+    # days_in_month = df.index.days_in_month
+    # if add_deliveries:
+    #     # del_cvp_total_n_wamer (calculate) = del_cvp_pag_n + del_cvp_pmi_n_wamer + del_cvp_psc_n + del_cvp_prf_n
+    #     add_combined_column_if_exists(
+    #         df,
+    #         target_col=('CALCULATED', 'DEL_CVP_TOTAL_N_WAMER', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+    #         add_cols=[
+    #             ('CALSIM', 'DEL_CVP_PAG_N', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+    #             ('CALSIM', 'DEL_CVP_PMI_N_WAMER', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+    #             ('CALSIM', 'DEL_CVP_PSC_N', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+    #             ('CALSIM', 'DEL_CVP_PRF_N', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+    #       ]
+    #     )
+    #     # convert to TAF
+    #     df['CALCULATED', 'DEL_CVP_TOTAL_N_WAMER', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'TAF'] = df['CALCULATED', 'DEL_CVP_TOTAL_N_WAMER', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS'] * days_in_month * 0.00198347
+    #     print("ADDED: DEL_CVP_TOTAL_N_WAMER")
+
+    ######################################################
+    # New aggregations for data in depth system deliveries
+    ######################################################
+    days_in_month = pd.Series(
+        df.index.days_in_month,
+        index=df.index
+    )
+    
+    if add_deliveries:
+    
+        # Calculate:
+        # DEL_CVP_TOT_N_WAMER =
+        #     DEL_CVP_PAG_N
+        #   + DEL_CVP_PMI_N_WAMER
+        #   + DEL_CVP_PSC_N
+        #   + DEL_CVP_PRF_N    
+        cfs_total_col = (
+            'CALCULATED',
+            'DEL_CVP_TOT_N_WAMER',
+            'DELIVERY-CVP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'CFS'
+        )    
+        taf_total_col = (
+            'CALCULATED',
+            'DEL_CVP_TOT_N_WAMER',
+            'DELIVERY-CVP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'TAF'
+        )    
+        add_combined_column_if_exists(
+            df,
+            target_col=cfs_total_col,
+            add_cols=[
+                (
+                    'CALSIM',
+                    'DEL_CVP_PAG_N',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALSIM',
+                    'DEL_CVP_PMI_N_WAMER',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALSIM',
+                    'DEL_CVP_PSC_N',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALSIM',
+                    'DEL_CVP_PRF_N',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+            ]
+        )    
+        # Convert monthly CFS to monthly TAF
+        # 1 CFS sustained for 1 day = 0.00198347 TAF
+        cfs_series = df[cfs_total_col].squeeze()    
+        df[taf_total_col] = (
+            cfs_series
+            * days_in_month
+            * 0.00198347
+        )    
+        print("ADDED: DEL_CVP_TOT_N_WAMER (CFS and TAF)")
+        
+        # Calculate:
+        # DEL_CVP_TOT_S_WLOSS =
+        #     DEL_CVP_PAG_S
+        #   + DEL_CVP_PMI_S
+        #   + DEL_CVP_PSC_S
+        #   + DEL_CVP_PRF_S    
+        #   + DEL_CVP_PLS_S    
+        cfs_total_col = (
+            'CALCULATED',
+            'DEL_CVP_TOT_S_WLOSS',
+            'DELIVERY-CVP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'CFS'
+        )    
+        taf_total_col = (
+            'CALCULATED',
+            'DEL_CVP_TOT_S_WLOSS',
+            'DELIVERY-CVP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'TAF'
+        )    
+        add_combined_column_if_exists(
+            df,
+            target_col=cfs_total_col,
+            add_cols=[
+                (
+                    'CALSIM',
+                    'DEL_CVP_PAG_S',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALSIM',
+                    'DEL_CVP_PMI_S',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALSIM',
+                    'DEL_CVP_PEX_S',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALSIM',
+                    'DEL_CVP_PRF_S',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALSIM',
+                    'DEL_CVP_PLS_S',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+            ]
+        )    
+        # Convert monthly CFS to monthly TAF
+        # 1 CFS sustained for 1 day = 0.00198347 TAF
+        cfs_series = df[cfs_total_col].squeeze()    
+        df[taf_total_col] = (
+            cfs_series
+            * days_in_month
+            * 0.00198347
+        )    
+        print("ADDED: DEL_CVP_TOT_S_WLOSS (CFS and TAF)")
+        
+        # Calculate:
+        # DEL_CVP_TOTAL =
+        #     DEL_CVP_TOT_N_WAMER
+        #   + DEL_CVP_TOT_S_WLOSS
+        cfs_total_col = (
+            'CALCULATED',
+            'DEL_CVP_TOTAL',
+            'DELIVERY-CVP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'CFS'
+        )    
+        taf_total_col = (
+            'CALCULATED',
+            'DEL_CVP_TOTAL',
+            'DELIVERY-CVP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'TAF'
+        )    
+        add_combined_column_if_exists(
+            df,
+            target_col=cfs_total_col,
+            add_cols=[
+                (
+                    'CALCULATED',
+                    'DEL_CVP_TOT_N_WAMER',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALCULATED',
+                    'DEL_CVP_TOT_S_WLOSS',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+            ]
+        )    
+        # Convert monthly CFS to monthly TAF
+        # 1 CFS sustained for 1 day = 0.00198347 TAF
+        cfs_series = df[cfs_total_col].squeeze()    
+        df[taf_total_col] = (
+            cfs_series
+            * days_in_month
+            * 0.00198347
+        )    
+        print("ADDED: DEL_CVP_TOTAL (CFS and TAF)")
+        
+        # Calculate:
+        # DEL_CVP_PAG_NOD =
+        #     DEL_CVP_PAG_N
+        #   + DEL_CVP_PSC_N
+        cfs_total_col = (
+            'CALCULATED',
+            'DEL_CVP_PAG_NOD',
+            'DELIVERY-CVP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'CFS'
+        )    
+        taf_total_col = (
+            'CALCULATED',
+            'DEL_CVP_PAG_NOD',
+            'DELIVERY-CVP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'TAF'
+        )    
+        add_combined_column_if_exists(
+            df,
+            target_col=cfs_total_col,
+            add_cols=[
+                (
+                    'CALSIM',
+                    'DEL_CVP_PAG_N',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALSIM',
+                    'DEL_CVP_PSC_N',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+            ]
+        )    
+        # Convert monthly CFS to monthly TAF
+        # 1 CFS sustained for 1 day = 0.00198347 TAF
+        cfs_series = df[cfs_total_col].squeeze()    
+        df[taf_total_col] = (
+            cfs_series
+            * days_in_month
+            * 0.00198347
+        )    
+        print("ADDED: DEL_CVP_PAG_NOD (CFS and TAF)")
+        
+        # Calculate:
+        # DEL_CVP_PAG_SOD =
+        #     DEL_CVP_PAG_S
+        #   + DEL_CVP_PEX_S
+        cfs_total_col = (
+            'CALCULATED',
+            'DEL_CVP_PAG_SOD',
+            'DELIVERY-CVP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'CFS'
+        )    
+        taf_total_col = (
+            'CALCULATED',
+            'DEL_CVP_PAG_SOD',
+            'DELIVERY-CVP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'TAF'
+        )    
+        add_combined_column_if_exists(
+            df,
+            target_col=cfs_total_col,
+            add_cols=[
+                (
+                    'CALSIM',
+                    'DEL_CVP_PAG_S',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALSIM',
+                    'DEL_CVP_PEX_S',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+            ]
+        )    
+        # Convert monthly CFS to monthly TAF
+        # 1 CFS sustained for 1 day = 0.00198347 TAF
+        cfs_series = df[cfs_total_col].squeeze()    
+        df[taf_total_col] = (
+            cfs_series
+            * days_in_month
+            * 0.00198347
+        )    
+        print("ADDED: DEL_CVP_PAG_SOD (CFS and TAF)")
+        
+        # Calculate:
+        # DEL_CVP_PAG_TOTAL =
+        #     DEL_CVP_PAG_NOD
+        #   + DEL_CVP_PAG_SOD
+        cfs_total_col = (
+            'CALCULATED',
+            'DEL_CVP_PAG_TOTAL',
+            'DELIVERY-CVP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'CFS'
+        )    
+        taf_total_col = (
+            'CALCULATED',
+            'DEL_CVP_PAG_TOTAL',
+            'DELIVERY-CVP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'TAF'
+        )    
+        add_combined_column_if_exists(
+            df,
+            target_col=cfs_total_col,
+            add_cols=[
+                (
+                    'CALCULATED',
+                    'DEL_CVP_PAG_NOD',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALCULATED',
+                    'DEL_CVP_PAG_SOD',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+            ]
+        )    
+        # Convert monthly CFS to monthly TAF
+        # 1 CFS sustained for 1 day = 0.00198347 TAF
+        cfs_series = df[cfs_total_col].squeeze()    
+        df[taf_total_col] = (
+            cfs_series
+            * days_in_month
+            * 0.00198347
+        )    
+        print("ADDED: DEL_CVP_PAG_TOTAL (CFS and TAF)")
+        
+        # Calculate:
+        # DEL_CVP_PMI_TOTAL =
+        #     DEL_CVP_PMI_N_WAMER
+        #   + DEL_CVP_PMI_S
+        cfs_total_col = (
+            'CALCULATED',
+            'DEL_CVP_PMI_TOTAL',
+            'DELIVERY-CVP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'CFS'
+        )    
+        taf_total_col = (
+            'CALCULATED',
+            'DEL_CVP_PMI_TOTAL',
+            'DELIVERY-CVP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'TAF'
+        )    
+        add_combined_column_if_exists(
+            df,
+            target_col=cfs_total_col,
+            add_cols=[
+                (
+                    'CALSIM',
+                    'DEL_CVP_PMI_N_WAMER',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALSIM',
+                    'DEL_CVP_PMI_S',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+            ]
+        )    
+        # Convert monthly CFS to monthly TAF
+        # 1 CFS sustained for 1 day = 0.00198347 TAF
+        cfs_series = df[cfs_total_col].squeeze()    
+        df[taf_total_col] = (
+            cfs_series
+            * days_in_month
+            * 0.00198347
+        )    
+        print("ADDED: DEL_CVP_PMI_TOTAL (CFS and TAF)")
+        
+        # Calculate:
+        # DEL_CVP_PMI_TOTAL =
+        #     DEL_CVP_PMI_N_WAMER
+        #   + DEL_CVP_PMI_S
+        cfs_total_col = (
+            'CALCULATED',
+            'DEL_CVP_PMI_TOTAL',
+            'DELIVERY-CVP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'CFS'
+        )    
+        taf_total_col = (
+            'CALCULATED',
+            'DEL_CVP_PMI_TOTAL',
+            'DELIVERY-CVP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'TAF'
+        )    
+        add_combined_column_if_exists(
+            df,
+            target_col=cfs_total_col,
+            add_cols=[
+                (
+                    'CALSIM',
+                    'DEL_CVP_PMI_N_WAMER',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALSIM',
+                    'DEL_CVP_PMI_S',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+            ]
+        )    
+        # Convert monthly CFS to monthly TAF
+        # 1 CFS sustained for 1 day = 0.00198347 TAF
+        cfs_series = df[cfs_total_col].squeeze()    
+        df[taf_total_col] = (
+            cfs_series
+            * days_in_month
+            * 0.00198347
+        )    
+        print("ADDED: DEL_CVP_PMI_TOTAL (CFS and TAF)")
+        
+        # Calculate:
+        # DEL_CVP_PRF_TOTAL =
+        #     DEL_CVP_PRF_N
+        #   + DEL_CVP_PRF_S
+        cfs_total_col = (
+            'CALCULATED',
+            'DEL_CVP_PRF_TOTAL',
+            'DELIVERY-CVP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'CFS'
+        )    
+        taf_total_col = (
+            'CALCULATED',
+            'DEL_CVP_PRF_TOTAL',
+            'DELIVERY-CVP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'TAF'
+        )    
+        add_combined_column_if_exists(
+            df,
+            target_col=cfs_total_col,
+            add_cols=[
+                (
+                    'CALSIM',
+                    'DEL_CVP_PRF_N',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALSIM',
+                    'DEL_CVP_PRF_S',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+            ]
+        )    
+        # Convert monthly CFS to monthly TAF
+        # 1 CFS sustained for 1 day = 0.00198347 TAF
+        cfs_series = df[cfs_total_col].squeeze()    
+        df[taf_total_col] = (
+            cfs_series
+            * days_in_month
+            * 0.00198347
+        )    
+        print("ADDED: DEL_CVP_PRF_TOTAL (CFS and TAF)")
+        
+        # Calculate:
+        # C_CVP_TOTAL_EXPORTS =
+        #     C_DMC000 
+        #   + C_CAA003_CVP 
+        cfs_total_col = (
+            'CALCULATED',
+            'C_CVP_TOTAL_EXPORTS',
+            'FLOW-DELIVERY',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'CFS'
+        )    
+        taf_total_col = (
+            'CALCULATED',
+            'C_CVP_TOTAL_EXPORTS',
+            'FLOW-DELIVERY',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'TAF'
+        )    
+        add_combined_column_if_exists(
+            df,
+            target_col=cfs_total_col,
+            add_cols=[
+                (
+                    'CALSIM',
+                    'C_DMC000',
+                    'CHANNEL',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALSIM',
+                    'C_CAA003_CVP',
+                    'FLOW-DELIVERY',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+            ]
+        )    
+        # Convert monthly CFS to monthly TAF
+        # 1 CFS sustained for 1 day = 0.00198347 TAF
+        cfs_series = df[cfs_total_col].squeeze()    
+        df[taf_total_col] = (
+            cfs_series
+            * days_in_month
+            * 0.00198347
+        )    
+        print("ADDED: C_CVP_TOTAL_EXPORTS (CFS and TAF)")
+        
+        # Calculate:
+        # C_CVPSWP_TOTAL_EXPORTS =
+        #     C_DMC000 
+        #   + C_CAA003
+        cfs_total_col = (
+            'CALCULATED',
+            'C_CVPSWP_TOTAL_EXPORTS',
+            'FLOW-DELIVERY',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'CFS'
+        )    
+        taf_total_col = (
+            'CALCULATED',
+            'C_CVPSWP_TOTAL_EXPORTS',
+            'FLOW-DELIVERY',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'TAF'
+        )    
+        add_combined_column_if_exists(
+            df,
+            target_col=cfs_total_col,
+            add_cols=[
+                (
+                    'CALSIM',
+                    'C_DMC000',
+                    'CHANNEL',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALSIM',
+                    'C_CAA003',
+                    'CHANNEL',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+            ]
+        )    
+        # Convert monthly CFS to monthly TAF
+        # 1 CFS sustained for 1 day = 0.00198347 TAF
+        cfs_series = df[cfs_total_col].squeeze()    
+        df[taf_total_col] = (
+            cfs_series
+            * days_in_month
+            * 0.00198347
+        )    
+        print("ADDED: C_CVPSWP_TOTAL_EXPORTS (CFS and TAF)")
+        
+        # Calculate:
+        # DEL_SWP_TOT_N =
+        #     DEL_SWP_PAG_N
+        #   + DEL_SWP_PMI_N
+        #   + DEL_SWP_PWR
+        cfs_total_col = (
+            'CALCULATED',
+            'DEL_SWP_TOT_N',
+            'DELIVERY-SWP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'CFS'
+        )    
+        taf_total_col = (
+            'CALCULATED',
+            'DEL_SWP_TOT_N',
+            'DELIVERY-SWP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'TAF'
+        )    
+        add_combined_column_if_exists(
+            df,
+            target_col=cfs_total_col,
+            add_cols=[
+                (
+                    'CALSIM',
+                    'DEL_SWP_PAG_N',
+                    'DELIVERY-SWP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALSIM',
+                    'DEL_SWP_PMI_N',
+                    'DELIVERY-SWP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALSIM',
+                    'DEL_SWP_PWR',
+                    'DELIVERY-SWP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+            ]
+        )    
+        # Convert monthly CFS to monthly TAF
+        # 1 CFS sustained for 1 day = 0.00198347 TAF
+        # cfs_series = df[cfs_total_col].squeeze()    
+        # df[taf_total_col] = (
+        #     cfs_series
+        #     * days_in_month
+        #     * 0.00198347
+        # )    
+        # print("ADDED: DEL_SWP_TOT_N (CFS and TAF)")
+        
+        # Calculate:
+        # DEL_SWP_TOTAL =
+        #     DEL_SWP_TOT_N
+        #   + DEL_SWP_TOT_S
+        cfs_total_col = (
+            'CALCULATED',
+            'DEL_SWP_TOTAL',
+            'DELIVERY-SWP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'CFS'
+        )    
+        taf_total_col = (
+            'CALCULATED',
+            'DEL_SWP_TOTAL',
+            'DELIVERY-SWP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'TAF'
+        )    
+        add_combined_column_if_exists(
+            df,
+            target_col=cfs_total_col,
+            add_cols=[
+                (
+                    'CALCULATED',
+                    'DEL_SWP_TOT_N',
+                    'DELIVERY-SWP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALSIM',
+                    'DEL_SWP_TOT_S',
+                    'DELIVERY-SWP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+            ]
+        )    
+        # Convert monthly CFS to monthly TAF
+        # 1 CFS sustained for 1 day = 0.00198347 TAF
+        # cfs_series = df[cfs_total_col].squeeze()    
+        # df[taf_total_col] = (
+        #     cfs_series
+        #     * days_in_month
+        #     * 0.00198347
+        # )    
+        # print("ADDED: DEL_SWP_TOTAL (CFS and TAF)")
+        
+        # Calculate:
+        # DEL_SWP_PAG_NOD =
+        #     DEL_SWP_PAG_N
+        #   + DEL_SWP_PWR
+        cfs_total_col = (
+            'CALCULATED',
+            'DEL_SWP_PAG_NOD',
+            'DELIVERY-SWP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'CFS'
+        )    
+        taf_total_col = (
+            'CALCULATED',
+            'DEL_SWP_PAG_NOD',
+            'DELIVERY-SWP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'TAF'
+        )    
+        add_combined_column_if_exists(
+            df,
+            target_col=cfs_total_col,
+            add_cols=[
+                (
+                    'CALSIM',
+                    'DEL_SWP_PAG_N',
+                    'DELIVERY-SWP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALSIM',
+                    'DEL_SWP_PWR',
+                    'DELIVERY-SWP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+            ]
+        )    
+        # Convert monthly CFS to monthly TAF
+        # 1 CFS sustained for 1 day = 0.00198347 TAF
+        # cfs_series = df[cfs_total_col].squeeze()    
+        # df[taf_total_col] = (
+        #     cfs_series
+        #     * days_in_month
+        #     * 0.00198347
+        # )    
+        # print("ADDED: DEL_SWP_PAG_NOD (CFS and TAF)")
+        
+        # Calculate:
+        # DEL_SWP_PAG_TOTAL =
+        #     DEL_SWP_PAG_NOD
+        #   + DEL_SWP_PAG_S
+        cfs_total_col = (
+            'CALCULATED',
+            'DEL_SWP_PAG_TOTAL',
+            'DELIVERY-SWP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'CFS'
+        )    
+        taf_total_col = (
+            'CALCULATED',
+            'DEL_SWP_PAG_TOTAL',
+            'DELIVERY-SWP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'TAF'
+        )    
+        add_combined_column_if_exists(
+            df,
+            target_col=cfs_total_col,
+            add_cols=[
+                (
+                    'CALCULATED',
+                    'DEL_SWP_PAG_NOD',
+                    'DELIVERY-SWP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALSIM',
+                    'DEL_SWP_PAG_S',
+                    'DELIVERY-SWP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+            ]
+        )    
+        # Convert monthly CFS to monthly TAF
+        # 1 CFS sustained for 1 day = 0.00198347 TAF
+        # cfs_series = df[cfs_total_col].squeeze()    
+        # df[taf_total_col] = (
+        #     cfs_series
+        #     * days_in_month
+        #     * 0.00198347
+        # )    
+        # print("ADDED: DEL_SWP_PAG_TOTAL (CFS and TAF)")
+        
+    ##################################################################
+    # End new aggregations for data in depth system deliveries section
+    ##################################################################
 
     if add_total_storage:
         add_combined_column_if_exists(
@@ -483,7 +1415,7 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
     return df
 
 
-def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_datetime, max_datetime, adddelcvp = True, adddelcvpag = True, addcvpscex = True, addcvpprf = True, adddelcvpswp = True, add_total_storage = True, add_nod_storage = True, add_sod_storage = True, add_del_nod_ag = True, add_del_nod_mi = True, add_del_sod_mi = True, add_del_sod_ag = True, add_total_exports = True, add_del_swp_total = True, add_awoann_xa = True, manual_add = True):
+def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_datetime, max_datetime, adddelcvp = True, adddelcvpag = True, addcvpscex = True, addcvpprf = True, adddelcvpswp = True, add_total_storage = True, add_nod_storage = True, add_sod_storage = True, add_del_nod_ag = True, add_del_nod_mi = True, add_del_sod_mi = True, add_del_sod_ag = True, add_total_exports = True, add_del_swp_total = True, add_awoann_xa = True, manual_add = True, add_deliveries = True):
     dvar_list = []
     combined_df = pd.DataFrame()
     
@@ -541,6 +1473,920 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             df[('MANUAL-ADD','S_PEDROLEVEL5','STORAGE-ZONE','1MON','L2020A','PER-CUM','TAF')] = S_FOLSMLEVEL6_monthly_taf_values
         
         # create aggregate variables using add_combined_column_if_exists
+
+        ######################################################
+        # New aggregations for data in depth system deliveries
+        ######################################################
+        days_in_month = pd.Series(
+            df.index.days_in_month,
+            index=df.index
+        )
+        
+        if add_deliveries:
+        
+            # Calculate:
+            # DEL_CVP_TOT_N_WAMER =
+            #     DEL_CVP_PAG_N
+            #   + DEL_CVP_PMI_N_WAMER
+            #   + DEL_CVP_PSC_N
+            #   + DEL_CVP_PRF_N    
+            cfs_total_col = (
+                'CALCULATED',
+                'DEL_CVP_TOT_N_WAMER',
+                'DELIVERY-CVP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'CFS'
+            )    
+            taf_total_col = (
+                'CALCULATED',
+                'DEL_CVP_TOT_N_WAMER',
+                'DELIVERY-CVP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'TAF'
+            )    
+            add_combined_column_if_exists(
+                df,
+                target_col=cfs_total_col,
+                add_cols=[
+                    (
+                        'CALSIM',
+                        'DEL_CVP_PAG_N',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALSIM',
+                        'DEL_CVP_PMI_N_WAMER',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALSIM',
+                        'DEL_CVP_PSC_N',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALSIM',
+                        'DEL_CVP_PRF_N',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                ]
+            )    
+            # Convert monthly CFS to monthly TAF
+            # 1 CFS sustained for 1 day = 0.00198347 TAF
+            cfs_series = df[cfs_total_col].squeeze()    
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )    
+            print("ADDED: DEL_CVP_TOT_N_WAMER (CFS and TAF)")
+            
+            # Calculate:
+            # DEL_CVP_TOT_S_WLOSS =
+            #     DEL_CVP_PAG_S
+            #   + DEL_CVP_PMI_S
+            #   + DEL_CVP_PSC_S
+            #   + DEL_CVP_PRF_S    
+            #   + DEL_CVP_PLS_S    
+            cfs_total_col = (
+                'CALCULATED',
+                'DEL_CVP_TOT_S_WLOSS',
+                'DELIVERY-CVP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'CFS'
+            )    
+            taf_total_col = (
+                'CALCULATED',
+                'DEL_CVP_TOT_S_WLOSS',
+                'DELIVERY-CVP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'TAF'
+            )    
+            add_combined_column_if_exists(
+                df,
+                target_col=cfs_total_col,
+                add_cols=[
+                    (
+                        'CALSIM',
+                        'DEL_CVP_PAG_S',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALSIM',
+                        'DEL_CVP_PMI_S',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALSIM',
+                        'DEL_CVP_PEX_S',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALSIM',
+                        'DEL_CVP_PRF_S',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALSIM',
+                        'DEL_CVP_PLS_S',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                ]
+            )    
+            # Convert monthly CFS to monthly TAF
+            # 1 CFS sustained for 1 day = 0.00198347 TAF
+            cfs_series = df[cfs_total_col].squeeze()    
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )    
+            print("ADDED: DEL_CVP_TOT_S_WLOSS (CFS and TAF)")
+            
+            # Calculate:
+            # DEL_CVP_TOTAL =
+            #     DEL_CVP_TOT_N_WAMER
+            #   + DEL_CVP_TOT_S_WLOSS
+            cfs_total_col = (
+                'CALCULATED',
+                'DEL_CVP_TOTAL',
+                'DELIVERY-CVP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'CFS'
+            )    
+            taf_total_col = (
+                'CALCULATED',
+                'DEL_CVP_TOTAL',
+                'DELIVERY-CVP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'TAF'
+            )    
+            add_combined_column_if_exists(
+                df,
+                target_col=cfs_total_col,
+                add_cols=[
+                    (
+                        'CALCULATED',
+                        'DEL_CVP_TOT_N_WAMER',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALCULATED',
+                        'DEL_CVP_TOT_S_WLOSS',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                ]
+            )    
+            # Convert monthly CFS to monthly TAF
+            # 1 CFS sustained for 1 day = 0.00198347 TAF
+            cfs_series = df[cfs_total_col].squeeze()    
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )    
+            print("ADDED: DEL_CVP_TOTAL (CFS and TAF)")
+            
+            # Calculate:
+            # DEL_CVP_PAG_NOD =
+            #     DEL_CVP_PAG_N
+            #   + DEL_CVP_PSC_N
+            cfs_total_col = (
+                'CALCULATED',
+                'DEL_CVP_PAG_NOD',
+                'DELIVERY-CVP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'CFS'
+            )    
+            taf_total_col = (
+                'CALCULATED',
+                'DEL_CVP_PAG_NOD',
+                'DELIVERY-CVP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'TAF'
+            )    
+            add_combined_column_if_exists(
+                df,
+                target_col=cfs_total_col,
+                add_cols=[
+                    (
+                        'CALSIM',
+                        'DEL_CVP_PAG_N',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALSIM',
+                        'DEL_CVP_PSC_N',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                ]
+            )    
+            # Convert monthly CFS to monthly TAF
+            # 1 CFS sustained for 1 day = 0.00198347 TAF
+            cfs_series = df[cfs_total_col].squeeze()    
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )    
+            print("ADDED: DEL_CVP_PAG_NOD (CFS and TAF)")
+            
+            # Calculate:
+            # DEL_CVP_PAG_SOD =
+            #     DEL_CVP_PAG_S
+            #   + DEL_CVP_PEX_S
+            cfs_total_col = (
+                'CALCULATED',
+                'DEL_CVP_PAG_SOD',
+                'DELIVERY-CVP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'CFS'
+            )    
+            taf_total_col = (
+                'CALCULATED',
+                'DEL_CVP_PAG_SOD',
+                'DELIVERY-CVP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'TAF'
+            )    
+            add_combined_column_if_exists(
+                df,
+                target_col=cfs_total_col,
+                add_cols=[
+                    (
+                        'CALSIM',
+                        'DEL_CVP_PAG_S',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALSIM',
+                        'DEL_CVP_PEX_S',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                ]
+            )    
+            # Convert monthly CFS to monthly TAF
+            # 1 CFS sustained for 1 day = 0.00198347 TAF
+            cfs_series = df[cfs_total_col].squeeze()    
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )    
+            print("ADDED: DEL_CVP_PAG_SOD (CFS and TAF)")
+            
+            # Calculate:
+            # DEL_CVP_PAG_TOTAL =
+            #     DEL_CVP_PAG_NOD
+            #   + DEL_CVP_PAG_SOD
+            cfs_total_col = (
+                'CALCULATED',
+                'DEL_CVP_PAG_TOTAL',
+                'DELIVERY-CVP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'CFS'
+            )    
+            taf_total_col = (
+                'CALCULATED',
+                'DEL_CVP_PAG_TOTAL',
+                'DELIVERY-CVP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'TAF'
+            )    
+            add_combined_column_if_exists(
+                df,
+                target_col=cfs_total_col,
+                add_cols=[
+                    (
+                        'CALCULATED',
+                        'DEL_CVP_PAG_NOD',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALCULATED',
+                        'DEL_CVP_PAG_SOD',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                ]
+            )    
+            # Convert monthly CFS to monthly TAF
+            # 1 CFS sustained for 1 day = 0.00198347 TAF
+            cfs_series = df[cfs_total_col].squeeze()    
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )    
+            print("ADDED: DEL_CVP_PAG_TOTAL (CFS and TAF)")
+            
+            # Calculate:
+            # DEL_CVP_PMI_TOTAL =
+            #     DEL_CVP_PMI_N_WAMER
+            #   + DEL_CVP_PMI_S
+            cfs_total_col = (
+                'CALCULATED',
+                'DEL_CVP_PMI_TOTAL',
+                'DELIVERY-CVP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'CFS'
+            )    
+            taf_total_col = (
+                'CALCULATED',
+                'DEL_CVP_PMI_TOTAL',
+                'DELIVERY-CVP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'TAF'
+            )    
+            add_combined_column_if_exists(
+                df,
+                target_col=cfs_total_col,
+                add_cols=[
+                    (
+                        'CALSIM',
+                        'DEL_CVP_PMI_N_WAMER',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALSIM',
+                        'DEL_CVP_PMI_S',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                ]
+            )    
+            # Convert monthly CFS to monthly TAF
+            # 1 CFS sustained for 1 day = 0.00198347 TAF
+            cfs_series = df[cfs_total_col].squeeze()    
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )    
+            print("ADDED: DEL_CVP_PMI_TOTAL (CFS and TAF)")
+            
+            # Calculate:
+            # DEL_CVP_PMI_TOTAL =
+            #     DEL_CVP_PMI_N_WAMER
+            #   + DEL_CVP_PMI_S
+            cfs_total_col = (
+                'CALCULATED',
+                'DEL_CVP_PMI_TOTAL',
+                'DELIVERY-CVP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'CFS'
+            )    
+            taf_total_col = (
+                'CALCULATED',
+                'DEL_CVP_PMI_TOTAL',
+                'DELIVERY-CVP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'TAF'
+            )    
+            add_combined_column_if_exists(
+                df,
+                target_col=cfs_total_col,
+                add_cols=[
+                    (
+                        'CALSIM',
+                        'DEL_CVP_PMI_N_WAMER',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALSIM',
+                        'DEL_CVP_PMI_S',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                ]
+            )    
+            # Convert monthly CFS to monthly TAF
+            # 1 CFS sustained for 1 day = 0.00198347 TAF
+            cfs_series = df[cfs_total_col].squeeze()    
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )    
+            print("ADDED: DEL_CVP_PMI_TOTAL (CFS and TAF)")
+            
+            # Calculate:
+            # DEL_CVP_PRF_TOTAL =
+            #     DEL_CVP_PRF_N
+            #   + DEL_CVP_PRF_S
+            cfs_total_col = (
+                'CALCULATED',
+                'DEL_CVP_PRF_TOTAL',
+                'DELIVERY-CVP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'CFS'
+            )    
+            taf_total_col = (
+                'CALCULATED',
+                'DEL_CVP_PRF_TOTAL',
+                'DELIVERY-CVP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'TAF'
+            )    
+            add_combined_column_if_exists(
+                df,
+                target_col=cfs_total_col,
+                add_cols=[
+                    (
+                        'CALSIM',
+                        'DEL_CVP_PRF_N',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALSIM',
+                        'DEL_CVP_PRF_S',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                ]
+            )    
+            # Convert monthly CFS to monthly TAF
+            # 1 CFS sustained for 1 day = 0.00198347 TAF
+            cfs_series = df[cfs_total_col].squeeze()    
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )    
+            print("ADDED: DEL_CVP_PRF_TOTAL (CFS and TAF)")
+            
+            # Calculate:
+            # C_CVP_TOTAL_EXPORTS =
+            #     C_DMC000 
+            #   + C_CAA003_CVP 
+            cfs_total_col = (
+                'CALCULATED',
+                'C_CVP_TOTAL_EXPORTS',
+                'FLOW-DELIVERY',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'CFS'
+            )    
+            taf_total_col = (
+                'CALCULATED',
+                'C_CVP_TOTAL_EXPORTS',
+                'FLOW-DELIVERY',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'TAF'
+            )    
+            add_combined_column_if_exists(
+                df,
+                target_col=cfs_total_col,
+                add_cols=[
+                    (
+                        'CALSIM',
+                        'C_DMC000',
+                        'CHANNEL',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALSIM',
+                        'C_CAA003_CVP',
+                        'FLOW-DELIVERY',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                ]
+            )    
+            # Convert monthly CFS to monthly TAF
+            # 1 CFS sustained for 1 day = 0.00198347 TAF
+            cfs_series = df[cfs_total_col].squeeze()    
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )    
+            print("ADDED: C_CVP_TOTAL_EXPORTS (CFS and TAF)")
+            
+            # Calculate:
+            # C_CVPSWP_TOTAL_EXPORTS =
+            #     C_DMC000 
+            #   + C_CAA003
+            cfs_total_col = (
+                'CALCULATED',
+                'C_CVPSWP_TOTAL_EXPORTS',
+                'FLOW-DELIVERY',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'CFS'
+            )    
+            taf_total_col = (
+                'CALCULATED',
+                'C_CVPSWP_TOTAL_EXPORTS',
+                'FLOW-DELIVERY',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'TAF'
+            )    
+            add_combined_column_if_exists(
+                df,
+                target_col=cfs_total_col,
+                add_cols=[
+                    (
+                        'CALSIM',
+                        'C_DMC000',
+                        'CHANNEL',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALSIM',
+                        'C_CAA003',
+                        'CHANNEL',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                ]
+            )    
+            # Convert monthly CFS to monthly TAF
+            # 1 CFS sustained for 1 day = 0.00198347 TAF
+            cfs_series = df[cfs_total_col].squeeze()    
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )    
+            print("ADDED: C_CVPSWP_TOTAL_EXPORTS (CFS and TAF)")
+            
+            # Calculate:
+            # DEL_SWP_TOT_N =
+            #     DEL_SWP_PAG_N
+            #   + DEL_SWP_PMI_N
+            #   + DEL_SWP_PWR
+            cfs_total_col = (
+                'CALCULATED',
+                'DEL_SWP_TOT_N',
+                'DELIVERY-SWP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'CFS'
+            )    
+            taf_total_col = (
+                'CALCULATED',
+                'DEL_SWP_TOT_N',
+                'DELIVERY-SWP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'TAF'
+            )    
+            add_combined_column_if_exists(
+                df,
+                target_col=cfs_total_col,
+                add_cols=[
+                    (
+                        'CALSIM',
+                        'DEL_SWP_PAG_N',
+                        'DELIVERY-SWP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALSIM',
+                        'DEL_SWP_PMI_N',
+                        'DELIVERY-SWP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALSIM',
+                        'DEL_SWP_PWR',
+                        'DELIVERY-SWP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                ]
+            )    
+            # Convert monthly CFS to monthly TAF
+            # 1 CFS sustained for 1 day = 0.00198347 TAF
+            # cfs_series = df[cfs_total_col].squeeze()    
+            # df[taf_total_col] = (
+            #     cfs_series
+            #     * days_in_month
+            #     * 0.00198347
+            # )    
+            # print("ADDED: DEL_SWP_TOT_N (CFS and TAF)")
+            
+            # Calculate:
+            # DEL_SWP_TOTAL =
+            #     DEL_SWP_TOT_N
+            #   + DEL_SWP_TOT_S
+            cfs_total_col = (
+                'CALCULATED',
+                'DEL_SWP_TOTAL',
+                'DELIVERY-SWP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'CFS'
+            )    
+            taf_total_col = (
+                'CALCULATED',
+                'DEL_SWP_TOTAL',
+                'DELIVERY-SWP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'TAF'
+            )    
+            add_combined_column_if_exists(
+                df,
+                target_col=cfs_total_col,
+                add_cols=[
+                    (
+                        'CALCULATED',
+                        'DEL_SWP_TOT_N',
+                        'DELIVERY-SWP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALSIM',
+                        'DEL_SWP_TOT_S',
+                        'DELIVERY-SWP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                ]
+            )    
+            # Convert monthly CFS to monthly TAF
+            # 1 CFS sustained for 1 day = 0.00198347 TAF
+            # cfs_series = df[cfs_total_col].squeeze()    
+            # df[taf_total_col] = (
+            #     cfs_series
+            #     * days_in_month
+            #     * 0.00198347
+            # )    
+            # print("ADDED: DEL_SWP_TOTAL (CFS and TAF)")
+            
+            # Calculate:
+            # DEL_SWP_PAG_NOD =
+            #     DEL_SWP_PAG_N
+            #   + DEL_SWP_PWR
+            cfs_total_col = (
+                'CALCULATED',
+                'DEL_SWP_PAG_NOD',
+                'DELIVERY-SWP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'CFS'
+            )    
+            taf_total_col = (
+                'CALCULATED',
+                'DEL_SWP_PAG_NOD',
+                'DELIVERY-SWP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'TAF'
+            )    
+            add_combined_column_if_exists(
+                df,
+                target_col=cfs_total_col,
+                add_cols=[
+                    (
+                        'CALSIM',
+                        'DEL_SWP_PAG_N',
+                        'DELIVERY-SWP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALSIM',
+                        'DEL_SWP_PWR',
+                        'DELIVERY-SWP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                ]
+            )    
+            # Convert monthly CFS to monthly TAF
+            # 1 CFS sustained for 1 day = 0.00198347 TAF
+            # cfs_series = df[cfs_total_col].squeeze()    
+            # df[taf_total_col] = (
+            #     cfs_series
+            #     * days_in_month
+            #     * 0.00198347
+            # )    
+            # print("ADDED: DEL_SWP_PAG_NOD (CFS and TAF)")
+            
+            # Calculate:
+            # DEL_SWP_PAG_TOTAL =
+            #     DEL_SWP_PAG_NOD
+            #   + DEL_SWP_PAG_S
+            cfs_total_col = (
+                'CALCULATED',
+                'DEL_SWP_PAG_TOTAL',
+                'DELIVERY-SWP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'CFS'
+            )    
+            taf_total_col = (
+                'CALCULATED',
+                'DEL_SWP_PAG_TOTAL',
+                'DELIVERY-SWP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'TAF'
+            )    
+            add_combined_column_if_exists(
+                df,
+                target_col=cfs_total_col,
+                add_cols=[
+                    (
+                        'CALCULATED',
+                        'DEL_SWP_PAG_NOD',
+                        'DELIVERY-SWP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALSIM',
+                        'DEL_SWP_PAG_S',
+                        'DELIVERY-SWP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                ]
+            )    
+            # Convert monthly CFS to monthly TAF
+            # 1 CFS sustained for 1 day = 0.00198347 TAF
+            # cfs_series = df[cfs_total_col].squeeze()    
+            # df[taf_total_col] = (
+            #     cfs_series
+            #     * days_in_month
+            #     * 0.00198347
+            # )    
+            # print("ADDED: DEL_SWP_PAG_TOTAL (CFS and TAF)")
+            
+        ##################################################################
+        # End new aggregations for data in depth system deliveries section
+        ##################################################################
 
         if add_total_storage:
             add_combined_column_if_exists(
@@ -900,7 +2746,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                                         add_nod_storage = False, add_sod_storage = False, 
                                         add_del_nod_ag = False, add_del_nod_mi = False, add_del_sod_mi = False, 
                                         add_del_sod_ag = False, add_total_exports = False, 
-                                        add_del_swp_total = False, manual_add = False)
+                                        add_del_swp_total = False, manual_add = False, add_deliveries = False)
     # we can get the demands from the DV file too
     demands_dv_df = preprocess_study_dss(demand_var_dv_df, dv_fp, datetime_start_date, datetime_end_date,
                                         adddelcvp = False, 
@@ -909,7 +2755,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                                         add_nod_storage = False, add_sod_storage = False, 
                                         add_del_nod_ag = False, add_del_nod_mi = False, add_del_sod_mi = False, 
                                         add_del_sod_ag = False, add_total_exports = False, 
-                                        add_del_swp_total = False, manual_add = False)
+                                        add_del_swp_total = False, manual_add = False, add_deliveries = False)
 
     # combine the two demands files together
     demands_df = pd.concat([demands_sv_df, demands_dv_df], axis=1)
@@ -1534,7 +3380,7 @@ def preprocess_demands_deliveries(DemandFilePath, DemandFileTab, DemMin, DemMax,
                                         add_nod_storage = False, add_sod_storage = False, 
                                         add_del_nod_ag = False, add_del_nod_mi = False, add_del_sod_mi = False, 
                                         add_del_sod_ag = False, add_total_exports = False, 
-                                        add_del_swp_total = False, manual_add = False)
+                                        add_del_swp_total = False, manual_add = False, add_deliveries = False)
 
     #%% check for missing data
 
