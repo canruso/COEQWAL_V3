@@ -181,12 +181,14 @@ def calc_indelta_tiers(df, scenario_ids, stations, thresholds, tier_rules):
 
             better = tier_rules[max_tier - 1]
 
-            worse = {
-                "LT_A": 0.0,
-                "LT_B": 0.0,
-                "GT_C": 1.0
-            }
-
+            ### CHANGED to allow a "worse boundary to be passed in
+            # worse = {
+            #     "LT_A": 0.0,
+            #     "LT_B": 0.0,
+            #     "GT_C": 1.0
+            # }
+            worse = tier_rules[max_tier]
+            
         # -------------------------
         # Middle tiers
         # -------------------------
@@ -236,157 +238,157 @@ def calc_indelta_tiers(df, scenario_ids, stations, thresholds, tier_rules):
 
 """ EXPORT TIER CALCULATION FUNCTION """
 
+##### OLD VERSION: #####
+# def generate_salinity_tier_assignment_matrix(df, station_list, thresholds, start_date):
+#     # extract scenario id from column name
+#     def extract_scenario_id(colname):
+#         name = "_".join(colname) if isinstance(colname, tuple) else str(colname)
+#         match = re.search(r's\d{4}', name)
+#         return match.group(0) if match else None
 
-def generate_salinity_tier_assignment_matrix(df, station_list, thresholds, start_date):
-    # extract scenario id from column name
-    def extract_scenario_id(colname):
-        name = "_".join(colname) if isinstance(colname, tuple) else str(colname)
-        match = re.search(r's\d{4}', name)
-        return match.group(0) if match else None
+#     # extract station name from column name
+#     def extract_station_name(colname):
+#         name = "_".join(colname) if isinstance(colname, tuple) else str(colname)
+#         for st in station_list:
+#             if name.startswith(st + "_") or f"_{st}_" in name:
+#                 return st
+#         return None
 
-    # extract station name from column name
-    def extract_station_name(colname):
-        name = "_".join(colname) if isinstance(colname, tuple) else str(colname)
-        for st in station_list:
-            if name.startswith(st + "_") or f"_{st}_" in name:
-                return st
-        return None
+#     # function to assign tiers to scenarios
+#     def assign_tiers_by_scenario(df, date_series):
+#         tier_rows = []
+#         scenario_map = {}
 
-    # function to assign tiers to scenarios
-    def assign_tiers_by_scenario(df, date_series):
-        tier_rows = []
-        scenario_map = {}
+#         # adds scenarios to scenario_map dictionary, prints list of all scenarios found
+#         for col in df.columns:
+#             sid = extract_scenario_id(col)
+#             station = extract_station_name(col)
+#             if sid and station:
+#                 scenario_map.setdefault(sid, {})[station] = col
 
-        # adds scenarios to scenario_map dictionary, prints list of all scenarios found
-        for col in df.columns:
-            sid = extract_scenario_id(col)
-            station = extract_station_name(col)
-            if sid and station:
-                scenario_map.setdefault(sid, {})[station] = col
+#         print(f"Found {len(scenario_map)} scenarios: {list(scenario_map.keys())}")
 
-        print(f"Found {len(scenario_map)} scenarios: {list(scenario_map.keys())}")
+#         #iterate over each scenario in scenario_map
+#         for sid, col_dict in scenario_map.items():
 
-        #iterate over each scenario in scenario_map
-        for sid, col_dict in scenario_map.items():
+#             # skip scenario if missing station columns
+#             if not all(st in col_dict for st in station_list):
+#                 print(f" Skipping {sid}: missing one or more station columns")
+#                 continue
 
-            # skip scenario if missing station columns
-            if not all(st in col_dict for st in station_list):
-                print(f" Skipping {sid}: missing one or more station columns")
-                continue
+#             # create scenario data frame with "Year" column, use dates as index
+#             df_scenario = pd.DataFrame(
+#                 {st: df[col_dict[st]] for st in station_list},
+#                 index=date_series
+#             )
+#             df_scenario["Year"] = df_scenario.index.year
 
-            # create scenario data frame with "Year" column, use dates as index
-            df_scenario = pd.DataFrame(
-                {st: df[col_dict[st]] for st in station_list},
-                index=date_series
-            )
-            df_scenario["Year"] = df_scenario.index.year
+#             # drop rows with no data, skip scenario if all rows empty
+#             valid_rows = df_scenario.dropna(subset=station_list)
+#             if valid_rows.empty:
+#                 print(f" Skipping {sid}: all data is NaN")
+#                 continue
 
-            # drop rows with no data, skip scenario if all rows empty
-            valid_rows = df_scenario.dropna(subset=station_list)
-            if valid_rows.empty:
-                print(f" Skipping {sid}: all data is NaN")
-                continue
+#             # group rows to get one row for each year
+#             yearly = valid_rows.groupby("Year")
+#             valid_years = list(yearly.groups.keys())
+#             total_years = len(valid_years)
 
-            # group rows to get one row for each year
-            yearly = valid_rows.groupby("Year")
-            valid_years = list(yearly.groups.keys())
-            total_years = len(valid_years)
+#             # initialize tier values
+#             tier4_flag = False
+#             tier3_flag = False
+#             tier3_years_with_1month_over_mid = 0
+#             tier2_valid_years = 0
+#             tier1_valid_years = 0
+#             any_year_exceeds_mid = False
 
-            # initialize tier values
-            tier4_flag = False
-            tier3_flag = False
-            tier3_years_with_1month_over_mid = 0
-            tier2_valid_years = 0
-            tier1_valid_years = 0
-            any_year_exceeds_mid = False
+#             # set flags for tier assignment, iterate over each year
+#             for year, group in yearly:
+#                 readings = {st: group[st] for st in station_list}
 
-            # set flags for tier assignment, iterate over each year
-            for year, group in yearly:
-                readings = {st: group[st] for st in station_list}
+#                 if any((r > thresholds["Top"]).sum() >= 2 for r in
+#                        readings.values()):  # set tier 4 if there are 2+ values greater than top threshold
+#                     tier4_flag = True
+#                     break
 
-                if any((r > thresholds["Top"]).sum() >= 2 for r in
-                       readings.values()):  # set tier 4 if there are 2+ values greater than top threshold
-                    tier4_flag = True
-                    break
+#                 if any((r > thresholds["Mid"]).sum() >= 2 for r in
+#                        readings.values()):  # set tier 3 if there are 2+ values greater than mid threshold
+#                     tier3_flag = True
 
-                if any((r > thresholds["Mid"]).sum() >= 2 for r in
-                       readings.values()):  # set tier 3 if there are 2+ values greater than mid threshold
-                    tier3_flag = True
+#                 if any((r > thresholds["Mid"]).any() for r in
+#                        readings.values()):  # add number of values greater than mid threshold to the variable
+#                     tier3_years_with_1month_over_mid += 1
 
-                if any((r > thresholds["Mid"]).any() for r in
-                       readings.values()):  # add number of values greater than mid threshold to the variable
-                    tier3_years_with_1month_over_mid += 1
+#                 if any((r > thresholds["Mid"]).any() for r in
+#                        readings.values()):  # set variable to true if any value exceeds mid threshold
+#                     any_year_exceeds_mid = True
 
-                if any((r > thresholds["Mid"]).any() for r in
-                       readings.values()):  # set variable to true if any value exceeds mid threshold
-                    any_year_exceeds_mid = True
+#                 else:
+#                     # sum up number of values in between low and mid thresholds (inclusive)
+#                     in_range_counts = [((r >= thresholds["Low"]) & (r <= thresholds["Mid"])).sum() for r in
+#                                        readings.values()]
+#                     # add to tier2_valid_years if there are 10+ counts between the low and mid thresholds (inclusive)
+#                     if all(count >= 10 for count in in_range_counts):
+#                         tier2_valid_years += 1
 
-                else:
-                    # sum up number of values in between low and mid thresholds (inclusive)
-                    in_range_counts = [((r >= thresholds["Low"]) & (r <= thresholds["Mid"])).sum() for r in
-                                       readings.values()]
-                    # add to tier2_valid_years if there are 10+ counts between the low and mid thresholds (inclusive)
-                    if all(count >= 10 for count in in_range_counts):
-                        tier2_valid_years += 1
+#                 # if all 12 values are below low threshold, add to tier1_valid_years
+#                 if all(((r < thresholds["Low"]).sum() == 12) for r in readings.values()):
+#                     tier1_valid_years += 1
 
-                # if all 12 values are below low threshold, add to tier1_valid_years
-                if all(((r < thresholds["Low"]).sum() == 12) for r in readings.values()):
-                    tier1_valid_years += 1
+#             # skip scenario if no valid years with complete data
+#             if total_years == 0:
+#                 print(f" Scenario {sid}: No valid years with complete data.")
+#                 continue
 
-            # skip scenario if no valid years with complete data
-            if total_years == 0:
-                print(f" Scenario {sid}: No valid years with complete data.")
-                continue
+#             # assign tiers based on values found above
+#             if tier4_flag:  # tier 4 if flag is true
+#                 tier = 4
+#             # tier 3 if flag is true or if fraction of years with 1 month over mid threshold is greater than 0.5
+#             elif tier3_flag or (tier3_years_with_1month_over_mid / total_years > 0.05):
+#                 tier = 3
+#             # tier 2 if no years exceed mid threshold and if fraction of tier 2 valid years is greater than or equal to 0.95
+#             elif not any_year_exceeds_mid and (tier2_valid_years / total_years >= 0.95):
+#                 tier = 2
+#             # tier 1 if fraction of tier 1 valid years is greater than or equal to 0.95
+#             elif tier1_valid_years / total_years >= 0.95:
+#                 tier = 1
+#             else:  # no tier if none match
+#                 tier = None
+#                 print(f" Scenario {sid} did not match any tier.")
+#                 # print summary
+#                 print(
+#                     f"   Summary: tier3_flag={tier3_flag}, tier3_pct={tier3_years_with_1month_over_mid / total_years:.2f}, "
+#                     f"tier2_pct={tier2_valid_years / total_years:.2f}, tier1_pct={tier1_valid_years / total_years:.2f}, "
+#                     f"any_year_exceeds_mid={any_year_exceeds_mid}")
+#                 continue
 
-            # assign tiers based on values found above
-            if tier4_flag:  # tier 4 if flag is true
-                tier = 4
-            # tier 3 if flag is true or if fraction of years with 1 month over mid threshold is greater than 0.5
-            elif tier3_flag or (tier3_years_with_1month_over_mid / total_years > 0.05):
-                tier = 3
-            # tier 2 if no years exceed mid threshold and if fraction of tier 2 valid years is greater than or equal to 0.95
-            elif not any_year_exceeds_mid and (tier2_valid_years / total_years >= 0.95):
-                tier = 2
-            # tier 1 if fraction of tier 1 valid years is greater than or equal to 0.95
-            elif tier1_valid_years / total_years >= 0.95:
-                tier = 1
-            else:  # no tier if none match
-                tier = None
-                print(f" Scenario {sid} did not match any tier.")
-                # print summary
-                print(
-                    f"   Summary: tier3_flag={tier3_flag}, tier3_pct={tier3_years_with_1month_over_mid / total_years:.2f}, "
-                    f"tier2_pct={tier2_valid_years / total_years:.2f}, tier1_pct={tier1_valid_years / total_years:.2f}, "
-                    f"any_year_exceeds_mid={any_year_exceeds_mid}")
-                continue
+#             # print tier assigned to each scenario
+#             print(f"→ Scenario {sid} assigned Tier {tier}")
+#             # add scenario and salinity tier to tier_rows
+#             tier_rows.append({
+#                 "Scenario": sid,
+#                 "Salinity_Tier": tier
+#             })
 
-            # print tier assigned to each scenario
-            print(f"→ Scenario {sid} assigned Tier {tier}")
-            # add scenario and salinity tier to tier_rows
-            tier_rows.append({
-                "Scenario": sid,
-                "Salinity_Tier": tier
-            })
+#         # return data frame with scenario and salinity tier columns
+#         return pd.DataFrame(tier_rows, columns=["Scenario", "Salinity_Tier"])
 
-        # return data frame with scenario and salinity tier columns
-        return pd.DataFrame(tier_rows, columns=["Scenario", "Salinity_Tier"])
+#     # make copy of data frame, set date as index
+#     df = df.copy()
+#     if not pd.api.types.is_datetime64_any_dtype(df.index):
+#         df.index = pd.date_range(start=start_date, periods=len(df), freq="MS")
 
-    # make copy of data frame, set date as index
-    df = df.copy()
-    if not pd.api.types.is_datetime64_any_dtype(df.index):
-        df.index = pd.date_range(start=start_date, periods=len(df), freq="MS")
+#     # assign tiers using function above
+#     date_series = df.index
+#     tier_df = assign_tiers_by_scenario(df, date_series)
 
-    # assign tiers using function above
-    date_series = df.index
-    tier_df = assign_tiers_by_scenario(df, date_series)
+#     # print statement if data frame is empty
+#     if tier_df.empty:
+#         print(" No valid scenario-station pairs were found.")
+#         return pd.DataFrame(columns=["Salinity_Tier"])
 
-    # print statement if data frame is empty
-    if tier_df.empty:
-        print(" No valid scenario-station pairs were found.")
-        return pd.DataFrame(columns=["Salinity_Tier"])
-
-    # return data frame with tier assignments, set scenario as index
-    return tier_df.set_index("Scenario")
+#     # return data frame with tier assignments, set scenario as index
+#     return tier_df.set_index("Scenario")
 
 
 def compute_export_quality_volume(salinity_df, volume_df, salinity_var, volume_var,
