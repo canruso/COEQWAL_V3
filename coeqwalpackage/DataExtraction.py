@@ -194,7 +194,7 @@ CREATE DATASETS ACROSS STUDIES
 (Aux functions to read and process studies (for single and multiple studies). Note: contain options to create hard-coded additional compound variables (if more are needed, add to these codes))
 """
 
-def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, adddelcvp = True, adddelcvpag = True, addcvpscex = True, addcvpprf = True, adddelcvpswp = True, add_total_storage = True, add_nod_storage = True, add_sod_storage = True, add_del_nod_ag = True, add_del_nod_mi = True, add_del_sod_mi = True, add_del_sod_ag = True, add_total_exports = True, add_del_swp_total = True, manual_add = True, add_deliveries = True):
+def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, adddelcvp = False, adddelcvpag = False, addcvpscex = True, addcvpprf = False, adddelcvpswp = False, add_total_storage = True, add_nod_storage = True, add_sod_storage = True, add_del_nod_ag = True, add_del_nod_mi = True, add_del_sod_mi = True, add_del_sod_ag = True, add_total_exports = True, add_del_swp_total = False, manual_add = True, add_deliveries = True):
     dvar_list = []
     combined_df = pd.DataFrame()
     
@@ -1005,7 +1005,7 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         # DEL_SWP_TOT_N =
         #     DEL_SWP_PAG_N
         #   + DEL_SWP_PMI_N
-        #   + DEL_SWP_PWR
+        #   + DEL_SWP_PWR ###### REMOVED BECAUSE MISSING FROM USBR-BASED SCENARIOS
         cfs_total_col = (
             'CALCULATED',
             'DEL_SWP_TOT_N',
@@ -1046,15 +1046,15 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
                     'PER-AVER',
                     'CFS'
                 ),
-                (
-                    'CALSIM',
-                    'DEL_SWP_PWR',
-                    'DELIVERY-SWP',
-                    '1MON',
-                    'L2020A',
-                    'PER-AVER',
-                    'CFS'
-                ),
+                # (
+                #     'CALSIM',
+                #     'DEL_SWP_PWR',
+                #     'DELIVERY-SWP',
+                #     '1MON',
+                #     'L2020A',
+                #     'PER-AVER',
+                #     'CFS'
+                # ),
             ]
         )    
         # Convert monthly CFS to monthly TAF
@@ -1136,7 +1136,7 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         # Calculate:
         # DEL_SWP_PAG_NOD =
         #     DEL_SWP_PAG_N
-        #   + DEL_SWP_PWR
+        #   + DEL_SWP_PWR ###### REMOVED BECAUSE MISSING FROM USBR-BASED SCENARIOS
         cfs_total_col = (
             'CALCULATED',
             'DEL_SWP_PAG_NOD',
@@ -1168,15 +1168,15 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
                     'PER-AVER',
                     'CFS'
                 ),
-                (
-                    'CALSIM',
-                    'DEL_SWP_PWR',
-                    'DELIVERY-SWP',
-                    '1MON',
-                    'L2020A',
-                    'PER-AVER',
-                    'CFS'
-                ),
+                # (
+                #     'CALSIM',
+                #     'DEL_SWP_PWR',
+                #     'DELIVERY-SWP',
+                #     '1MON',
+                #     'L2020A',
+                #     'PER-AVER',
+                #     'CFS'
+                # ),
             ]
         )    
         # Convert monthly CFS to monthly TAF
@@ -1255,6 +1255,67 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
         else:
             print(f"SKIPPED: {cfs_total_col} not found.")
         
+        # Calculate:
+        # DEL_CVPSWP_TOTAL =
+        #     DEL_CVP_TOTAL
+        #   + DEL_SWP_TOTAL
+        cfs_total_col = (
+            'CALCULATED',
+            'DEL_CVPSWP_TOTAL',
+            'DELIVERY-CVPSWP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'CFS'
+        )    
+        taf_total_col = (
+            'CALCULATED',
+            'DEL_CVPSWP_TOTAL',
+            'DELIVERY-CVPSWP',
+            '1MON',
+            'L2020A',
+            'PER-AVER',
+            'TAF'
+        )    
+        add_combined_column_if_exists(
+            df,
+            target_col=cfs_total_col,
+            add_cols=[
+                (
+                    'CALCULATED',
+                    'DEL_CVP_TOTAL',
+                    'DELIVERY-CVP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+                (
+                    'CALCULATED',
+                    'DEL_SWP_TOTAL',
+                    'DELIVERY-SWP',
+                    '1MON',
+                    'L2020A',
+                    'PER-AVER',
+                    'CFS'
+                ),
+            ]
+        )    
+        # Convert monthly CFS to monthly TAF
+        # 1 CFS sustained for 1 day = 0.00198347 TAF
+        if cfs_total_col in df.columns:
+            cfs_series = df[cfs_total_col].squeeze()
+        
+            df[taf_total_col] = (
+                cfs_series
+                * days_in_month
+                * 0.00198347
+            )
+        
+            print("ADDED: DEL_CVPSWP_TOTAL (CFS and TAF)")
+        else:
+            print(f"SKIPPED: {cfs_total_col} not found.")
+        
     ##################################################################
     # End new aggregations for data in depth system deliveries section
     ##################################################################
@@ -1309,15 +1370,16 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
             ]
         )
     
-    if add_del_swp_total:
-        add_combined_column_if_exists(
-            df,
-            target_col=('CALCULATED', 'DEL_SWP_TOTAL', 'DELIVERY-CALC', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-            add_cols=[
-                ('CALSIM', 'DEL_SWP_PAG', 'DELIVERY-SWP', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-                ('CALSIM', 'DEL_SWP_PMI', 'DELIVERY-SWP', '1MON', 'L2020A', 'PER-AVER', 'CFS')
-            ]
-        )
+    ### Legacy, now replaced by add_deliveries
+    # if add_del_swp_total:
+    #     add_combined_column_if_exists(
+    #         df,
+    #         target_col=('CALCULATED', 'DEL_SWP_TOTAL', 'DELIVERY-CALC', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+    #         add_cols=[
+    #             ('CALSIM', 'DEL_SWP_PAG', 'DELIVERY-SWP', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+    #             ('CALSIM', 'DEL_SWP_PMI', 'DELIVERY-SWP', '1MON', 'L2020A', 'PER-AVER', 'CFS')
+    #         ]
+    #     )
     
     if add_del_nod_ag:
         add_combined_column_if_exists(
@@ -1415,38 +1477,41 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
     #             ('CALSIM', 'S_FOLSM', 'STORAGE', '1MON', 'L2020A', 'PER-AVER', 'TAF')
     #         ]
     #     )
+
+    ### Legacy, now replaced by add_deliveries
+    # if adddelcvp:
+    #     add_combined_column_if_exists(
+    #         df,
+    #         target_col=('CALCULATED', 'DEL_CVP_TOTAL', 'DELIVERY-CALC', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+    #         add_cols=[
+    #             ('CALSIM', 'DEL_CVP_TOTAL_N', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+    #             ('CALSIM', 'DEL_CVP_TOTAL_S', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS')
+    #         ]
+    #     )
     
-    if adddelcvp:
-        add_combined_column_if_exists(
-            df,
-            target_col=('CALCULATED', 'DEL_CVP_TOTAL', 'DELIVERY-CALC', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-            add_cols=[
-                ('CALSIM', 'DEL_CVP_TOTAL_N', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-                ('CALSIM', 'DEL_CVP_TOTAL_S', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS')
-            ]
-        )
+    ### Legacy, now replaced by add_deliveries
+    # if adddelcvpswp:
+    #     add_combined_column_if_exists(
+    #         df,
+    #         target_col=('CALCULATED', 'DEL_CVPSWP_TOTAL', 'DELIVERY-CALC', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+    #         add_cols=[
+    #             ('CALCULATED', 'DEL_CVP_TOTAL', 'DELIVERY-CALC', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+    #             ('CALSIM', 'DEL_CVP_PAG_S', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+    #             ('CALSIM', 'DEL_SWP_PAG_S', 'DELIVERY-SWP', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+    #             ('CALSIM', 'DEL_CVP_PEX_S', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS')
+    #         ]
+    #     )
     
-    if adddelcvpswp:
-        add_combined_column_if_exists(
-            df,
-            target_col=('CALCULATED', 'DEL_CVPSWP_TOTAL', 'DELIVERY-CALC', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-            add_cols=[
-                ('CALCULATED', 'DEL_CVP_TOTAL', 'DELIVERY-CALC', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-                ('CALSIM', 'DEL_CVP_PAG_S', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-                ('CALSIM', 'DEL_SWP_PAG_S', 'DELIVERY-SWP', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-                ('CALSIM', 'DEL_CVP_PEX_S', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS')
-            ]
-        )
-    
-    if adddelcvpag:
-        add_combined_column_if_exists(
-            df,
-            target_col=('CALCULATED', 'DEL_CVP_PAG_TOTAL', 'DELIVERY-CALC', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-            add_cols=[
-                ('CALSIM', 'DEL_CVP_PAG_N', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-                ('CALSIM', 'DEL_CVP_PAG_S', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS')
-            ]
-        )
+    ### Legacy, now replaced by add_deliveries
+    # if adddelcvpag:
+    #     add_combined_column_if_exists(
+    #         df,
+    #         target_col=('CALCULATED', 'DEL_CVP_PAG_TOTAL', 'DELIVERY-CALC', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+    #         add_cols=[
+    #             ('CALSIM', 'DEL_CVP_PAG_N', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+    #             ('CALSIM', 'DEL_CVP_PAG_S', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS')
+    #         ]
+    #     )
     
     if addcvpscex:
         add_combined_column_if_exists(
@@ -1458,15 +1523,16 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
             ]
         )
     
-    if addcvpprf:
-        add_combined_column_if_exists(
-            df,
-            target_col=('CALCULATED', 'DEL_CVP_PRF_TOTAL', 'DELIVERY-CALC', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-            add_cols=[
-                ('CALSIM', 'DEL_CVP_PRF_N', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
-                ('CALSIM', 'DEL_CVP_PRF_S', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS')
-            ]
-        )
+    ### Legacy, now replaced by add_deliveries
+    # if addcvpprf:
+    #     add_combined_column_if_exists(
+    #         df,
+    #         target_col=('CALCULATED', 'DEL_CVP_PRF_TOTAL', 'DELIVERY-CALC', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+    #         add_cols=[
+    #             ('CALSIM', 'DEL_CVP_PRF_N', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS'),
+    #             ('CALSIM', 'DEL_CVP_PRF_S', 'DELIVERY-CVP', '1MON', 'L2020A', 'PER-AVER', 'CFS')
+    #         ]
+    #   )
     
     # if add_awoann_xa:
     #     add_combined_column_if_exists(
@@ -1490,7 +1556,7 @@ def preprocess_study_dss(df, dss_name, datetime_start_date, datetime_end_date, a
     return df
 
 
-def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_datetime, max_datetime, adddelcvp = True, adddelcvpag = True, addcvpscex = True, addcvpprf = True, adddelcvpswp = True, add_total_storage = True, add_nod_storage = True, add_sod_storage = True, add_del_nod_ag = True, add_del_nod_mi = True, add_del_sod_mi = True, add_del_sod_ag = True, add_total_exports = True, add_del_swp_total = True, add_awoann_xa = True, manual_add = True, add_deliveries = True):
+def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_datetime, max_datetime, adddelcvp = False, adddelcvpag = False, addcvpscex = True, addcvpprf = False, adddelcvpswp = False, add_total_storage = True, add_nod_storage = True, add_sod_storage = True, add_del_nod_ag = True, add_del_nod_mi = True, add_del_sod_mi = True, add_del_sod_ag = True, add_total_exports = True, add_del_swp_total = False, add_awoann_xa = True, manual_add = True, add_deliveries = True):
     dvar_list = []
     combined_df = pd.DataFrame()
     
@@ -1556,7 +1622,7 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             df.index.days_in_month,
             index=df.index
         )
-        
+
         if add_deliveries:
         
             # Calculate:
@@ -2284,7 +2350,7 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             # DEL_SWP_TOT_N =
             #     DEL_SWP_PAG_N
             #   + DEL_SWP_PMI_N
-            #   + DEL_SWP_PWR
+            #   + DEL_SWP_PWR ###### REMOVED BECAUSE MISSING FROM USBR-BASED SCENARIOS
             cfs_total_col = (
                 'CALCULATED',
                 'DEL_SWP_TOT_N',
@@ -2325,15 +2391,15 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
                         'PER-AVER',
                         'CFS'
                     ),
-                    (
-                        'CALSIM',
-                        'DEL_SWP_PWR',
-                        'DELIVERY-SWP',
-                        '1MON',
-                        'L2020A',
-                        'PER-AVER',
-                        'CFS'
-                    ),
+                    # (
+                    #     'CALSIM',
+                    #     'DEL_SWP_PWR',
+                    #     'DELIVERY-SWP',
+                    #     '1MON',
+                    #     'L2020A',
+                    #     'PER-AVER',
+                    #     'CFS'
+                    # ),
                 ]
             )    
             # Convert monthly CFS to monthly TAF
@@ -2415,7 +2481,7 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             # Calculate:
             # DEL_SWP_PAG_NOD =
             #     DEL_SWP_PAG_N
-            #   + DEL_SWP_PWR
+            #   + DEL_SWP_PWR ###### REMOVED BECAUSE MISSING FROM USBR-BASED SCENARIOS
             cfs_total_col = (
                 'CALCULATED',
                 'DEL_SWP_PAG_NOD',
@@ -2447,15 +2513,15 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
                         'PER-AVER',
                         'CFS'
                     ),
-                    (
-                        'CALSIM',
-                        'DEL_SWP_PWR',
-                        'DELIVERY-SWP',
-                        '1MON',
-                        'L2020A',
-                        'PER-AVER',
-                        'CFS'
-                    ),
+                    # (
+                    #     'CALSIM',
+                    #     'DEL_SWP_PWR',
+                    #     'DELIVERY-SWP',
+                    #     '1MON',
+                    #     'L2020A',
+                    #     'PER-AVER',
+                    #     'CFS'
+                    # ),
                 ]
             )    
             # Convert monthly CFS to monthly TAF
@@ -2534,6 +2600,67 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
             else:
                 print(f"SKIPPED: {cfs_total_col} not found.")
             
+            # Calculate:
+            # DEL_CVPSWP_TOTAL =
+            #     DEL_CVP_TOTAL
+            #   + DEL_SWP_TOTAL
+            cfs_total_col = (
+                'CALCULATED',
+                'DEL_CVPSWP_TOTAL',
+                'DELIVERY-CVPSWP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'CFS'
+            )    
+            taf_total_col = (
+                'CALCULATED',
+                'DEL_CVPSWP_TOTAL',
+                'DELIVERY-CVPSWP',
+                '1MON',
+                'L2020A',
+                'PER-AVER',
+                'TAF'
+            )    
+            add_combined_column_if_exists(
+                df,
+                target_col=cfs_total_col,
+                add_cols=[
+                    (
+                        'CALCULATED',
+                        'DEL_CVP_TOTAL',
+                        'DELIVERY-CVP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                    (
+                        'CALCULATED',
+                        'DEL_SWP_TOTAL',
+                        'DELIVERY-SWP',
+                        '1MON',
+                        'L2020A',
+                        'PER-AVER',
+                        'CFS'
+                    ),
+                ]
+            )    
+            # Convert monthly CFS to monthly TAF
+            # 1 CFS sustained for 1 day = 0.00198347 TAF
+            if cfs_total_col in df.columns:
+                cfs_series = df[cfs_total_col].squeeze()
+            
+                df[taf_total_col] = (
+                    cfs_series
+                    * days_in_month
+                    * 0.00198347
+                )
+            
+                print("ADDED: DEL_CVPSWP_TOTAL (CFS and TAF)")
+            else:
+                print(f"SKIPPED: {cfs_total_col} not found.")
+            
         ##################################################################
         # End new aggregations for data in depth system deliveries section
         ##################################################################
@@ -2591,16 +2718,17 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
                 ]
             )
         
-        # --- SWP Deliveries ---
-        if add_del_swp_total:
-            add_combined_column_if_exists(
-                df,
-                ('CALCULATED','DEL_SWP_TOTAL','DELIVERY-CALC','1MON','L2020A','PER-AVER','CFS'),
-                add_cols=[
-                    ('CALSIM','DEL_SWP_PAG','DELIVERY-SWP','1MON','L2020A','PER-AVER','CFS'),
-                    ('CALSIM','DEL_SWP_PMI','DELIVERY-SWP','1MON','L2020A','PER-AVER','CFS'),
-                ]
-            )
+        ### Legacy, now replaced by add_deliveries
+        # # --- SWP Deliveries ---
+        # if add_del_swp_total:
+        #     add_combined_column_if_exists(
+        #         df,
+        #         ('CALCULATED','DEL_SWP_TOTAL','DELIVERY-CALC','1MON','L2020A','PER-AVER','CFS'),
+        #         add_cols=[
+        #             ('CALSIM','DEL_SWP_PAG','DELIVERY-SWP','1MON','L2020A','PER-AVER','CFS'),
+        #             ('CALSIM','DEL_SWP_PMI','DELIVERY-SWP','1MON','L2020A','PER-AVER','CFS'),
+        #         ]
+        #     )
         
         # --- NOD AG Deliveries ---
         if add_del_nod_ag:
@@ -2708,40 +2836,43 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
         #         ]
         #     )
         
+        ### Legacy, now replaced by add_deliveries
         # --- CVP TOTAL ---
-        if adddelcvp:
-            add_combined_column_if_exists(
-                df,
-                ('CALCULATED','DEL_CVP_TOTAL','DELIVERY-CALC','1MON','L2020A','PER-AVER','CFS'),
-                add_cols=[
-                    ('CALSIM','DEL_CVP_TOTAL_N','DELIVERY-CVP','1MON','L2020A','PER-AVER','CFS'),
-                    ('CALSIM','DEL_CVP_TOTAL_S','DELIVERY-CVP','1MON','L2020A','PER-AVER','CFS'),
-                ]
-            )
+        # if adddelcvp:
+        #     add_combined_column_if_exists(
+        #         df,
+        #         ('CALCULATED','DEL_CVP_TOTAL','DELIVERY-CALC','1MON','L2020A','PER-AVER','CFS'),
+        #         add_cols=[
+        #             ('CALSIM','DEL_CVP_TOTAL_N','DELIVERY-CVP','1MON','L2020A','PER-AVER','CFS'),
+        #             ('CALSIM','DEL_CVP_TOTAL_S','DELIVERY-CVP','1MON','L2020A','PER-AVER','CFS'),
+        #         ]
+        #     )
         
-        # --- CVP+SWP TOTAL ---
-        if adddelcvpswp:
-            add_combined_column_if_exists(
-                df,
-                ('CALCULATED','DEL_CVPSWP_TOTAL','DELIVERY-CALC','1MON','L2020A','PER-AVER','CFS'),
-                add_cols=[
-                    ('CALCULATED','DEL_CVP_TOTAL','DELIVERY-CALC','1MON','L2020A','PER-AVER','CFS'),
-                    ('CALSIM','DEL_CVP_PAG_S','DELIVERY-CVP','1MON','L2020A','PER-AVER','CFS'),
-                    ('CALSIM','DEL_SWP_PAG_S','DELIVERY-SWP','1MON','L2020A','PER-AVER','CFS'),
-                    ('CALSIM','DEL_CVP_PEX_S','DELIVERY-CVP','1MON','L2020A','PER-AVER','CFS'),
-                ]
-            )
+        ### Legacy, now replaced by add_deliveries
+        # # --- CVP+SWP TOTAL ---
+        # if adddelcvpswp:
+        #     add_combined_column_if_exists(
+        #         df,
+        #         ('CALCULATED','DEL_CVPSWP_TOTAL','DELIVERY-CALC','1MON','L2020A','PER-AVER','CFS'),
+        #         add_cols=[
+        #             ('CALCULATED','DEL_CVP_TOTAL','DELIVERY-CALC','1MON','L2020A','PER-AVER','CFS'),
+        #             ('CALSIM','DEL_CVP_PAG_S','DELIVERY-CVP','1MON','L2020A','PER-AVER','CFS'),
+        #             ('CALSIM','DEL_SWP_PAG_S','DELIVERY-SWP','1MON','L2020A','PER-AVER','CFS'),
+        #             ('CALSIM','DEL_CVP_PEX_S','DELIVERY-CVP','1MON','L2020A','PER-AVER','CFS'),
+        #         ]
+        #     )
         
-        # --- CVP PAG ---
-        if adddelcvpag:
-            add_combined_column_if_exists(
-                df,
-                ('CALCULATED','DEL_CVP_PAG_TOTAL','DELIVERY-CALC','1MON','L2020A','PER-AVER','CFS'),
-                add_cols=[
-                    ('CALSIM','DEL_CVP_PAG_N','DELIVERY-CVP','1MON','L2020A','PER-AVER','CFS'),
-                    ('CALSIM','DEL_CVP_PAG_S','DELIVERY-CVP','1MON','L2020A','PER-AVER','CFS'),
-                ]
-            )
+        ### Legacy, now replaced by add_deliveries
+        # # --- CVP PAG ---
+        # if adddelcvpag:
+        #     add_combined_column_if_exists(
+        #         df,
+        #         ('CALCULATED','DEL_CVP_PAG_TOTAL','DELIVERY-CALC','1MON','L2020A','PER-AVER','CFS'),
+        #         add_cols=[
+        #             ('CALSIM','DEL_CVP_PAG_N','DELIVERY-CVP','1MON','L2020A','PER-AVER','CFS'),
+        #             ('CALSIM','DEL_CVP_PAG_S','DELIVERY-CVP','1MON','L2020A','PER-AVER','CFS'),
+        #         ]
+        #     )
         
         # --- CVP PSC + EX ---
         if addcvpscex:
@@ -2754,16 +2885,17 @@ def preprocess_compound_data_dss(df, ScenarioDir, dss_names, index_names, min_da
                 ]
             )
         
-        # --- CVP PRF ---
-        if addcvpprf:
-            add_combined_column_if_exists(
-                df,
-                ('CALCULATED','DEL_CVP_PRF_TOTAL','DELIVERY-CALC','1MON','L2020A','PER-AVER','CFS'),
-                add_cols=[
-                    ('CALSIM','DEL_CVP_PRF_N','DELIVERY-CVP','1MON','L2020A','PER-AVER','CFS'),
-                    ('CALSIM','DEL_CVP_PRF_S','DELIVERY-CVP','1MON','L2020A','PER-AVER','CFS'),
-                ]
-            )
+        ### Legacy, now replaced by add_deliveries
+        # # --- CVP PRF ---
+        # if addcvpprf:
+        #     add_combined_column_if_exists(
+        #         df,
+        #         ('CALCULATED','DEL_CVP_PRF_TOTAL','DELIVERY-CALC','1MON','L2020A','PER-AVER','CFS'),
+        #         add_cols=[
+        #             ('CALSIM','DEL_CVP_PRF_N','DELIVERY-CVP','1MON','L2020A','PER-AVER','CFS'),
+        #             ('CALSIM','DEL_CVP_PRF_S','DELIVERY-CVP','1MON','L2020A','PER-AVER','CFS'),
+        #         ]
+        #     )
         
         # # --- AWOANN XA ---
         # if add_awoann_xa:
