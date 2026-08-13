@@ -1252,6 +1252,23 @@ def normalize_id(s: str) -> str:
     return s.zfill(2) if s.isdigit() else s
 
 
+def wba_acres_key(s: str) -> str:
+    """
+    Normalize a WBA identifier for joining the WRESL mapping to CalSim3_WBA.csv.
+
+    Pads the leading number to two digits and keeps any trailing letter, so the
+    WRESL's "WBA7N" and the area table's "07N" produce the same key. Unlike
+    normalize_id, which zero-pads pure digits only, this handles the
+    number-plus-letter names (7N, 7S, 8N, 8S). Non-numeric names such as DETAW
+    are returned unchanged.
+    """
+    s = str(s).strip().upper()
+    if s.startswith("WBA"):
+        s = s[3:]
+    m = re.match(r"^(\d+)([A-Z]*)$", s)
+    return f"{int(m.group(1)):02d}{m.group(2)}" if m else s
+
+
 def normalize_storage_col(col: str) -> Optional[str]:
     """Extract WBA ID or DETAW identifier from storage column names."""
     if not isinstance(col, str):
@@ -1309,8 +1326,12 @@ def build_combined_storage_timeseries(
         )
 
     # Build lookup dictionaries
-    sr_to_fid = {f"SR{int(fid):02d}": fid for fid in wba_df["fid"]}
-    fid_to_acres = dict(zip(wba_df["fid"], wba_df["GIS_Acres"]))
+    # Acreage is keyed by WBA_ID, the column that names the WBA. It must NOT be keyed
+    # by fid: fid is a GIS export row number and CalSim3_WBA.csv is not in subregion
+    # order (row 1 is DETAW, which the WRESL makes subregion 32), so joining on it
+    # hands 39 of 42 subregions another WBA's area.
+    wba_to_acres = {wba_acres_key(k): v
+                    for k, v in zip(wba_df["WBA_ID"], wba_df["GIS_Acres"])}
     sr_to_wba = dict(zip(mapping_df["Subregion_ID"], mapping_df["WBA_ID"]))
 
     # Build WBA/DETAW series from GW1 
@@ -1329,8 +1350,7 @@ def build_combined_storage_timeseries(
             if sr not in sr_to_wba:
                 continue
             wba_name = sr_to_wba[sr]
-            fid = sr_to_fid.get(sr)
-            area_acres = fid_to_acres.get(fid)
+            area_acres = wba_to_acres.get(wba_acres_key(wba_name))
             if area_acres is None or float(area_acres) == 0.0:
                 continue
 
@@ -1400,8 +1420,7 @@ def build_combined_storage_timeseries(
             if sr not in sr_to_wba:
                 continue
             wba_name = sr_to_wba[sr]
-            fid = sr_to_fid.get(sr)
-            area_acres = fid_to_acres.get(fid)
+            area_acres = wba_to_acres.get(wba_acres_key(wba_name))
             if area_acres is None or float(area_acres) == 0.0:
                 continue
             series_ft = (summed / float(area_acres)) * 1000.0  # TAF -> FT
@@ -1520,8 +1539,12 @@ def build_gw_timeseries(
         mapping_df = mapping_df.rename(columns={"SR_number": "Subregion_ID", "WBA_name": "WBA_ID"})
 
     # Build lookup dictionaries
-    sr_to_fid = {f"SR{int(fid):02d}": fid for fid in wba_df["fid"]}
-    fid_to_acres = dict(zip(wba_df["fid"], wba_df["GIS_Acres"]))
+    # Acreage is keyed by WBA_ID, the column that names the WBA. It must NOT be keyed
+    # by fid: fid is a GIS export row number and CalSim3_WBA.csv is not in subregion
+    # order (row 1 is DETAW, which the WRESL makes subregion 32), so joining on it
+    # hands 39 of 42 subregions another WBA's area.
+    wba_to_acres = {wba_acres_key(k): v
+                    for k, v in zip(wba_df["WBA_ID"], wba_df["GIS_Acres"])}
     sr_to_wba = dict(zip(mapping_df["Subregion_ID"], mapping_df["WBA_ID"]))
 
     # Compute DETAW area
@@ -1550,8 +1573,7 @@ def build_gw_timeseries(
             if sr not in sr_to_wba:
                 continue
             wba_name = sr_to_wba[sr]
-            fid = sr_to_fid.get(sr)
-            area_acres = fid_to_acres.get(fid)
+            area_acres = wba_to_acres.get(wba_acres_key(wba_name))
             if area_acres is None or float(area_acres) == 0.0:
                 continue
 
@@ -1617,8 +1639,7 @@ def build_gw_timeseries(
             if sr not in sr_to_wba:
                 continue
             wba_name = sr_to_wba[sr]
-            fid = sr_to_fid.get(sr)
-            area_acres = fid_to_acres.get(fid)
+            area_acres = wba_to_acres.get(wba_acres_key(wba_name))
             if area_acres is None or float(area_acres) == 0.0:
                 continue
             neg_idx = np.where(summed < 0)[0]
